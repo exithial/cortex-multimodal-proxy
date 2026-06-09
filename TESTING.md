@@ -54,7 +54,7 @@ npm run test:coverage
 
 - **Utils**: `hashGenerator`, `error`, `imageProcessor`
 - **Services**: `cacheService`, `anthropicAdapter`
-- **Middleware**: `multimodalDetector`, `multimodalProcessor`, `imageDetector`
+- **Middleware**: `multimodalDetector`, `multimodalProcessor`
 
 ## 🧪 Integration Test Details
 

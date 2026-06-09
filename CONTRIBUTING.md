@@ -25,7 +25,6 @@ To contribute effectively, it is important to understand where each part of the 
 - `src/middleware/`:
   - `multimodalDetector.ts`: The heart of the "Cortex". Decides whether a request goes to DeepSeek or Gemini.
   - `multimodalProcessor.ts`: Manages the transformation of files/URLs into processable content.
-  - `imageDetector.ts`: Specific logic for identifying image formats.
 - `src/services/`:
   - `geminiService.ts`: Integration with the Google API (Perception System).
   - `deepseekService.ts`: Integration with the DeepSeek API (Reasoning System).
