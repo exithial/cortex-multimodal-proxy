@@ -1,44 +1,44 @@
-# Servicios del Sistema
+# System Services
 
-Este directorio contiene la lógica de negocio core del proxy.
+This directory contains the core business logic of the proxy.
 
-## Descripción de Servicios
+## Service Descriptions
 
 ### `geminiService.ts`
 
-**Responsabilidad**: Gestionar la interacción con la API de Google Gemini para visión.
+**Responsibility**: Manage interaction with the Google Gemini API for vision.
 
-- **Funciones Principales**:
-  - `analyzeContent(source, context, type)`: Orquesta el proceso de visión (hash -> cache -> api).
-  - Soporta image, audio, video, PDF y texto.
-  - Generación de prompts adaptativos basados en el contexto del chat del usuario.
-  - Utiliza `GEMINI_API_KEY` para autenticación directa.
-  - Cache SHA-256 contextual (imagen + pregunta) para evitar llamadas repetidas.
+- **Main Functions**:
+  - `analyzeContent(source, context, type)`: Orchestrates the vision process (hash -> cache -> api).
+  - Supports image, audio, video, PDF, and text.
+  - Adaptive prompt generation based on user chat context.
+  - Uses `GEMINI_API_KEY` for direct authentication.
+  - Contextual SHA-256 cache (image + question) to avoid repeated calls.
 
 ### `deepseekService.ts`
 
-**Responsabilidad**: Intermediario con la API de DeepSeek V4.
+**Responsibility**: Intermediary with the DeepSeek V4 API.
 
-- **Manejo de Completions**: Soporta tanto requests normales como streaming (SSE).
-- **Procesamiento unificado**: Recibe mensajes procesados (media -> descripciones de texto).
-- **Mapeo de modelos**: Convierte nombres de proxy a modelos destino (ej: `deepseek-multimodal-flash` -> `deepseek-v4-flash`).
-- **Límites Dinámicos**: Gestiona límites de contexto y salida configurables por entorno.
-- **Razonamiento**: `reasoning_effort: "max"` por defecto en ambos modelos.
-- **Truncado de mensajes**: Recorta mensajes para ajustarse a la ventana de contexto de 872K tokens.
+- **Completion Handling**: Supports both regular requests and streaming (SSE).
+- **Unified processing**: Receives processed messages (media -> text descriptions).
+- **Model mapping**: Converts proxy names to target models (e.g., `deepseek-multimodal-flash` -> `deepseek-v4-flash`).
+- **Dynamic Limits**: Manages configurable context and output limits per environment.
+- **Reasoning**: `reasoning_effort: "max"` by default on both models.
+- **Message Truncation**: Trims messages to fit the 872K token context window.
 
 ### `cacheService.ts`
 
-**Responsabilidad**: Almacenamiento persistente de descripciones de contenido multimodal.
+**Responsibility**: Persistent storage of multimodal content descriptions.
 
-- **Backend**: Sistema de archivos (JSON).
-- **TTL**: Configurable (default 7 días).
-- Evita gastos innecesarios de cuota API reutilizando descripciones para contenido idéntico (basado en hash SHA-256).
+- **Backend**: Filesystem (JSON).
+- **TTL**: Configurable (default 7 days).
+- Avoids unnecessary API quota spending by reusing descriptions for identical content (based on SHA-256 hash).
 
 ### `anthropicAdapter.ts`
 
-**Responsabilidad**: Traducción bidireccional entre formatos Anthropic (Claude Code) y OpenAI (DeepSeek).
+**Responsibility**: Bidirectional translation between Anthropic (Claude Code) and OpenAI (DeepSeek) formats.
 
-- Convierte requests `/v1/messages` (Anthropic) a `/v1/chat/completions` (OpenAI).
-- Convierte respuestas OpenAI a formato Anthropic.
-- Soporta streaming SSE en ambos formatos.
-- Mapea modelos Claude (`haiku`, `sonnet`, `opus`) a modelos del proxy.
+- Converts `/v1/messages` (Anthropic) requests to `/v1/chat/completions` (OpenAI).
+- Converts OpenAI responses to Anthropic format.
+- Supports SSE streaming in both formats.
+- Maps Claude models (`haiku`, `sonnet`, `opus`) to proxy models.

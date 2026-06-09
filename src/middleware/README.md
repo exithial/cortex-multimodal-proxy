@@ -1,45 +1,45 @@
 # Middleware
 
-Componentes de procesamiento intermedio para el pipeline de requests.
+Intermediate processing components for the request pipeline.
 
 ## `multimodalDetector.ts`
 
-**Core del Proxy**: Detecta y clasifica contenido multimodal en los mensajes del request.
+**Proxy Core**: Detects and classifies multimodal content in request messages.
 
-### Funcionalidad
-1. **Detección**: Escanea los mensajes del request (formato OpenAI/Anthropic) buscando:
-   - `image_url` en contenido multipart
-   - Strings Base64 (`data:image/...`) embebidos en contenido texto
-   - URLs de archivos (audio, video, PDF)
-2. **Clasificación**: Categoriza cada contenido en tipos internos: image, audio, video, document, code, text_file, data_file, pdf
-3. **Extracción de Contexto**: Analiza el texto del usuario para enviarlo junto al contenido al servicio de visión
-4. **Enrutamiento**: Decide la estrategia de procesamiento:
-   - `direct`: texto/código -> DeepSeek directo
+### Functionality
+1. **Detection**: Scans request messages (OpenAI/Anthropic format) looking for:
+   - `image_url` in multipart content
+   - Base64 strings (`data:image/...`) embedded in text content
+   - File URLs (audio, video, PDF)
+2. **Classification**: Categorizes each content into internal types: image, audio, video, document, code, text_file, data_file, pdf
+3. **Context Extraction**: Analyzes user text to send it alongside the content to the vision service
+4. **Routing**: Decides the processing strategy:
+   - `direct`: text/code -> DeepSeek direct
    - `vision`: media -> Gemini -> DeepSeek
-   - `vision-direct`: Gemini directo sin DeepSeek
-   - `local`: PDF pequeño procesado localmente
-   - `mixed`: combinación de estrategias
+   - `vision-direct`: Gemini direct without DeepSeek
+   - `local`: small PDF processed locally
+   - `mixed`: combination of strategies
 
-### Flujo de Datos
+### Data Flow
 ```
-Request Original [Texto + Media]
+Original Request [Text + Media]
        |
 [MIDDLEWARE DETECTOR]
-  - Clasificar contenido (image, audio, video, pdf, etc.)
-  - Determinar estrategia de ruteo
-  - Extraer contexto del usuario
+  - Classify content (image, audio, video, pdf, etc.)
+  - Determine routing strategy
+  - Extract user context
        |
 [MIDDLEWARE PROCESSOR]
-  - Procesar media con Gemini (con cache SHA-256)
-  - Reemplazar media por [DESCRIPCIÓN] textual
-  - Ensamblar payload final para DeepSeek
+  - Process media with Gemini (with SHA-256 cache)
+  - Replace media with textual [DESCRIPTION]
+  - Assemble final payload for DeepSeek
        |
-Request Modificado [Texto + Descripciones]
+Modified Request [Text + Descriptions]
        |
 DeepSeek API
 ```
 
 ## `multimodalProcessor.ts`
 
-Orquesta el pipeline completo: detección -> procesamiento con Gemini -> envío a DeepSeek.
-Maneja concurrencia para procesar múltiples archivos en paralelo.
+Orchestrates the full pipeline: detection -> Gemini processing -> DeepSeek submission.
+Handles concurrency to process multiple files in parallel.

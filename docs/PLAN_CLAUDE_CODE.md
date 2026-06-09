@@ -1,44 +1,44 @@
-# Guía Definitiva: Implementación de Claude Code en DeepSeek Multimodal Proxy
+# Definitive Guide: Claude Code Implementation in DeepSeek Multimodal Proxy
 
-Estado: implementado.
+Status: implemented.
 
-> **Documento autocontenido** para implementar soporte completo de Claude Code (Anthropic API) en el proxy actual, manteniendo compatibilidad absoluta con OpenCode (OpenAI API).
+> **Self-contained document** for implementing full Claude Code (Anthropic API) support in the current proxy, maintaining absolute compatibility with OpenCode (OpenAI API).
 
-## 📋 Tabla de Contenidos
+## 📋 Table of Contents
 
-1. [Estado Actual del Proxy](#1-estado-actual-del-proxy)
-2. [Arquitectura Existente](#2-arquitectura-existente)
-3. [Objetivo de la Implementación](#3-objetivo-de-la-implementación)
-4. [Modelo gemini-direct](#4-modelo-gemini-direct)
-5. [Tipos y Estructuras Anthropic](#5-tipos-y-estructuras-anthropic)
-6. [Adaptador de Traducción](#6-adaptador-de-traducción)
-7. [Endpoints y Handlers](#7-endpoints-y-handlers)
-8. [Implementación Paso a Paso](#8-implementación-paso-a-paso)
-9. [Testing y Verificación](#9-testing-y-verificación)
-10. [Ejemplos de Transformación](#10-ejemplos-de-transformación)
+1. [Current Proxy State](#1-current-proxy-state)
+2. [Existing Architecture](#2-existing-architecture)
+3. [Implementation Objective](#3-implementation-objective)
+4. [gemini-direct Model](#4-gemini-direct-model)
+5. [Anthropic Types and Structures](#5-anthropic-types-and-structures)
+6. [Translation Adapter](#6-translation-adapter)
+7. [Endpoints and Handlers](#7-endpoints-and-handlers)
+8. [Step-by-Step Implementation](#8-step-by-step-implementation)
+9. [Testing and Verification](#9-testing-and-verification)
+10. [Transformation Examples](#10-transformation-examples)
 
 ---
 
-## 1. Estado Actual del Proxy
+## 1. Current Proxy State
 
-### 1.1 Visión General
+### 1.1 Overview
 
-El **DeepSeek Multimodal Proxy** es un servidor HTTP que implementa la arquitectura "Córtex Sensorial":
+The **DeepSeek Multimodal Proxy** is an HTTP server implementing the "Sensory Cortex" architecture:
 
-- **DeepSeek** = Cerebro (razonamiento, lógica, código)
-- **Gemini** = Sentidos (percepción multimodal: imágenes, audio, video, PDFs)
-- **Proxy** = Córtex (routing inteligente automático)
+- **DeepSeek** = Brain (reasoning, logic, code)
+- **Gemini** = Senses (multimodal perception: images, audio, video, PDFs)
+- **Proxy** = Cortex (automatic intelligent routing)
 
-### 1.2 Endpoints Actuales (OpenAI-compatible)
+### 1.2 Current Endpoints (OpenAI-compatible)
 
 ```
-GET  /health                    # Estado del servicio
-GET  /v1/models                 # Lista modelos disponibles
-GET  /v1/cache/stats            # Estadísticas de caché
-POST /v1/chat/completions       # Chat multimodal (OpenAI API)
+GET  /health                    # Service status
+GET  /v1/models                 # List available models
+GET  /v1/cache/stats            # Cache statistics
+POST /v1/chat/completions       # Multimodal chat (OpenAI API)
 ```
 
-### 1.3 Modelos Expuestos Actualmente
+### 1.3 Currently Exposed Models
 
 ```json
 [
@@ -55,37 +55,37 @@ POST /v1/chat/completions       # Chat multimodal (OpenAI API)
 ]
 ```
 
-### 1.4 Estructura de Archivos Actual
+### 1.4 Current File Structure
 
 ```
 src/
-├── index.ts                          # Servidor Express + endpoints OpenAI
+├── index.ts                          # Express server + OpenAI endpoints
 ├── types/
-│   └── openai.ts                     # Interfaces OpenAI (ChatMessage, etc.)
+│   └── openai.ts                     # OpenAI interfaces (ChatMessage, etc.)
 ├── middleware/
-│   ├── multimodalProcessor.ts        # Córtex sensorial (routing inteligente)
-│   └── multimodalDetector.ts         # Detector de tipos de contenido
+│   ├── multimodalProcessor.ts        # Sensory cortex (intelligent routing)
+│   └── multimodalDetector.ts         # Content type detector
 ├── services/
-│   ├── deepseekService.ts            # Cliente DeepSeek (cerebro)
-│   ├── geminiService.ts              # Cliente Gemini (sentidos)
-│   └── cacheService.ts               # Sistema de caché SHA-256
+│   ├── deepseekService.ts            # DeepSeek client (brain)
+│   ├── geminiService.ts              # Gemini client (senses)
+│   └── cacheService.ts               # SHA-256 cache system
 └── utils/
-    ├── downloader.ts                 # Descarga y validación de archivos
-    ├── pdfProcessor.ts               # Procesamiento local de PDFs
-    └── hashGenerator.ts              # Hash contextual (contenido + pregunta)
+    ├── downloader.ts                 # File download and validation
+    ├── pdfProcessor.ts               # Local PDF processing
+    └── hashGenerator.ts              # Contextual hash (content + question)
 ```
 
-### 1.5 Configuración Actual (.env)
+### 1.5 Current Configuration (.env)
 
 ```bash
-# Servidor
+# Server
 PORT=7777
 
-# Gemini (Sentidos)
+# Gemini (Senses)
 GEMINI_API_KEY=xxx
 GEMINI_MODEL=gemini-2.5-flash-lite
 
-# DeepSeek (Cerebro)
+# DeepSeek (Brain)
 DEEPSEEK_API_KEY=xxx
 DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
 DEEPSEEK_CONTEXT_WINDOW_CHAT=100000
@@ -93,12 +93,12 @@ DEEPSEEK_MAX_OUTPUT_CHAT=8000
 DEEPSEEK_CONTEXT_WINDOW_REASONER=100000
 DEEPSEEK_MAX_OUTPUT_REASONER=64000
 
-# Caché
+# Cache
 CACHE_ENABLED=true
 CACHE_DIR=./cache
 CACHE_TTL_DAYS=7
 
-# Límites
+# Limits
 MAX_FILE_SIZE_MB=50
 PDF_LOCAL_PROCESSING=true
 PDF_LOCAL_MAX_SIZE_MB=1
@@ -106,32 +106,32 @@ PDF_LOCAL_MAX_SIZE_MB=1
 
 ---
 
-## 2. Arquitectura Existente
+## 2. Existing Architecture
 
-### 2.1 Flujo Actual de Requests (OpenCode → OpenAI API)
+### 2.1 Current Request Flow (OpenCode → OpenAI API)
 
 ```
 OpenCode Client
     ↓ POST /v1/chat/completions (OpenAI format)
 src/index.ts (Express handler)
     ↓ ChatCompletionRequest
-multimodalProcessor.ts (routing inteligente)
-    ├─ Solo texto → DeepSeek directo (passthrough)
-    ├─ Multimedia → downloader.ts → validación
-    │   ├─ Imágenes/Audio/Video → geminiService.ts → descripción
-    │   └─ PDFs pequeños → pdfProcessor.ts → texto
-    │       └─ PDFs grandes → geminiService.ts → descripción
-    ↓ Mensajes enriquecidos con descripciones
+multimodalProcessor.ts (intelligent routing)
+    ├─ Text only → DeepSeek direct (passthrough)
+    ├─ Multimedia → downloader.ts → validation
+    │   ├─ Images/Audio/Video → geminiService.ts → description
+    │   └─ Small PDFs → pdfProcessor.ts → text
+    │       └─ Large PDFs → geminiService.ts → description
+    ↓ Messages enriched with descriptions
 deepseekService.ts
-    ↓ Request a DeepSeek API
+    ↓ Request to DeepSeek API
 deepseekService.ts
     ↓ Response OpenAI format
 OpenCode Client
 ```
 
-### 2.2 Córtex Sensorial - Routing Inteligente
+### 2.2 Sensory Cortex - Intelligent Routing
 
-El archivo `multimodalProcessor.ts` implementa la lógica central:
+The file `multimodalProcessor.ts` implements the core logic:
 
 ```typescript
 export async function processMultimodalContent(
@@ -141,10 +141,10 @@ export async function processMultimodalContent(
   useDeepseekDirectly: boolean;
   strategy: "direct" | "gemini" | "local" | "mixed";
 }> {
-  // 1. Detectar tipos de contenido
+  // 1. Detect content types
   const analysis = await detectMultimodalContent(messages);
 
-  // 2. Si solo texto → DeepSeek directo
+  // 2. If text only → DeepSeek direct
   if (analysis.hasOnlyText) {
     return {
       processedMessages: messages,
@@ -153,7 +153,7 @@ export async function processMultimodalContent(
     };
   }
 
-  // 3. Separar contenido por destino
+  // 3. Separate content by destination
   const geminiContent = await getGeminiRequiredContent(
     analysis.detectedContent,
   );
@@ -161,7 +161,7 @@ export async function processMultimodalContent(
     analysis.detectedContent,
   );
 
-  // 4. Procesar con Gemini y/o localmente
+  // 4. Process with Gemini and/or locally
   const geminiDescriptions = await Promise.all(
     geminiContent.map((content) =>
       geminiService.analyzeContent(content, userContext),
@@ -173,29 +173,29 @@ export async function processMultimodalContent(
       try {
         return await pdfProcessor.analyzePDF(buffer, userContext);
       } catch {
-        // Fallback a Gemini si procesamiento local falla
+        // Fallback to Gemini if local processing fails
         return await geminiService.analyzeContent(content, userContext);
       }
     }),
   );
 
-  // 5. Inyectar descripciones en mensajes
-  // ... (lógica de reemplazo de contenido)
+  // 5. Inject descriptions into messages
+  // ... (content replacement logic)
 
   return { processedMessages, useDeepseekDirectly: false, strategy };
 }
 ```
 
-### 2.3 Sistema de Caché Contextual
+### 2.3 Contextual Cache System
 
 ```typescript
-// Genera hash único: SHA-256(contenido + pregunta del usuario)
+// Generates unique hash: SHA-256(content + user question)
 const cacheKey = generateContextualHash(buffer, userContext);
 const cached = await cacheService.get(cacheKey);
-if (cached) return cached; // Evita llamadas repetidas a Gemini
+if (cached) return cached; // Avoids repeated Gemini calls
 ```
 
-### 2.4 Tipos OpenAI Actuales
+### 2.4 Current OpenAI Types
 
 ```typescript
 // src/types/openai.ts
@@ -234,69 +234,69 @@ export interface ChatCompletionRequest {
 
 ---
 
-## 3. Objetivo de la Implementación
+## 3. Implementation Objective
 
-### 3.1 Meta Principal
+### 3.1 Main Goal
 
-Habilitar que **Claude Code CLI** (que usa Anthropic Messages API) pueda utilizar este proxy como backend, manteniendo **100% de compatibilidad con OpenCode**.
+Enable **Claude Code CLI** (which uses the Anthropic Messages API) to use this proxy as a backend, maintaining **100% compatibility with OpenCode**.
 
-### 3.2 Modelos que Claude Code Esperará
+### 3.2 Models Claude Code Will Expect
 
 ```
-haiku   → gemini-direct (nuevo modelo)
+haiku   → gemini-direct (new model)
 sonnet  → deepseek-multimodal-chat
-opus      → deepseek-multimodal-reasoner
+opus    → deepseek-multimodal-reasoner
 ```
 
-### 3.3 Nuevos Endpoints Requeridos
+### 3.3 New Endpoints Required
 
 ```
-POST /v1/messages                  # Soporte Anthropic Messages API
-GET  /v1/models (Anthropic mode)   # Listar modelos Claude
-POST /                             # Heartbeats de Claude Code CLI
-POST /api/event_logging/batch      # Telemetría de Claude Code CLI (ignorar)
+POST /v1/messages                  # Anthropic Messages API support
+GET  /v1/models (Anthropic mode)   # List Claude models
+POST /                             # Claude Code CLI heartbeats
+POST /api/event_logging/batch      # Claude Code CLI telemetry (ignore)
 ```
 
-### 3.4 Compatibilidad Absoluta
+### 3.4 Absolute Compatibility
 
-- ✅ OpenCode sigue usando `/v1/chat/completions` (OpenAI API)
-- ✅ Claude Code usará `/v1/messages` (Anthropic API)
-- ✅ Ambos comparten el mismo córtex sensorial (Gemini + caché)
-- ✅ Sin variables de entorno para activar/desactivar (siempre disponible)
-- ✅ ANTHROPIC_API_KEY falso (el proxy acepta cualquier valor)
+- ✅ OpenCode keeps using `/v1/chat/completions` (OpenAI API)
+- ✅ Claude Code will use `/v1/messages` (Anthropic API)
+- ✅ Both share the same sensory cortex (Gemini + cache)
+- ✅ No environment variables to enable/disable (always available)
+- ✅ Fake ANTHROPIC_API_KEY (the proxy accepts any value)
 
 ---
 
-## 4. Modelo gemini-direct
+## 4. gemini-direct Model
 
-### 4.1 ¿Qué es gemini-direct?
+### 4.1 What is gemini-direct?
 
-Un **nuevo modelo virtual** que bypasea DeepSeek completamente y usa **solo Gemini** para generar respuestas.
+A **new virtual model** that completely bypasses DeepSeek and uses **only Gemini** to generate responses.
 
-### 4.2 ¿Por qué es necesario?
+### 4.2 Why is it necessary?
 
-- Haiku es el modelo "rápido y económico" de Anthropic
-- Mapearlo a `deepseek-chat` añadiría latencia innecesaria
-- Usar Gemini directo es más rápido y económico para ese perfil
+- Haiku is Anthropic's "fast and cheap" model
+- Mapping it to `deepseek-chat` would add unnecessary latency
+- Using Gemini direct is faster and cheaper for that profile
 
-### 4.3 Configuración
+### 4.3 Configuration
 
 ```bash
-# .env (sin cambios)
-GEMINI_MODEL=gemini-2.5-flash-lite  # Será el modelo usado por gemini-direct
+# .env (unchanged)
+GEMINI_MODEL=gemini-2.5-flash-lite  # Will be the model used by gemini-direct
 ```
 
-### 4.4 Routing de gemini-direct
+### 4.4 gemini-direct Routing
 
 ```typescript
-// Modificación en multimodalProcessor.ts
+// Modification in multimodalProcessor.ts
 export async function processMultimodalContent(
   messages: ChatMessage[],
-  modelName: string // NUEVO PARÁMETRO
+  modelName: string // NEW PARAMETER
 ): Promise<...> {
-  // Si el modelo es gemini-direct, solo usar Gemini para responder
+  // If model is gemini-direct, only use Gemini to respond
   if (modelName === "gemini-direct") {
-    // Procesar TODO con Gemini (no enviar a DeepSeek)
+    // Process EVERYTHING with Gemini (don't send to DeepSeek)
     const geminiResponse = await geminiService.generateDirectResponse(messages);
     return {
       processedMessages: [{ role: "assistant", content: geminiResponse }],
@@ -305,25 +305,25 @@ export async function processMultimodalContent(
     };
   }
 
-  // Resto de lógica existente...
+  // Rest of existing logic...
 }
 ```
 
-### 4.5 Nueva Función en geminiService.ts
+### 4.5 New Function in geminiService.ts
 
 ```typescript
 // src/services/geminiService.ts
 class GeminiService {
-  // ... métodos existentes ...
+  // ... existing methods ...
 
   /**
-   * Genera respuesta directa con Gemini (sin DeepSeek)
-   * Usado para el modelo gemini-direct (Claude Haiku)
+   * Generates direct response with Gemini (without DeepSeek)
+   * Used for the gemini-direct model (Claude Haiku)
    */
   async generateDirectResponse(messages: ChatMessage[]): Promise<string> {
     this.ensureClient();
 
-    // Convertir mensajes OpenAI a formato Gemini
+    // Convert OpenAI messages to Gemini format
     const geminiMessages = messages.map((msg) => ({
       role: msg.role === "assistant" ? "model" : "user",
       parts: [
@@ -337,7 +337,7 @@ class GeminiService {
     }));
 
     const model = this.client!.getGenerativeModel({
-      model: this.modelName, // usa GEMINI_MODEL del .env
+      model: this.modelName, // uses GEMINI_MODEL from .env
     });
 
     try {
@@ -350,26 +350,26 @@ class GeminiService {
 
       return result.response.text();
     } catch (error: any) {
-      logger.error("Error en generación directa Gemini:", error);
+      logger.error("Error in Gemini direct generation:", error);
       throw new Error(`Gemini error: ${error.message}`);
     }
   }
 }
 ```
 
-### 4.6 Exposición en /v1/models
+### 4.6 Exposition in /v1/models
 
 ```typescript
-// src/index.ts - Agregar a la lista de modelos
+// src/index.ts - Add to model list
 app.get("/v1/models", (req, res) => {
   res.json({
     object: "list",
     data: [
-      // Modelos existentes...
+      // Existing models...
       { id: "deepseek-multimodal-chat", ... },
       { id: "deepseek-multimodal-reasoner", ... },
 
-      // NUEVO MODELO
+      // NEW MODEL
       {
         id: "gemini-direct",
         object: "model",
@@ -386,13 +386,13 @@ app.get("/v1/models", (req, res) => {
 
 ---
 
-## 5. Tipos y Estructuras Anthropic
+## 5. Anthropic Types and Structures
 
-### 5.1 Crear src/types/anthropic.ts
+### 5.1 Create src/types/anthropic.ts
 
 ```typescript
 /**
- * Tipos para Anthropic Messages API
+ * Types for Anthropic Messages API
  * Ref: https://docs.anthropic.com/en/api/messages
  */
 
@@ -431,7 +431,7 @@ export interface AnthropicContentBlock {
   content?: string | AnthropicContentBlock[];
   is_error?: boolean;
 
-  // Thinking block (para DeepSeek Reasoner)
+  // Thinking block (for DeepSeek Reasoner)
   thinking?: string;
 }
 
@@ -444,7 +444,7 @@ export interface AnthropicRequest {
   };
   stop_sequences?: string[];
   stream?: boolean;
-  system?: string; // System prompt FUERA del array de mensajes
+  system?: string; // System prompt OUTSIDE the messages array
   temperature?: number;
   top_p?: number;
   top_k?: number;
@@ -466,7 +466,7 @@ export interface AnthropicTool {
   };
 }
 
-// Eventos de Streaming
+// Streaming Events
 export interface AnthropicStreamEvent {
   type:
     | "message_start"
@@ -509,9 +509,9 @@ export interface AnthropicError {
 
 ---
 
-## 6. Adaptador de Traducción
+## 6. Translation Adapter
 
-### 6.1 Crear src/services/anthropicAdapter.ts
+### 6.1 Create src/services/anthropicAdapter.ts
 
 ```typescript
 import type {
@@ -531,12 +531,12 @@ import type {
 import { logger } from "../utils/logger";
 
 /**
- * Adaptador para traducir entre Anthropic API y OpenAI API
- * Permite que Claude Code use el proxy sin cambios en el córtex sensorial
+ * Adapter to translate between Anthropic API and OpenAI API
+ * Allows Claude Code to use the proxy without changes to the sensory cortex
  */
 class AnthropicAdapter {
   /**
-   * Mapea modelos Claude a modelos internos del proxy
+   * Maps Claude models to proxy internal models
    */
   mapClaudeModelToInternal(claudeModel: string): string {
     const mapping: Record<string, string> = {
@@ -548,28 +548,28 @@ class AnthropicAdapter {
     const mapped = mapping[claudeModel];
     if (!mapped) {
       logger.warn(
-        `Modelo Claude desconocido: ${claudeModel}, usando deepseek-multimodal-chat`,
+        `Unknown Claude model: ${claudeModel}, using deepseek-multimodal-chat`,
       );
       return "deepseek-multimodal-chat";
     }
 
-    logger.info(`Mapeo: ${claudeModel} → ${mapped}`);
+    logger.info(`Mapping: ${claudeModel} → ${mapped}`);
     return mapped;
   }
 
   /**
-   * Traduce request de Anthropic a formato OpenAI interno
+   * Translates Anthropic request to internal OpenAI format
    */
   anthropicToInternal(request: AnthropicRequest): ChatCompletionRequest {
-    logger.info("🔄 Traduciendo request Anthropic → OpenAI");
+    logger.info("🔄 Translating Anthropic → OpenAI request");
 
-    // Mapear modelo
+    // Map model
     const internalModel = this.mapClaudeModelToInternal(request.model);
 
-    // Convertir mensajes
+    // Convert messages
     const messages: ChatMessage[] = [];
 
-    // System prompt: En Anthropic es un campo separado, en OpenAI es un mensaje
+    // System prompt: In Anthropic it's a separate field, in OpenAI it's a message
     if (request.system) {
       messages.push({
         role: "system",
@@ -577,14 +577,14 @@ class AnthropicAdapter {
       });
     }
 
-    // Convertir cada mensaje de Anthropic
+    // Convert each Anthropic message
     for (const anthropicMsg of request.messages) {
       const openaiMsg: ChatMessage = {
         role: anthropicMsg.role,
         content: this.convertAnthropicContent(anthropicMsg.content),
       };
 
-      // Manejar tool_use y tool_result
+      // Handle tool_use and tool_result
       if (Array.isArray(anthropicMsg.content)) {
         const toolUses = anthropicMsg.content.filter(
           (block) => block.type === "tool_use",
@@ -604,7 +604,7 @@ class AnthropicAdapter {
           (block) => block.type === "tool_result",
         );
         if (toolResults.length > 0) {
-          // Tool results en Anthropic se convierten a mensajes role="tool" en OpenAI
+          // Tool results in Anthropic become role="tool" messages in OpenAI
           for (const toolResult of toolResults) {
             messages.push({
               role: "tool",
@@ -615,14 +615,14 @@ class AnthropicAdapter {
               tool_call_id: toolResult.tool_use_id!,
             });
           }
-          continue; // No agregar el mensaje original, ya procesamos los tool results
+          continue; // Don't add the original message, we've processed tool results
         }
       }
 
       messages.push(openaiMsg);
     }
 
-    // Convertir tools si existen
+    // Convert tools if they exist
     let tools: any[] | undefined = undefined;
     if (request.tools) {
       tools = request.tools.map(this.anthropicToolToOpenAI);
@@ -639,12 +639,12 @@ class AnthropicAdapter {
       tools,
     };
 
-    logger.debug(`Mensajes traducidos: ${messages.length} mensaje(s)`);
+    logger.debug(`Translated messages: ${messages.length} message(s)`);
     return openaiRequest;
   }
 
   /**
-   * Convierte content de Anthropic a formato OpenAI
+   * Converts Anthropic content to OpenAI format
    */
   private convertAnthropicContent(
     content: string | AnthropicContentBlock[],
@@ -653,7 +653,7 @@ class AnthropicAdapter {
       return content;
     }
 
-    // Convertir array de content blocks
+    // Convert content block array
     const openaiContent: MessageContent[] = [];
 
     for (const block of content) {
@@ -663,7 +663,7 @@ class AnthropicAdapter {
           text: block.text!,
         });
       } else if (block.type === "image") {
-        // Anthropic usa source.type="base64" o "url"
+        // Anthropic uses source.type="base64" or "url"
         if (block.source) {
           if (block.source.type === "base64") {
             openaiContent.push({
@@ -682,10 +682,10 @@ class AnthropicAdapter {
           }
         }
       }
-      // tool_use y tool_result se manejan en el nivel superior
+      // tool_use and tool_result are handled at the top level
     }
 
-    // Si solo hay un bloque de texto, devolver string plano
+    // If there's only one text block, return plain string
     if (openaiContent.length === 1 && openaiContent[0].type === "text") {
       return openaiContent[0].text!;
     }
@@ -694,7 +694,7 @@ class AnthropicAdapter {
   }
 
   /**
-   * Convierte tool de Anthropic a formato OpenAI
+   * Converts Anthropic tool to OpenAI format
    */
   private anthropicToolToOpenAI(tool: AnthropicTool): any {
     return {
@@ -708,22 +708,22 @@ class AnthropicAdapter {
   }
 
   /**
-   * Limpia JSON Schema para Anthropic (pueden rechazar ciertos campos)
-   * Basado en la lección del plugin opencode-antigravity-auth
+   * Cleans JSON Schema for Anthropic (they may reject certain fields)
+   * Based on lesson from opencode-antigravity-auth plugin
    */
   private cleanJSONSchemaForAnthropic(schema: any): any {
     if (!schema || typeof schema !== "object") return schema;
 
     const cleaned = { ...schema };
 
-    // Eliminar campos que Anthropic puede rechazar
+    // Remove fields that Anthropic may reject
     delete cleaned.$schema;
     delete cleaned.$defs;
     delete cleaned.additionalProperties;
     delete cleaned.$ref;
     delete cleaned.const;
 
-    // Recursivamente limpiar properties
+    // Recursively clean properties
     if (cleaned.properties) {
       for (const key in cleaned.properties) {
         cleaned.properties[key] = this.cleanJSONSchemaForAnthropic(
@@ -736,21 +736,21 @@ class AnthropicAdapter {
   }
 
   /**
-   * Traduce respuesta de DeepSeek/Gemini a formato Anthropic
+   * Translates DeepSeek/Gemini response to Anthropic format
    */
   internalToAnthropic(
     openaiResponse: ChatCompletionResponse,
     originalModel: string,
   ): AnthropicMessage {
-    logger.info("🔄 Traduciendo response OpenAI → Anthropic");
+    logger.info("🔄 Translating OpenAI → Anthropic response");
 
     const choice = openaiResponse.choices[0];
     const message = choice.message;
 
-    // Convertir contenido
+    // Convert content
     const content: AnthropicContentBlock[] = [];
 
-    // Texto principal
+    // Main text
     if (message.content) {
       content.push({
         type: "text",
@@ -770,7 +770,7 @@ class AnthropicAdapter {
       }
     }
 
-    // Mapear finish_reason
+    // Map finish_reason
     let stopReason: AnthropicMessage["stop_reason"] = "end_turn";
     if (choice.finish_reason === "length") stopReason = "max_tokens";
     else if (choice.finish_reason === "tool_calls") stopReason = "tool_use";
@@ -793,21 +793,21 @@ class AnthropicAdapter {
   }
 
   /**
-   * Genera stream de eventos Anthropic a partir de chunks OpenAI
+   * Generates Anthropic event stream from OpenAI chunks
    */
   async *createAnthropicStream(
     openaiChunks: AsyncGenerator<string>,
     originalModel: string,
     requestId: string,
   ): AsyncGenerator<string> {
-    logger.info("🔄 Creando stream Anthropic desde chunks OpenAI");
+    logger.info("🔄 Creating Anthropic stream from OpenAI chunks");
 
     let firstChunk = true;
     let totalContent = "";
 
     try {
       for await (const chunk of openaiChunks) {
-        // Parsear chunk OpenAI (formato: "data: {...}\n\n")
+        // Parse OpenAI chunk (format: "data: {...}\n\n")
         if (chunk.startsWith("data: [DONE]")) {
           break;
         }
@@ -825,7 +825,7 @@ class AnthropicAdapter {
         const delta = parsed.choices[0]?.delta;
         if (!delta) continue;
 
-        // Primer chunk: message_start
+        // First chunk: message_start
         if (firstChunk) {
           const messageStart: AnthropicStreamEvent = {
             type: "message_start",
@@ -849,7 +849,7 @@ class AnthropicAdapter {
           firstChunk = false;
         }
 
-        // Contenido incremental
+        // Incremental content
         if (delta.content) {
           totalContent += delta.content;
 
@@ -881,7 +881,7 @@ class AnthropicAdapter {
           const messageDelta: AnthropicStreamEvent = {
             type: "message_delta",
             delta: {},
-            usage: { output_tokens: Math.ceil(totalContent.length / 4) }, // Estimación
+            usage: { output_tokens: Math.ceil(totalContent.length / 4) }, // Estimate
           };
           yield `event: message_delta\ndata: ${JSON.stringify(messageDelta)}\n\n`;
         }
@@ -893,7 +893,7 @@ class AnthropicAdapter {
       };
       yield `event: message_stop\ndata: ${JSON.stringify(messageStop)}\n\n`;
     } catch (error: any) {
-      logger.error("Error en stream Anthropic:", error);
+      logger.error("Error in Anthropic stream:", error);
       const errorEvent: AnthropicStreamEvent = {
         type: "error",
       };
@@ -902,7 +902,7 @@ class AnthropicAdapter {
   }
 
   /**
-   * Mapea reasoning_content de DeepSeek a thinking blocks de Anthropic
+   * Maps DeepSeek reasoning_content to Anthropic thinking blocks
    */
   mapReasoningToThinking(reasoningContent: string): AnthropicContentBlock {
     return {
@@ -917,12 +917,12 @@ export const anthropicAdapter = new AnthropicAdapter();
 
 ---
 
-## 7. Endpoints y Handlers
+## 7. Endpoints and Handlers
 
-### 7.1 Modificar src/index.ts - Agregar Endpoints Anthropic
+### 7.1 Modify src/index.ts - Add Anthropic Endpoints
 
 ```typescript
-// ... imports existentes ...
+// ... existing imports ...
 import { anthropicAdapter } from "./services/anthropicAdapter";
 import type {
   AnthropicRequest,
@@ -931,22 +931,22 @@ import type {
 } from "./types/anthropic";
 import { randomUUID } from "crypto";
 
-// ... endpoints existentes (/health, /v1/cache/stats) ...
+// ... existing endpoints (/health, /v1/cache/stats) ...
 
 // ========================================
-// ENDPOINTS ANTHROPIC (Claude Code)
+// ANTHROPIC ENDPOINTS (Claude Code)
 // ========================================
 
 /**
- * GET /v1/models (con detección de cliente)
- * Detecta si es Claude Code (header anthropic-version) o OpenCode
+ * GET /v1/models (with client detection)
+ * Detects if it's Claude Code (anthropic-version header) or OpenCode
  */
 app.get("/v1/models", (req: Request, res: Response) => {
   const isAnthropicClient = req.headers["anthropic-version"] !== undefined;
 
   if (isAnthropicClient) {
-    // Respuesta para Claude Code
-    logger.info("GET /v1/models (cliente: Claude Code)");
+    // Response for Claude Code
+    logger.info("GET /v1/models (client: Claude Code)");
     res.json({
       object: "list",
       data: [
@@ -971,8 +971,8 @@ app.get("/v1/models", (req: Request, res: Response) => {
       ],
     });
   } else {
-    // Respuesta para OpenCode (existente)
-    logger.info("GET /v1/models (cliente: OpenCode)");
+    // Response for OpenCode (existing)
+    logger.info("GET /v1/models (client: OpenCode)");
     res.json({
       object: "list",
       data: [
@@ -1010,7 +1010,7 @@ app.get("/v1/models", (req: Request, res: Response) => {
 
 /**
  * POST /v1/messages - Anthropic Messages API
- * Endpoint principal para Claude Code
+ * Main endpoint for Claude Code
  */
 app.post("/v1/messages", async (req: Request, res: Response) => {
   const startTime = Date.now();
@@ -1023,11 +1023,11 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
       `POST /v1/messages | model: ${originalModel} | stream: ${anthropicRequest.stream || false}`,
     );
 
-    // 1. Traducir Anthropic → OpenAI
+    // 1. Translate Anthropic → OpenAI
     const openaiRequest =
       anthropicAdapter.anthropicToInternal(anthropicRequest);
 
-    // 2. Procesar contenido multimodal (córtex sensorial)
+    // 2. Process multimodal content (sensory cortex)
     const { processedMessages, useDeepseekDirectly, strategy } =
       await processMultimodalContent(
         openaiRequest.messages,
@@ -1038,21 +1038,21 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
 
     if (useDeepseekDirectly) {
       logger.info(
-        "✓ Contenido soportado por modelo interno - Passthrough directo",
+        "✓ Content supported by internal model - Direct passthrough",
       );
     } else {
       logger.info(
-        `✓ Contenido procesado (${strategy}) - Enrutando a modelo interno`,
+        `✓ Processed content (${strategy}) - Routing to internal model`,
       );
     }
 
-    // 3. Crear request procesado
+    // 3. Create processed request
     const processedRequest: ChatCompletionRequest = {
       ...openaiRequest,
       messages: processedMessages,
     };
 
-    // 4. Ejecutar request (streaming o no)
+    // 4. Execute request (streaming or not)
     if (anthropicRequest.stream) {
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
@@ -1064,7 +1064,7 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
 
       const requestId = randomUUID();
 
-      // Generador de chunks OpenAI
+      // OpenAI chunks generator
       async function* openaiChunksGenerator() {
         let buffer = "";
         await deepseekService.chatCompletionStream(
@@ -1076,17 +1076,17 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
             throw error;
           },
           () => {
-            // Stream terminado
+            // Stream completed
           },
         );
-        // Parsear buffer en chunks
+        // Parse buffer into chunks
         const lines = buffer.split("\n");
         for (const line of lines) {
           if (line.trim()) yield line;
         }
       }
 
-      // Convertir a stream Anthropic
+      // Convert to Anthropic stream
       const anthropicStream = anthropicAdapter.createAnthropicStream(
         openaiChunksGenerator(),
         originalModel,
@@ -1099,7 +1099,7 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
 
       res.end();
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      logger.info(`✓ Request stream Anthropic completado (${elapsed}s total)`);
+      logger.info(`✓ Anthropic stream request completed (${elapsed}s total)`);
     } else {
       // Non-streaming
       const openaiResponse = await deepseekService.createChatCompletion(
@@ -1119,16 +1119,16 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
       res.json(anthropicResponse);
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      logger.info(`✓ Request Anthropic completado (${elapsed}s total)`);
+      logger.info(`✓ Anthropic request completed (${elapsed}s total)`);
     }
   } catch (error: unknown) {
-    logger.error("Error procesando request Anthropic:", error);
+    logger.error("Error processing Anthropic request:", error);
 
     const errorResponse: AnthropicError = {
       type: "error",
       error: {
         type: "api_error",
-        message: getErrorMessage(error) || "Error interno del proxy",
+        message: getErrorMessage(error) || "Internal proxy error",
       },
     };
 
@@ -1142,42 +1142,42 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
 });
 
 /**
- * POST / - Heartbeats de Claude Code CLI
- * Claude Code envía heartbeats periódicos, responder OK silenciosamente
+ * POST / - Claude Code CLI heartbeats
+ * Claude Code sends periodic heartbeats, respond OK silently
  */
 app.post("/", (req: Request, res: Response) => {
   res.status(200).json({ ok: true });
 });
 
 /**
- * POST /api/event_logging/batch - Telemetría de Claude Code CLI
- * Ignorar y responder OK
+ * POST /api/event_logging/batch - Claude Code CLI telemetry
+ * Ignore and respond OK
  */
 app.post("/api/event_logging/batch", (req: Request, res: Response) => {
   res.status(200).json({ ok: true });
 });
 
-// ... endpoint /v1/chat/completions existente ...
-// ... resto del código existente ...
+// ... existing /v1/chat/completions endpoint ...
+// ... rest of existing code ...
 ```
 
-### 7.2 Modificar processMultimodalContent para Soportar gemini-direct
+### 7.2 Modify processMultimodalContent to Support gemini-direct
 
 ```typescript
 // src/middleware/multimodalProcessor.ts
 
 export async function processMultimodalContent(
   messages: ChatMessage[],
-  modelName?: string, // NUEVO PARÁMETRO OPCIONAL
+  modelName?: string, // NEW OPTIONAL PARAMETER
 ): Promise<{
   processedMessages: ChatMessage[];
   useDeepseekDirectly: boolean;
   strategy: "direct" | "gemini" | "local" | "mixed" | "gemini-direct";
 }> {
-  // Caso especial: gemini-direct bypasea DeepSeek
+  // Special case: gemini-direct bypasses DeepSeek
   if (modelName === "gemini-direct") {
     logger.info(
-      "🔮 Modelo gemini-direct detectado - Usando Gemini para respuesta completa",
+      "🔮 gemini-direct model detected - Using Gemini for full response",
     );
 
     const geminiResponse = await geminiService.generateDirectResponse(messages);
@@ -1194,46 +1194,46 @@ export async function processMultimodalContent(
     };
   }
 
-  // Resto de la lógica existente...
+  // Rest of existing logic...
   const analysis = await detectMultimodalContent(messages);
-  // ... (sin cambios)
+  // ... (unchanged)
 }
 ```
 
 ---
 
-## 8. Implementación Paso a Paso
+## 8. Step-by-Step Implementation
 
-### Fase 1: Tipos y Modelo gemini-direct
+### Phase 1: Types and gemini-direct Model
 
-**Archivos a crear:**
+**Files to create:**
 
-- `src/types/anthropic.ts` (tipos Anthropic)
+- `src/types/anthropic.ts` (Anthropic types)
 
-**Archivos a modificar:**
+**Files to modify:**
 
-- `src/services/geminiService.ts` (agregar `generateDirectResponse()`)
-- `src/index.ts` (agregar "gemini-direct" a `/v1/models` para OpenCode)
-- `src/middleware/multimodalProcessor.ts` (agregar parámetro `model`, lógica gemini-direct)
+- `src/services/geminiService.ts` (add `generateDirectResponse()`)
+- `src/index.ts` (add "gemini-direct" to `/v1/models` for OpenCode)
+- `src/middleware/multimodalProcessor.ts` (add `model` parameter, gemini-direct logic)
 
-**Pasos:**
+**Steps:**
 
-1. Copiar el contenido de la sección 5.1 a `src/types/anthropic.ts`
-2. Agregar función `generateDirectResponse()` a `geminiService.ts` (sección 4.5)
-3. Modificar signature de `processMultimodalContent()` para aceptar `modelName?: string`
-4. Agregar lógica de gemini-direct al inicio de `processMultimodalContent()` (sección 7.2)
-5. Agregar modelo "gemini-direct" al endpoint `/v1/models` existente (sección 4.6)
+1. Copy the content of section 5.1 to `src/types/anthropic.ts`
+2. Add `generateDirectResponse()` function to `geminiService.ts` (section 4.5)
+3. Modify signature of `processMultimodalContent()` to accept `modelName?: string`
+4. Add gemini-direct logic at the beginning of `processMultimodalContent()` (section 7.2)
+5. Add "gemini-direct" model to the existing `/v1/models` endpoint (section 4.6)
 
-**Verificación Fase 1:**
+**Phase 1 Verification:**
 
 ```bash
-# Compilar
+# Compile
 npm run build
 
-# Probar con OpenCode que el modelo aparece
+# Test with OpenCode that the model appears
 curl http://localhost:7777/v1/models | jq '.data[] | select(.id=="gemini-direct")'
 
-# Debería retornar:
+# Should return:
 # {
 #   "id": "gemini-direct",
 #   "object": "model",
@@ -1245,37 +1245,37 @@ curl http://localhost:7777/v1/models | jq '.data[] | select(.id=="gemini-direct"
 
 ---
 
-### Fase 2: Adaptador de Traducción
+### Phase 2: Translation Adapter
 
-**Archivos a crear:**
+**Files to create:**
 
 - `src/services/anthropicAdapter.ts`
 
-**Pasos:**
+**Steps:**
 
-1. Copiar todo el contenido de la sección 6.1 a `src/services/anthropicAdapter.ts`
-2. Asegurar que todos los imports estén correctos
-3. Compilar y verificar que no hay errores TypeScript
+1. Copy all content from section 6.1 to `src/services/anthropicAdapter.ts`
+2. Ensure all imports are correct
+3. Compile and verify no TypeScript errors
 
-**Verificación Fase 2:**
+**Phase 2 Verification:**
 
 ```bash
 npm run build
-# No debe haber errores de compilación
+# There should be no compilation errors
 ```
 
 ---
 
-### Fase 3: Endpoints Anthropic
+### Phase 3: Anthropic Endpoints
 
-**Archivos a modificar:**
+**Files to modify:**
 
-- `src/index.ts` (agregar endpoints `/v1/messages`, `/`, `/api/event_logging/batch`)
-- `src/index.ts` (modificar `/v1/models` para detectar cliente)
+- `src/index.ts` (add endpoints `/v1/messages`, `/`, `/api/event_logging/batch`)
+- `src/index.ts` (modify `/v1/models` for client detection)
 
-**Pasos:**
+**Steps:**
 
-1. Agregar imports de Anthropic al inicio de `src/index.ts`:
+1. Add Anthropic imports at the beginning of `src/index.ts`:
 
    ```typescript
    import { anthropicAdapter } from "./services/anthropicAdapter";
@@ -1287,41 +1287,41 @@ npm run build
    import { randomUUID } from "crypto";
    ```
 
-2. Modificar endpoint `/v1/models` para detectar cliente (sección 7.1)
+2. Modify `/v1/models` endpoint for client detection (section 7.1)
 
-3. Agregar endpoint `POST /v1/messages` (sección 7.1)
+3. Add `POST /v1/messages` endpoint (section 7.1)
 
-4. Agregar endpoints silenciosos (sección 7.1):
+4. Add silent endpoints (section 7.1):
    - `POST /`
    - `POST /api/event_logging/batch`
 
-**Verificación Fase 3:**
+**Phase 3 Verification:**
 
 ```bash
 npm run build
 ./scripts/manage.sh restart
 
-# Probar detección de cliente en /v1/models
+# Test client detection in /v1/models
 curl -H "anthropic-version: 2023-06-01" http://localhost:7777/v1/models | jq '.data[].id'
-# Debería retornar: haiku, sonnet, opus
+# Should return: haiku, sonnet, opus
 
 curl http://localhost:7777/v1/models | jq '.data[].id'
-# Debería retornar: deepseek-multimodal-chat, deepseek-multimodal-reasoner, gemini-direct
+# Should return: deepseek-multimodal-chat, deepseek-multimodal-reasoner, gemini-direct
 ```
 
 ---
 
-### Fase 4: Testing Manual con Claude Code
+### Phase 4: Manual Testing with Claude Code
 
-**Configuración:**
+**Configuration:**
 
 ```bash
 export ANTHROPIC_BASE_URL="http://localhost:7777"
-export ANTHROPIC_API_KEY="test"  # Cualquier valor, el proxy lo acepta
+export ANTHROPIC_API_KEY="test"  # Any value, the proxy accepts it
 claude --version
 ```
 
-Config opcional en `.claude/settings.json`:
+Optional config in `.claude/settings.json`:
 
 ```json
 {
@@ -1340,42 +1340,42 @@ Config opcional en `.claude/settings.json`:
 }
 ```
 
-**Pruebas:**
+**Tests:**
 
-1. **Prueba 1: Haiku (gemini-direct) - Solo texto**
+1. **Test 1: Haiku (gemini-direct) - Text only**
 
    ```bash
-   echo "Explica qué es un proxy HTTP en 2 líneas" | claude --model haiku
+   echo "Explain what an HTTP proxy is in 2 lines" | claude --model haiku
    ```
 
-   - **Esperado**: Respuesta generada por Gemini directo
-   - **Log esperado**: `🔮 Modelo gemini-direct detectado`
+   - **Expected**: Response generated by Gemini direct
+   - **Expected log**: `🔮 gemini-direct model detected`
 
-2. **Prueba 2: Sonnet (deepseek-chat) - Con imagen**
+2. **Test 2: Sonnet (deepseek-chat) - With image**
 
    ```bash
-   # Preparar imagen de prueba
-   echo "Describe esta imagen" > prompt.txt
+   # Prepare test image
+   echo "Describe this image" > prompt.txt
    claude --model sonnet --image test.jpg < prompt.txt
    ```
 
-   - **Esperado**: Imagen procesada por Gemini → descripción → DeepSeek
-   - **Log esperado**: `📊 Contenido detectado: 1 elemento(s)`, `🔍 Procesando image 1/1 con Gemini...`
+   - **Expected**: Image processed by Gemini → description → DeepSeek
+   - **Expected log**: `📊 Content detected: 1 item(s)`, `🔍 Processing image 1/1 with Gemini...`
 
-3. **Prueba 3: Opus (deepseek-reasoner) - Razonamiento**
+3. **Test 3: Opus (deepseek-reasoner) - Reasoning**
    ```bash
-   echo "Resuelve: Si tengo 3 manzanas y compro el doble de las que tengo, ¿cuántas tengo?" | \
+   echo "Solve: If I have 3 apples and buy double what I have, how many do I have?" | \
      claude --model opus
    ```
 
-   - **Esperado**: Respuesta con razonamiento de DeepSeek Reasoner
-   - **Log esperado**: Modelo mapeado a `deepseek-multimodal-reasoner`
+   - **Expected**: Response with reasoning from DeepSeek Reasoner
+   - **Expected log**: Model mapped to `deepseek-multimodal-reasoner`
 
 ---
 
-### Fase 5: Testing Automatizado
+### Phase 5: Automated Testing
 
-**Crear test/test-claude-code.js:**
+**Create test/test-claude-code.js:**
 
 ```javascript
 import axios from "axios";
@@ -1392,7 +1392,7 @@ async function testAnthropicModels() {
   });
 
   const models = res.data.data.map((m) => m.id);
-  console.log("  Modelos:", models);
+  console.log("  Models:", models);
 
   const expected = [
     "haiku",
@@ -1406,14 +1406,14 @@ async function testAnthropicModels() {
 }
 
 async function testHaikuTextOnly() {
-  console.log("\n🧪 Test 2: Haiku (gemini-direct) - Solo texto");
+  console.log("\n🧪 Test 2: Haiku (gemini-direct) - Text only");
 
   const res = await axios.post(
     `${BASE_URL}/v1/messages`,
     {
       model: "haiku",
       max_tokens: 100,
-      messages: [{ role: "user", content: "Di 'hola mundo' y nada más" }],
+      messages: [{ role: "user", content: "Say 'hello world' and nothing else" }],
     },
     {
       headers: {
@@ -1435,9 +1435,9 @@ async function testHaikuTextOnly() {
 }
 
 async function testSonnetWithImage() {
-  console.log("\n🧪 Test 3: Sonnet (deepseek-chat) - Con imagen");
+  console.log("\n🧪 Test 3: Sonnet (deepseek-chat) - With image");
 
-  // Generar imagen de prueba (1x1 pixel rojo)
+  // Generate test image (1x1 red pixel)
   const redPixel = Buffer.from([
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
     0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
@@ -1468,7 +1468,7 @@ async function testSonnetWithImage() {
             },
             {
               type: "text",
-              text: "¿Qué ves en esta imagen?",
+              text: "What do you see in this image?",
             },
           ],
         },
@@ -1493,7 +1493,7 @@ async function testSonnetWithImage() {
 }
 
 async function runTests() {
-  console.log("🚀 Iniciando tests de Claude Code\n");
+  console.log("🚀 Starting Claude Code tests\n");
 
   const results = await Promise.all([
     testAnthropicModels(),
@@ -1502,7 +1502,7 @@ async function runTests() {
   ]);
 
   const passed = results.filter(Boolean).length;
-  console.log(`\n📊 Resultados: ${passed}/${results.length} tests pasados`);
+  console.log(`\n📊 Results: ${passed}/${results.length} tests passed`);
 
   process.exit(passed === results.length ? 0 : 1);
 }
@@ -1510,7 +1510,7 @@ async function runTests() {
 runTests();
 ```
 
-**Ejecutar:**
+**Run:**
 
 ```bash
 node test/test-claude-code.js
@@ -1518,89 +1518,89 @@ node test/test-claude-code.js
 
 ---
 
-## 9. Testing y Verificación
+## 9. Testing and Verification
 
-### 9.1 Checklist de Verificación
+### 9.1 Verification Checklist
 
-- [ ] **Compilación**: `npm run build` sin errores
-- [ ] **Modelos OpenCode**: `curl http://localhost:7777/v1/models` devuelve 3 modelos (deepseek-multimodal-chat, deepseek-multimodal-reasoner, gemini-direct)
-- [ ] **Modelos Claude Code**: `curl -H "anthropic-version: 2023-06-01" http://localhost:7777/v1/models` devuelve 3 modelos Claude
-- [ ] **gemini-direct funciona**: Request a gemini-direct genera respuesta sin llamar a DeepSeek
-- [ ] **Haiku mapea a gemini-direct**: Claude Code con Haiku usa estrategia "gemini-direct"
-- [ ] **Sonnet mapea a deepseek-chat**: Claude Code con Sonnet procesa multimedia correctamente
-- [ ] **Opus mapea a reasoner**: Claude Code con Opus usa deepseek-multimodal-reasoner
-- [ ] **Streaming funciona**: Claude Code con `--stream` recibe eventos Anthropic correctos
-- [ ] **Heartbeats respondidos**: `POST /` retorna 200 OK
-- [ ] **Telemetría ignorada**: `POST /api/event_logging/batch` retorna 200 OK
-- [ ] **OpenCode sigue funcionando**: `curl -X POST http://localhost:7777/v1/chat/completions ...` sin cambios
+- [ ] **Compilation**: `npm run build` without errors
+- [ ] **OpenCode Models**: `curl http://localhost:7777/v1/models` returns 3 models (deepseek-multimodal-chat, deepseek-multimodal-reasoner, gemini-direct)
+- [ ] **Claude Code Models**: `curl -H "anthropic-version: 2023-06-01" http://localhost:7777/v1/models` returns 3 Claude models
+- [ ] **gemini-direct works**: Request to gemini-direct generates a response without calling DeepSeek
+- [ ] **Haiku maps to gemini-direct**: Claude Code with Haiku uses "gemini-direct" strategy
+- [ ] **Sonnet maps to deepseek-chat**: Claude Code with Sonnet processes multimedia correctly
+- [ ] **Opus maps to reasoner**: Claude Code with Opus uses deepseek-multimodal-reasoner
+- [ ] **Streaming works**: Claude Code with `--stream` receives correct Anthropic events
+- [ ] **Heartbeats responded**: `POST /` returns 200 OK
+- [ ] **Telemetry ignored**: `POST /api/event_logging/batch` returns 200 OK
+- [ ] **OpenCode keeps working**: `curl -X POST http://localhost:7777/v1/chat/completions ...` unchanged
 
-### 9.2 Logs Esperados
+### 9.2 Expected Logs
 
-**Para request de Claude Code (Haiku):**
+**For Claude Code request (Haiku):**
 
 ```
 POST /v1/messages | model: haiku | stream: false
-🔄 Traduciendo request Anthropic → OpenAI
-Mapeo: haiku → gemini-direct
-🔮 Modelo gemini-direct detectado - Usando Gemini para respuesta completa
-✓ Request Anthropic completado (1.2s total)
+🔄 Translating Anthropic → OpenAI request
+Mapping: haiku → gemini-direct
+🔮 gemini-direct model detected - Using Gemini for full response
+✓ Anthropic request completed (1.2s total)
 ```
 
-**Para request de Claude Code (Sonnet con imagen):**
+**For Claude Code request (Sonnet with image):**
 
 ```
 POST /v1/messages | model: sonnet | stream: false
-🔄 Traduciendo request Anthropic → OpenAI
-Mapeo: sonnet → deepseek-multimodal-chat
-📊 Contenido detectado: 1 elemento(s)
+🔄 Translating Anthropic → OpenAI request
+Mapping: sonnet → deepseek-multimodal-chat
+📊 Content detected: 1 item(s)
   → 1. image (image/png): data:image/png;base64,...
-🔍 Procesando image 1/1 con Gemini...
-✓ 1 elemento(s) procesado(s) en 0.8s (1 Gemini, 0 local)
-✓ Contenido procesado (gemini) - Enrutando a modelo interno
-✓ Request Anthropic completado (2.3s total)
+🔍 Processing image 1/1 with Gemini...
+✓ 1 item(s) processed in 0.8s (1 Gemini, 0 local)
+✓ Processed content (gemini) - Routing to internal model
+✓ Anthropic request completed (2.3s total)
 ```
 
 ### 9.3 Troubleshooting
 
-**Problema: Claude Code no se conecta**
+**Problem: Claude Code won't connect**
 
 ```bash
-# Verificar que el proxy está escuchando
+# Verify proxy is listening
 curl http://localhost:7777/health
 
-# Verificar que los modelos están disponibles
+# Verify models are available
 curl -H "anthropic-version: 2023-06-01" http://localhost:7777/v1/models
 ```
 
-**Problema: Error "Model not found"**
+**Problem: "Model not found" error**
 
-- Verificar que el mapeo de modelos en `anthropicAdapter.ts` incluye el modelo solicitado
-- Revisar logs para ver qué modelo interno se está usando
+- Check that model mapping in `anthropicAdapter.ts` includes the requested model
+- Review logs to see what internal model is being used
 
-**Problema: gemini-direct no responde**
+**Problem: gemini-direct doesn't respond**
 
-- Verificar que `GEMINI_API_KEY` está configurado en `.env`
-- Verificar función `generateDirectResponse()` en `geminiService.ts`
-- Revisar logs: debe aparecer `🔮 Modelo gemini-direct detectado`
+- Verify `GEMINI_API_KEY` is configured in `.env`
+- Check `generateDirectResponse()` function in `geminiService.ts`
+- Review logs: should show `🔮 gemini-direct model detected`
 
-**Problema: Imágenes no se procesan**
+**Problem: Images are not processed**
 
-- Verificar que el córtex sensorial se activa (log `📊 Contenido detectado`)
-- Verificar que Gemini responde (log `🔍 Procesando image...`)
+- Verify that the sensory cortex is activated (log `📊 Content detected`)
+- Verify that Gemini responds (log `🔍 Processing image...`)
 
 ---
 
-## 10. Ejemplos de Transformación
+## 10. Transformation Examples
 
 ### 10.1 Request: Anthropic → OpenAI
 
-**Entrada (Anthropic):**
+**Input (Anthropic):**
 
 ```json
 {
   "model": "sonnet",
   "max_tokens": 1024,
-  "system": "Eres un asistente técnico experto",
+  "system": "You are an expert technical assistant",
   "messages": [
     {
       "role": "user",
@@ -1615,7 +1615,7 @@ curl -H "anthropic-version: 2023-06-01" http://localhost:7777/v1/models
         },
         {
           "type": "text",
-          "text": "¿Qué ves en esta imagen?"
+          "text": "What do you see in this image?"
         }
       ]
     }
@@ -1623,7 +1623,7 @@ curl -H "anthropic-version: 2023-06-01" http://localhost:7777/v1/models
 }
 ```
 
-**Salida (OpenAI interno):**
+**Output (Internal OpenAI):**
 
 ```json
 {
@@ -1631,7 +1631,7 @@ curl -H "anthropic-version: 2023-06-01" http://localhost:7777/v1/models
   "messages": [
     {
       "role": "system",
-      "content": "Eres un asistente técnico experto"
+      "content": "You are an expert technical assistant"
     },
     {
       "role": "user",
@@ -1644,7 +1644,7 @@ curl -H "anthropic-version: 2023-06-01" http://localhost:7777/v1/models
         },
         {
           "type": "text",
-          "text": "¿Qué ves en esta imagen?"
+          "text": "What do you see in this image?"
         }
       ]
     }
@@ -1655,7 +1655,7 @@ curl -H "anthropic-version: 2023-06-01" http://localhost:7777/v1/models
 
 ### 10.2 Response: OpenAI → Anthropic
 
-**Entrada (DeepSeek response):**
+**Input (DeepSeek response):**
 
 ```json
 {
@@ -1668,7 +1668,7 @@ curl -H "anthropic-version: 2023-06-01" http://localhost:7777/v1/models
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "En la imagen veo un pixel rojo brillante..."
+        "content": "In the image I see a bright red pixel..."
       },
       "finish_reason": "stop"
     }
@@ -1681,7 +1681,7 @@ curl -H "anthropic-version: 2023-06-01" http://localhost:7777/v1/models
 }
 ```
 
-**Salida (Anthropic):**
+**Output (Anthropic):**
 
 ```json
 {
@@ -1691,7 +1691,7 @@ curl -H "anthropic-version: 2023-06-01" http://localhost:7777/v1/models
   "content": [
     {
       "type": "text",
-      "text": "En la imagen veo un pixel rojo brillante..."
+      "text": "In the image I see a bright red pixel..."
     }
   ],
   "model": "sonnet",
@@ -1706,21 +1706,21 @@ curl -H "anthropic-version: 2023-06-01" http://localhost:7777/v1/models
 
 ### 10.3 Streaming: OpenAI SSE → Anthropic SSE
 
-**Entrada (OpenAI chunks):**
+**Input (OpenAI chunks):**
 
 ```
 data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1706745600,"model":"deepseek-chat","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}
 
-data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1706745600,"model":"deepseek-chat","choices":[{"index":0,"delta":{"content":"Hola"},"finish_reason":null}]}
+data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1706745600,"model":"deepseek-chat","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
 
-data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1706745600,"model":"deepseek-chat","choices":[{"index":0,"delta":{"content":" mundo"},"finish_reason":null}]}
+data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1706745600,"model":"deepseek-chat","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}
 
 data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1706745600,"model":"deepseek-chat","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
 
 data: [DONE]
 ```
 
-**Salida (Anthropic events):**
+**Output (Anthropic events):**
 
 ```
 event: message_start
@@ -1730,10 +1730,10 @@ event: content_block_start
 data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hola"}}
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":" mundo"}}
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":" world"}}
 
 event: content_block_stop
 data: {"type":"content_block_stop","index":0}
@@ -1747,42 +1747,42 @@ data: {"type":"message_stop"}
 
 ---
 
-## ✅ Resumen Final
+## ✅ Final Summary
 
-Esta guía implementa **soporte completo de Claude Code** en el proxy sin afectar OpenCode:
+This guide implements **full Claude Code support** in the proxy without affecting OpenCode:
 
-### Nuevos Componentes
+### New Components
 
-- ✅ **`src/types/anthropic.ts`**: Tipos Anthropic Messages API
-- ✅ **`src/services/anthropicAdapter.ts`**: Traductor bidireccional Anthropic ↔ OpenAI
-- ✅ **Modelo `gemini-direct`**: Bypass de DeepSeek para Haiku
+- ✅ **`src/types/anthropic.ts`**: Anthropic Messages API types
+- ✅ **`src/services/anthropicAdapter.ts`**: Bidirectional translator Anthropic ↔ OpenAI
+- ✅ **`gemini-direct` Model**: DeepSeek bypass for Haiku
 
-### Endpoints Agregados
+### Added Endpoints
 
 - ✅ **`POST /v1/messages`**: Anthropic Messages API
-- ✅ **`GET /v1/models` (detección dual)**: Claude models vs OpenAI models
+- ✅ **`GET /v1/models` (dual detection)**: Claude models vs OpenAI models
 - ✅ **`POST /`**: Heartbeats
-- ✅ **`POST /api/event_logging/batch`**: Telemetría
+- ✅ **`POST /api/event_logging/batch`**: Telemetry
 
-### Modificaciones
+### Modifications
 
-- ✅ **`src/middleware/multimodalProcessor.ts`**: Soporte para gemini-direct
-- ✅ **`src/services/geminiService.ts`**: Función `generateDirectResponse()`
-- ✅ **`src/index.ts`**: Handlers Anthropic + detección de cliente
+- ✅ **`src/middleware/multimodalProcessor.ts`**: Support for gemini-direct
+- ✅ **`src/services/geminiService.ts`**: `generateDirectResponse()` function
+- ✅ **`src/index.ts`**: Anthropic handlers + client detection
 
-### Compatibilidad
+### Compatibility
 
-- ✅ **OpenCode**: Sin cambios, sigue funcionando normalmente
-- ✅ **Claude Code**: Totalmente funcional con 3 modelos
-- ✅ **Córtex Sensorial**: Compartido por ambos clientes
-- ✅ **Caché**: Compartido (mismo hash para mismo contenido)
+- ✅ **OpenCode**: Unchanged, keeps working normally
+- ✅ **Claude Code**: Fully functional with 3 models
+- ✅ **Sensory Cortex**: Shared by both clients
+- ✅ **Cache**: Shared (same hash for same content)
 
-### Configuración Claude Code
+### Claude Code Configuration
 
 ```bash
 export ANTHROPIC_BASE_URL="http://localhost:7777/v1"
-export ANTHROPIC_API_KEY="test"  # Cualquier valor
+export ANTHROPIC_API_KEY="test"  # Any value
 claude
 ```
 
-**El proxy ahora funciona con ambos clientes sin configuración adicional. 🎉**
+**The proxy now works with both clients without additional configuration. 🎉**

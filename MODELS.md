@@ -4,14 +4,14 @@
 
 ### DeepSeek V4 Flash - Chat (Max Thinking)
 
-- **Context max**: 872,000 tokens (1M nativo, 128K holgura para headers)
+- **Context max**: 872,000 tokens (1M native, 128K slack for headers)
 - **Output max**: 384,000 tokens
 - **API params**: `thinking: { type: "enabled" }` + `reasoning_effort: "max"`
 - **Model**: `deepseek-v4-flash`
 
 ### DeepSeek V4 Pro - Reasoner (Max Thinking)
 
-- **Context max**: 872,000 tokens (1M nativo, 128K holgura)
+- **Context max**: 872,000 tokens (1M native, 128K slack)
 - **Output max**: 384,000 tokens
 - **API params**: `thinking: { type: "enabled" }` + `reasoning_effort: "max"`
 - **Model**: `deepseek-v4-pro`
@@ -54,6 +54,6 @@ All models use **Gemini 2.5 Flash** for multimodal perception:
 
 | Claude | Internal Model             | Routing                                                   |
 | :----- | :------------------------- | :--------------------------------------------------------- |
-| `haiku`| `vision-direct`            | Gemini 2.5 Flash directo                                   |
-| `sonnet`| `deepseek-multimodal-flash`| Inteligente: Texto -> DeepSeek, Multimodal -> Gemini       |
-| `opus` | `deepseek-multimodal-pro`  | Inteligente: Texto -> DeepSeek, Multimodal -> Gemini       |
+| `haiku`| `vision-direct`            | Gemini 2.5 Flash direct                                    |
+| `sonnet`| `deepseek-multimodal-flash`| Intelligent: Text -> DeepSeek, Multimodal -> Gemini        |
+| `opus` | `deepseek-multimodal-pro`  | Intelligent: Text -> DeepSeek, Multimodal -> Gemini        |

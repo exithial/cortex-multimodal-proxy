@@ -4,7 +4,7 @@
 - **Chat**: Spanish
 - **Code comments**: Spanish
 - **Git (commits, PRs, branches)**: English
-- **Docs (README, MODELS.md)**: Spanish
+- **Docs (README, MODELS.md, all documentation)**: English
 
 ## Architecture
 - Pattern: "Cortex Sensorial v2" — DeepSeek = brain, Gemini 2.5 Flash = senses, proxy = router

@@ -1,85 +1,85 @@
-# Guía de Contribución
+# Contribution Guide
 
-¡Gracias por tu interés en colaborar con **DeepSeek Multimodal Proxy**! Este proyecto implementa la arquitectura "Córtex Sensorial" y tu ayuda es fundamental para mejorar la percepción multimodal de los LLMs.
+Thank you for your interest in contributing to **DeepSeek Multimodal Proxy**! This project implements the "Sensory Cortex" architecture and your help is essential to improve the multimodal perception of LLMs.
 
-## 🌟 Cómo puedes ayudar
+## 🌟 How you can help
 
-### 1. Reportar Errores (Bugs)
+### 1. Report Bugs
 
-Si encuentras algo que no funciona:
+If you find something that doesn't work:
 
-1. Revisa si ya existe un Issue abierto.
-2. Abre un nuevo Issue detallando el contenido que falló (URL/Base64), los logs de `./scripts/manage.sh logs` y el comportamiento esperado.
+1. Check if an Issue is already open.
+2. Open a new Issue detailing the content that failed (URL/Base64), the logs from `./scripts/manage.sh logs`, and the expected behavior.
 
-### 2. Enviar Pull Requests
+### 2. Submit Pull Requests
 
-1. Haz un **Fork** del repositorio.
-2. Crea una rama (`feature/mejora` o `fix/error`).
-3. Envía el Pull Request detallando los cambios.
+1. **Fork** the repository.
+2. Create a branch (`feature/improvement` or `fix/error`).
+3. Submit the Pull Request detailing the changes.
 
-## 🛠️ Estructura del Proyecto
+## 🛠️ Project Structure
 
-Para contribuir de forma efectiva, es importante entender dónde vive cada parte de la lógica:
+To contribute effectively, it is important to understand where each part of the logic lives:
 
-- `src/index.ts`: Punto de entrada de la aplicación Express y routing principal (OpenAI API compatibility).
+- `src/index.ts`: Application entry point, Express routing and main routing (OpenAI API compatibility).
 - `src/middleware/`:
-  - `multimodalDetector.ts`: El corazón del "Córtex". Decide si una petición va a DeepSeek o a Gemini.
-  - `multimodalProcessor.ts`: Gestiona la transformación de archivos/URLs a contenido procesable.
-  - `imageDetector.ts`: Lógica específica para identificar formatos de imagen.
+  - `multimodalDetector.ts`: The heart of the "Cortex". Decides whether a request goes to DeepSeek or Gemini.
+  - `multimodalProcessor.ts`: Manages the transformation of files/URLs into processable content.
+  - `imageDetector.ts`: Specific logic for identifying image formats.
 - `src/services/`:
-  - `geminiService.ts`: Integración con la API de Google (Sistema de Percepción).
-  - `deepseekService.ts`: Integración con la API de DeepSeek (Sistema de Razonamiento).
-  - `cacheService.ts`: Lógica de caché contextual basada en hashes SHA-256.
+  - `geminiService.ts`: Integration with the Google API (Perception System).
+  - `deepseekService.ts`: Integration with the DeepSeek API (Reasoning System).
+  - `cacheService.ts`: Contextual cache logic based on SHA-256 hashes.
 - `src/utils/`:
-  - `pdfProcessor.ts`: Lógica de routing inteligente y procesamiento local de PDFs.
-  - `downloader.ts`: Descarga segura de URLs con validación de Content-Type.
-  - `imageProcessor.ts`: Herramientas para manipulación de imágenes previas al envío.
-- `scripts/`: Scripts de automatización mejorados.
-  - `setup.sh`: Instalación completa y configuración del servicio.
-  - `manage.sh`: Comando unificado de gestión (start, stop, status, logs).
-  - `run-local.sh`: Ejecución rápida sin instalación.
+  - `pdfProcessor.ts`: Smart routing logic and local PDF processing.
+  - `downloader.ts`: Secure URL download with Content-Type validation.
+  - `imageProcessor.ts`: Tools for pre-send image manipulation.
+- `scripts/`: Enhanced automation scripts.
+  - `setup.sh`: Full installation and service configuration.
+  - `manage.sh`: Unified management command (start, stop, status, logs).
+  - `run-local.sh`: Quick execution without installation.
 
-## 💻 Flujo de Desarrollo
+## 💻 Development Workflow
 
-1. **Instalación:**
+1. **Installation:**
 
    ```bash
    npm install
    ```
 
-2. **Modo Observación (Development):**
+2. **Watch Mode (Development):**
 
    ```bash
    npm run dev
    ```
 
-   Esto usa `tsx watch` para recargar el proxy automáticamente tras cada cambio.
+   This uses `tsx watch` to automatically reload the proxy after each change.
 
-3. **Pruebas:**
-   Ejecuta los tests antes de enviar un PR:
+3. **Testing:**
+   Run tests before submitting a PR:
 
    ```bash
-   # Tests unitarios (rápidos, sin costo de API)
+   # Unit tests (fast, no API cost)
    npm run test:unit
 
-   # Tests de integración (requieren APIs)
+   # Integration tests (require APIs)
    node test/test-master.js
    ```
 
-4. **Gestión Local:**
-   Puedes usar `./scripts/manage.sh status` para verificar el estado de la API tras tus cambios.
+4. **Local Management:**
+   You can use `./scripts/manage.sh status` to check the API status after your changes.
 
 5. **Build:**
    ```bash
    npm run build
    ```
 
-## 📜 Estándares y Calidad
+## 📜 Standards and Quality
 
-- **Clean Architecture:** Mantén las utilidades de bajo nivel en `utils/` y la lógica de integración en `services/`.
-- **Zod:** Usamos Zod para validación de esquemas de configuración y respuestas.
-- **Winston:** Usa el logger centralizado en `src/utils/logger.ts` para mantener la consistencia de los logs.
+- **Clean Architecture:** Keep low-level utilities in `utils/` and integration logic in `services/`.
+- **Zod:** We use Zod for configuration schema and response validation.
+- **Winston:** Use the centralized logger in `src/utils/logger.ts` to maintain log consistency.
 
-## ⚖️ Licencia
+## ⚖️ License
 
-Al contribuir, aceptas que tus cambios estarán bajo la [Licencia MIT](./LICENSE).
+By contributing, you agree that your changes will be under the [MIT License](./LICENSE).
