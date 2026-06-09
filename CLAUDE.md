@@ -11,6 +11,14 @@
 - Text/code -> DeepSeek direct; media -> Gemini description -> DeepSeek
 - No third-party vision alternatives without explicit approval (Qwen, MiniMax were evaluated and reverted)
 
+## Compatibility
+- **Primary clients**: OpenCode (OpenAI-compatible `/v1/chat/completions`) and Claude Code (Anthropic-compatible `/v1/messages`)
+- Every feature, refactor, and dependency change MUST preserve full compatibility with both clients
+- No breaking changes to the API contract without explicit opt-in via custom header
+- Rate limiting, fallbacks, and toggles must have localhost/127.0.0.1 bypass
+- After any change to routes, streaming, or model mapping, test against real OpenCode and Claude Code when possible
+- The proxy exists solely to serve these two clients — compatibility is non-negotiable
+
 ## Models
 - Brain: `deepseek-v4-flash` (fast) and `deepseek-v4-pro` (strong)
 - Senses: `gemini-2.5-flash` (cheapest that covers image + audio + video)

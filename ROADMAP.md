@@ -1,5 +1,7 @@
 # ROADMAP — DeepSeek Multimodal Proxy
 
+> **Compatibility constraint**: Every feature, refactor, and dependency change MUST preserve full compatibility with OpenCode and Claude Code as clients. No breaking changes to `/v1/chat/completions` (OpenAI-compatible) or `/v1/messages` (Anthropic-compatible) without explicit opt-in via header. Rate limiting and fallback mechanisms must have localhost bypass.
+
 ## Current State: v2.0.0
 
 | Metric | Value |
@@ -116,10 +118,17 @@
 - [ ] Streaming error handler test
 
 ### Refactor
-- [ ] Split `src/index.ts` (848 lines) into `src/routes/chat.ts` + `src/routes/anthropic.ts`
+- [ ] Split `src/index.ts` (736 lines) into `src/routes/chat.ts` + `src/routes/anthropic.ts`
 - [ ] Extract Anthropic deduplication logic to `src/services/dedupService.ts`
 - [ ] Create `src/types/strategy.ts` for shared strategy types
 - [ ] Fix Anthropic streaming: `openaiChunksGenerator()` accumulates all chunks in memory before streaming to adapter (defeats streaming purpose)
+- [ ] Add `"type": "module"` to package.json (fixes `MODULE_TYPELESS_PACKAGE_JSON` warning on lint). ⚠️ Must verify OpenCode + Claude Code compatibility after migration.
+
+### Operations
+- [ ] Graceful shutdown: drain active connections before `process.exit()` on SIGTERM/SIGINT (critical for Docker zero-downtime)
+- [ ] Startup env var validation: fail fast with clear error if `DEEPSEEK_API_KEY` or `GEMINI_API_KEY` missing
+- [ ] Translate `.env.example` comments to English (currently Spanish — contradicts CLAUDE.md)
+- [ ] Add pre-commit hooks (husky + lint-staged) for lint and typecheck gates
 
 ### CI/CD
 - [ ] `npm audit fix` — resolve dependency vulnerabilities
@@ -128,6 +137,7 @@
 
 ### Observability
 - [ ] `X-Request-ID` on all responses
+- [ ] Structured JSON logging (winston already installed, just needs JSON format for ELK/Datadog)
 - [ ] Token metrics per strategy: `X-Tokens-Gemini`, `X-Tokens-DeepSeek`
 - [ ] Extended `/health`: uptime, requests/min, cache hit rate, memory
 
@@ -136,16 +146,23 @@
 ## Medium-term — v2.2.0
 
 ### Features
-- [ ] Rate limiting per IP (prevent cost overruns)
-- [ ] Thinking toggle per request (allow disabling `reasoning_effort`)
-- [ ] Automatic fallback: DeepSeek fails -> Gemini direct
+- [ ] Rate limiting per IP (prevent cost overruns). ⚠️ Must bypass localhost/127.0.0.1 to not throttle OpenCode/Claude Code.
+- [ ] Thinking toggle per request (allow disabling `reasoning_effort`). ⚠️ Must be opt-in via explicit header (`X-DeepSeek-Reasoning: off`), default stays `max`.
+- [ ] Automatic fallback: DeepSeek fails -> Gemini direct. ⚠️ Must be opt-in via header (`X-Fallback-Gemini: true`), return warning header so clients know response is degraded.
 - [ ] Simple web dashboard: cache stats, model usage, recent logs
+- [ ] CORS configuration (needed for web dashboard to call proxy from browser)
+- [ ] Response compression: gzip/brotli for large responses (descriptions + streaming)
 
 ### Performance
 - [ ] Replace `chars/3` estimation with `tiktoken` or native DeepSeek tokenizer
 - [ ] Axios connection pooling + retry with backoff
 - [ ] PDF download + processing in parallel pipeline
 - [ ] Disk cache with write-locking: concurrent `fs.writeFile` can corrupt `descriptions.json`
+
+### Resilience
+- [ ] Circuit breaker for downstream APIs (DeepSeek/Gemini): stop retrying when service is down
+- [ ] Request timeout configuration: prevent hanging streams from blocked clients
+- [ ] Propagate `X-Request-ID` to DeepSeek and Gemini for end-to-end tracing
 
 ### Architecture
 - [ ] Plugin system for vision providers (swap Gemini for another via config)
