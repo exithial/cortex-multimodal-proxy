@@ -1,72 +1,72 @@
-# 🧪 Suite de Pruebas - DeepSeek Multimodal Proxy
+# 🧪 Test Suite - DeepSeek Multimodal Proxy
 
-Esta carpeta contiene la suite de pruebas consolidada para verificar la funcionalidad multimodal y el routing inteligente del proxy.
+This folder contains the consolidated test suite to verify multimodal functionality and the proxy's intelligent routing.
 
-## 🚀 Ejecución Rápida
+## 🚀 Quick Start
 
-La única herramienta que necesitas es la **Suite Maestra**:
+The only tool you need is the **Master Suite**:
 
 ```bash
-# Inicia el proxy (si no está corriendo)
+# Start the proxy (if not running)
 sudo systemctl start deepseek-proxy
 
-# Ejecuta todas las pruebas
+# Run all tests
 node test/test-master.js
 ```
 
-## 📁 Estructura
+## 📁 Structure
 
 ```
 test/
-├── README.md           # Este archivo
-├── test-master.js      # 👑 SUITE MAESTRA (Ejecuta todo)
-└── files/              # Archivos de prueba reales del usuario
-    ├── audio.mp3       # Audio de prueba
-    ├── image.png       # Imagen de prueba
-    ├── small-test.pdf  # PDF Pequeño (<1MB)
-    ├── large-test.pdf  # PDF Mediano/Grande
-    └── video.mp4       # Video de prueba
+├── README.md           # This file
+├── test-master.js      # 👑 MASTER SUITE (Runs everything)
+└── files/              # Real user test files
+    ├── audio.mp3       # Test audio
+    ├── image.png       # Test image
+    ├── small-test.pdf  # Small PDF (<1MB)
+    ├── large-test.pdf  # Medium/Large PDF
+    └── video.mp4       # Test video
 ```
 
-## 🔍 ¿Qué prueba la Suite Maestra?
+## 🔍 What does the Master Suite test?
 
-`test-master.js` levanta un servidor HTTP temporal (puerto 8899) para servir los archivos locales y simular respuestas de tamaño, y luego ejecuta pruebas secuenciales contra el proxy (puerto 7777).
+`test-master.js` starts a temporary HTTP server (port 8899) to serve local files and simulate size responses, then runs sequential tests against the proxy (port 7777).
 
-### Escenarios Verificados:
+### Verified Scenarios:
 
-1.  **Health Check**: Verifica estado y versión del servicio.
-2.  **Texto Simple**: Routing directo a DeepSeek (bypass de Gemini).
-3.  **Imagen**: Routing a Gemini → DeepSeek.
-4.  **Audio**: Routing a Gemini → DeepSeek (Input: `audio.mp3`).
-5.  **Video**: Routing a Gemini → DeepSeek (Input: `video.mp4`).
-6.  **PDF (Routing Inteligente)**:
-    - **Pequeño (<1MB)**: Procesamiento Local → DeepSeek (usa `small-test.pdf`).
-    - **Mediano (<1MB)**: Procesamiento Local (usa `large-test.pdf` si es <1MB).
-    - **Grande (>1MB)**: Simulación de routing a Gemini (usa endpoint simulado `/large.pdf`).
-7.  **Base64**: Imágenes inline (`data:image/...`) → Gemini.
-8.  **Streaming**: Validación de respuesta en chunks (SSE) → Directo.
+1.  **Health Check**: Verifies service status and version.
+2.  **Plain Text**: Direct routing to DeepSeek (Gemini bypass).
+3.  **Image**: Routing to Gemini → DeepSeek.
+4.  **Audio**: Routing to Gemini → DeepSeek (Input: `audio.mp3`).
+5.  **Video**: Routing to Gemini → DeepSeek (Input: `video.mp4`).
+6.  **PDF (Smart Routing)**:
+    - **Small (<1MB)**: Local Processing → DeepSeek (uses `small-test.pdf`).
+    - **Medium (<1MB)**: Local Processing (uses `large-test.pdf` if <1MB).
+    - **Large (>1MB)**: Simulated routing to Gemini (uses simulated `/large.pdf` endpoint).
+7.  **Base64**: Inline images (`data:image/...`) → Gemini.
+8.  **Streaming**: Response validation in chunks (SSE) → Direct.
 
-## 🛡️ Validación de Estrategia
+## 🛡️ Strategy Validation
 
-El test verifica no solo que la respuesta sea exitosa (200 OK), sino que se haya usado la estrategia correcta mediante el header `X-Multimodal-Strategy` inyectado por el proxy.
+The test verifies not only that the response is successful (200 OK), but also that the correct strategy was used via the `X-Multimodal-Strategy` header injected by the proxy.
 
-| Tipo Contenido         | Estrategia Esperada | Razón                                                     |
-| :--------------------- | :------------------ | :-------------------------------------------------------- |
-| **Texto**              | `direct`            | Más rápido y barato.                                      |
-| **Imagen/Audio/Video** | `gemini`            | Requiere capacidades multimodales nativas.                |
-| **PDF < 1MB**          | `local`             | Privacidad y velocidad (procesado en el propio servidor). |
-| **PDF > 1MB**          | `gemini`            | Aprovecha la ventana de contexto masiva de Gemini.        |
+| Content Type           | Expected Strategy | Reason                                                    |
+| :--------------------- | :---------------- | :-------------------------------------------------------- |
+| **Text**               | `direct`          | Faster and cheaper.                                       |
+| **Image/Audio/Video**  | `gemini`          | Requires native multimodal capabilities.                  |
+| **PDF < 1MB**          | `local`           | Privacy and speed (processed on the server itself).       |
+| **PDF > 1MB**          | `gemini`          | Leverages Gemini's massive context window.                |
 
-## ⚙️ Configuración Requerida (.env)
+## ⚙️ Required Configuration (.env)
 
-Asegúrate de tener definidas estas variables en tu archivo `.env` para que todas las pruebas pasen:
+Make sure these variables are defined in your `.env` file for all tests to pass:
 
 ```ini
-# API Key real para procesar multimodal
-GEMINI_API_KEY=tu_api_key_de_google
+# Real API key for multimodal processing
+GEMINI_API_KEY=your_google_api_key
 GEMINI_MODEL=gemini-2.5-flash-lite
 
-# Configuración de Routing de PDF
+# PDF Routing Configuration
 PDF_LOCAL_PROCESSING=true
 PDF_LOCAL_MAX_SIZE_MB=1
 ```

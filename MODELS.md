@@ -4,14 +4,14 @@
 
 ### DeepSeek V4 Flash - Chat (Max Thinking)
 
-- **Context max**: 872,000 tokens (1M nativo, 128K holgura para headers)
+- **Context max**: 872,000 tokens (1M native, 128K slack for headers)
 - **Output max**: 384,000 tokens
 - **API params**: `thinking: { type: "enabled" }` + `reasoning_effort: "max"`
 - **Model**: `deepseek-v4-flash`
 
 ### DeepSeek V4 Pro - Reasoner (Max Thinking)
 
-- **Context max**: 872,000 tokens (1M nativo, 128K holgura)
+- **Context max**: 872,000 tokens (1M native, 128K slack)
 - **Output max**: 384,000 tokens
 - **API params**: `thinking: { type: "enabled" }` + `reasoning_effort: "max"`
 - **Model**: `deepseek-v4-pro`
@@ -40,20 +40,20 @@ All models use **Gemini 2.5 Flash** for multimodal perception:
 | :------------------------- | :------------------ | :----- | :----- | :------------------------------- |
 | `deepseek-multimodal-flash`| `deepseek-v4-flash` | 872K   | 384K   | Text, Image, Audio, Video, PDF   |
 | `deepseek-multimodal-pro`  | `deepseek-v4-pro`   | 872K   | 384K   | Text, Image, Audio, Video, PDF   |
-| `vision-direct`            | `gemini-2.5-flash`  | 1M     | 8K     | Full Multimodal (Direct)         |
+| `vision-direct`            | `gemini-2.5-flash`  | 1M     | 64K    | Full Multimodal (Direct)         |
 
 ### Pricing (per 1M tokens, worst case combined)
 
 | Model                      | Input  | Output |
 | :------------------------- | :----- | :----- |
-| `deepseek-multimodal-flash`| $0.30  | $0.88  |
-| `deepseek-multimodal-pro`  | $0.59  | $1.47  |
-| `vision-direct`            | $0.15  | $0.60  |
+| `deepseek-multimodal-flash`| $0.44  | $2.78  |
+| `deepseek-multimodal-pro`  | $0.74  | $3.37  |
+| `vision-direct`            | $0.30  | $2.50  |
 
 ## Claude Code Models (Anthropic)
 
 | Claude | Internal Model             | Routing                                                   |
 | :----- | :------------------------- | :--------------------------------------------------------- |
-| `haiku`| `vision-direct`            | Gemini 2.5 Flash directo                                   |
-| `sonnet`| `deepseek-multimodal-flash`| Inteligente: Texto -> DeepSeek, Multimodal -> Gemini       |
-| `opus` | `deepseek-multimodal-pro`  | Inteligente: Texto -> DeepSeek, Multimodal -> Gemini       |
+| `haiku`| `vision-direct`            | Gemini 2.5 Flash direct                                    |
+| `sonnet`| `deepseek-multimodal-flash`| Intelligent: Text -> DeepSeek, Multimodal -> Gemini        |
+| `opus` | `deepseek-multimodal-pro`  | Intelligent: Text -> DeepSeek, Multimodal -> Gemini        |

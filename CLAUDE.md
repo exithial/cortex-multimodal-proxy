@@ -4,7 +4,7 @@
 - **Chat**: Spanish
 - **Code comments**: Spanish
 - **Git (commits, PRs, branches)**: English
-- **Docs (README, MODELS.md)**: Spanish
+- **Docs (README, MODELS.md, all documentation)**: English
 
 ## Architecture
 - Pattern: "Cortex Sensorial v2" — DeepSeek = brain, Gemini 2.5 Flash = senses, proxy = router
@@ -18,14 +18,14 @@
 - Proxy model IDs: `deepseek-multimodal-flash`, `deepseek-multimodal-pro`, `vision-direct`
 
 ## Token Limits
-- DeepSeek context: 872K (1M native minus 128K slack for client headers)
+- DeepSeek context: 1M nativo, proxy expone 872K (128K slack para headers de OpenCode/Claude Code y margen de trabajo del proxy)
 - DeepSeek output: 384K (V4 max)
-- Always leave headroom for OpenCode/Claude Code header injection
+- Siempre dejar headroom para que OpenCode/Claude Code inyecte sus headers sin exceder el limite real
 
 ## Pricing
 - Always calculate combined worst-case (vision model + DeepSeek) and present in README
 - Verify against official API pricing pages before committing numbers
-- Current: Flash $0.30/$0.90, Pro $0.60/$1.50, vision-direct $0.15/$0.60 per 1M
+- Current: Flash $0.44/$2.78, Pro $0.74/$3.37, vision-direct $0.30/$2.50 per 1M (Gemini 2.5 Flash + DeepSeek V4 combined)
 
 ## Code Quality
 - Build must pass (`npm run build`)

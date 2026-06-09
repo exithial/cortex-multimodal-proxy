@@ -138,14 +138,15 @@ class MasterTestSuite {
         return { success: true, strategy };
       } else {
         const strategy = response.headers.get('x-multimodal-strategy');
+        const errorText = await response.text();
         // Verificar si es error por falta de API Key (esperado en algunos casos)
-        if (response.status === 500 && (error.includes('API key') || error.includes('Gemini API'))) {
+        if (response.status === 500 && (errorText.includes('API key') || errorText.includes('Gemini API'))) {
           print.warn(`SKIPPED: Requiere configuración de Gemini API (${response.status})`);
           this.results.skipped++;
           return { success: false, strategy, skipped: true };
         }
         
-        print.error(`FAILED (${response.status}) [Strategy: ${strategy || 'unknown'}]: ${error.substring(0, 150)}`);
+        print.error(`FAILED (${response.status}) [Strategy: ${strategy || 'unknown'}]: ${errorText.substring(0, 150)}`);
         this.results.failed++;
         return { success: false, strategy };
       }
@@ -201,7 +202,7 @@ class MasterTestSuite {
   async testText() {
     print.header("2. PRUEBA DE TEXTO (Directo DeepSeek)");
     const result = await this.runRequest('/v1/chat/completions', {
-      model: 'deepseek-multimodal-chat',
+      model: 'deepseek-multimodal-flash',
       messages: [{ role: 'user', content: '¿Cuánto es 2+2?' }],
       max_tokens: 10
     }, "DeepSeek Chat (Texto simple)");
@@ -233,7 +234,7 @@ class MasterTestSuite {
     const imageUrl = `http://localhost:${TEST_SERVER_PORT}/image.png`;
     
     const result = await this.runRequest('/v1/chat/completions', {
-      model: 'deepseek-multimodal-chat',
+      model: 'deepseek-multimodal-flash',
       messages: [{ 
         role: 'user', 
         content: [
@@ -262,7 +263,7 @@ class MasterTestSuite {
     const audioUrl = `http://localhost:${TEST_SERVER_PORT}/audio.mp3`;
     
     const result = await this.runRequest('/v1/chat/completions', {
-      model: 'deepseek-multimodal-chat',
+      model: 'deepseek-multimodal-flash',
       messages: [{ 
         role: 'user', 
         content: [
@@ -284,7 +285,7 @@ class MasterTestSuite {
     const pdfUrl = `http://localhost:${TEST_SERVER_PORT}/small-test.pdf`;
     
     const result = await this.runRequest('/v1/chat/completions', {
-      model: 'deepseek-multimodal-chat',
+      model: 'deepseek-multimodal-flash',
       messages: [{ 
         role: 'user', 
         content: [
@@ -304,7 +305,7 @@ class MasterTestSuite {
     const largeRealPdfUrl = `http://localhost:${TEST_SERVER_PORT}/large-test.pdf`;
     
     const resultRealLarge = await this.runRequest('/v1/chat/completions', {
-      model: 'deepseek-multimodal-chat',
+      model: 'deepseek-multimodal-flash',
       messages: [{ 
         role: 'user', 
         content: [
@@ -324,7 +325,7 @@ class MasterTestSuite {
     const largeSimulatedPdfUrl = `http://localhost:${TEST_SERVER_PORT}/large.pdf`;
     
     const resultSimulated = await this.runRequest('/v1/chat/completions', {
-      model: 'deepseek-multimodal-chat',
+      model: 'deepseek-multimodal-flash',
       messages: [{ 
         role: 'user', 
         content: [
@@ -348,7 +349,7 @@ class MasterTestSuite {
     const videoUrl = `http://localhost:${TEST_SERVER_PORT}/video.mp4`;
     
     const result = await this.runRequest('/v1/chat/completions', {
-      model: 'deepseek-multimodal-chat',
+      model: 'deepseek-multimodal-flash',
       messages: [{ 
         role: 'user', 
         content: [
@@ -370,7 +371,7 @@ class MasterTestSuite {
     const base64Image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
     
     const result = await this.runRequest('/v1/chat/completions', {
-      model: 'deepseek-multimodal-chat',
+      model: 'deepseek-multimodal-flash',
       messages: [{ 
         role: 'user', 
         content: [
@@ -400,7 +401,7 @@ class MasterTestSuite {
           'Authorization': 'Bearer not-needed'
         },
         body: JSON.stringify({
-          model: 'deepseek-multimodal-chat',
+          model: 'deepseek-multimodal-flash',
           stream: true,
           messages: [{ role: 'user', content: 'Cuenta del 1 al 5' }]
         })
@@ -469,7 +470,7 @@ class MasterTestSuite {
     print.info("Ejecutando: Request repetido para verificar caché...");
     const start = Date.now();
     const result = await this.runRequest('/v1/chat/completions', {
-      model: 'deepseek-multimodal-chat',
+      model: 'deepseek-multimodal-flash',
       messages: [{ 
         role: 'user', 
         content: [

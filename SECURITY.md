@@ -1,22 +1,22 @@
-# Política de Seguridad
+# Security Policy
 
-## Versiones Soportadas
+## Supported Versions
 
-Actualmente, solo la última versión mayor estable recibe parches de seguridad.
+Currently, only the latest stable major version receives security patches.
 
-| Versión | Soportada          |
+| Version | Supported          |
 | ------- | ------------------ |
-| 2.x   | :white_check_mark: |
+| 2.x     | :white_check_mark: |
 | < 1.6   | :x:                |
 
-## Reportando una Vulnerabilidad
+## Reporting a Vulnerability
 
-Nos tomamos la seguridad muy en serio. Si descubres una vulnerabilidad de seguridad en este proyecto, por favor repórtala de manera privada.
+We take security very seriously. If you discover a security vulnerability in this project, please report it privately.
 
-**NO abras un Issue público.**
+**DO NOT open a public Issue.**
 
-Por favor, contacta directamente a través de:
+Please contact directly via:
 
 - Email: en.solis.g@gmail.com
 
-Trataremos de responder lo antes posible y lanzar un parche si la vulnerabilidad es confirmada.
+We will try to respond as soon as possible and release a patch if the vulnerability is confirmed.

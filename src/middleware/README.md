@@ -1,35 +1,45 @@
 # Middleware
 
-Componentes de procesamiento intermedio para el pipeline de requests.
+Intermediate processing components for the request pipeline.
 
-## `imageDetector.ts`
+## `multimodalDetector.ts`
 
-**Core del Proxy**: Detecta y procesa imágenes antes de que lleguen al controlador principal.
+**Proxy Core**: Detects and classifies multimodal content in request messages.
 
-### Funcionalidad
-1.  **Detección**: Escanea los mensajes del request (formato OpenAI) buscando:
-    - `image_url` en contenido multipart.
-    - Strings Base64 (`data:image/...`) embebidos en contenido texto.
-2.  **Extracción de Contexto**: Analiza el texto del usuario ("¿Qué dice este recibo?") para enviarlo junto con la imagen al servicio de visión.
-3.  **Procesamiento**:
-    - Delega el análisis al servicio de visión configurado (`geminiService`).
-    - **Sustitución**: Reemplaza la imagen original en el payload con la descripción textual generada.
-    - Maneja concurrencia (procesa múltiples imágenes en paralelo).
+### Functionality
+1. **Detection**: Scans request messages (OpenAI/Anthropic format) looking for:
+   - `image_url` in multipart content
+   - Base64 strings (`data:image/...`) embedded in text content
+   - File URLs (audio, video, PDF)
+2. **Classification**: Categorizes each content into internal types: image, audio, video, document, code, text_file, data_file, pdf
+3. **Context Extraction**: Analyzes user text to send it alongside the content to the vision service
+4. **Routing**: Decides the processing strategy:
+   - `direct`: text/code -> DeepSeek direct
+   - `vision`: media -> Gemini -> DeepSeek
+   - `vision-direct`: Gemini direct without DeepSeek
+   - `local`: small PDF processed locally
+   - `mixed`: combination of strategies
 
-### Flujo de Datos
+### Data Flow
 ```
-Request Original [Texto + Imagen] 
-       ↓ 
-[Middleware Detector] 
-       ↓ 
-   (Tiene Imagen?) 
-   No → Next() 
-   Si → 
-     1. Extraer Contexto
-     2. GeminiService.analyze(img, context)
-     3. Reemplazar Imagen por Texto
-       ↓
-Request Modificado [Texto + Descripción]
-       ↓
-Controlador (DeepSeek API)
+Original Request [Text + Media]
+       |
+[MIDDLEWARE DETECTOR]
+  - Classify content (image, audio, video, pdf, etc.)
+  - Determine routing strategy
+  - Extract user context
+       |
+[MIDDLEWARE PROCESSOR]
+  - Process media with Gemini (with SHA-256 cache)
+  - Replace media with textual [DESCRIPTION]
+  - Assemble final payload for DeepSeek
+       |
+Modified Request [Text + Descriptions]
+       |
+DeepSeek API
 ```
+
+## `multimodalProcessor.ts`
+
+Orchestrates the full pipeline: detection -> Gemini processing -> DeepSeek submission.
+Handles concurrency to process multiple files in parallel.
