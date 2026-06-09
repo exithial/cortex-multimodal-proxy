@@ -7,24 +7,21 @@ import {
   detectMultimodalContent,
   extractUserContext,
   getDeepseekSupportedContent,
-  getGeminiRequiredContent,
+  getVisionRequiredContent,
   getLocalProcessingContent,
 } from "./multimodalDetector";
 
-/**
- * Procesa contenido multimodal y decide el routing
- */
 export async function processMultimodalContent(
   messages: ChatMessage[],
   modelName?: string,
 ): Promise<{
   processedMessages: ChatMessage[];
   useDeepseekDirectly: boolean;
-  strategy: "direct" | "gemini" | "local" | "mixed" | "gemini-direct";
+  strategy: "direct" | "vision" | "local" | "mixed" | "vision-direct";
 }> {
-  if (modelName === "gemini-direct") {
+  if (modelName === "vision-direct") {
     logger.info(
-      "Modelo gemini-direct detectado - Usando Gemini para respuesta completa",
+      "Modelo vision-direct detectado - Usando Gemini para respuesta completa",
     );
 
     const geminiResponse = await geminiService.generateDirectResponse(messages);
@@ -37,7 +34,7 @@ export async function processMultimodalContent(
         },
       ],
       useDeepseekDirectly: false,
-      strategy: "gemini-direct",
+      strategy: "vision-direct",
     };
   }
   // 1. Detectar contenido
@@ -63,7 +60,7 @@ export async function processMultimodalContent(
 
   // 2. Separar contenido por destino
   const deepseekContent = getDeepseekSupportedContent(analysis.detectedContent);
-  const geminiContent = await getGeminiRequiredContent(
+  const visionContent = await getVisionRequiredContent(
     analysis.detectedContent,
   );
   const localContent = await getLocalProcessingContent(
@@ -71,13 +68,13 @@ export async function processMultimodalContent(
   );
 
   logger.info(`  → DeepSeek directo: ${deepseekContent.length} elemento(s)`);
-  logger.info(`  → Gemini procesamiento: ${geminiContent.length} elemento(s)`);
+  logger.info(`  → Gemini vision: ${visionContent.length} elemento(s)`);
   logger.info(`  → Procesamiento local: ${localContent.length} elemento(s)`);
 
   // 3. Si no hay contenido que procesar con Gemini ni localmente, usar DeepSeek directamente
-  if (geminiContent.length === 0 && localContent.length === 0) {
+  if (visionContent.length === 0 && localContent.length === 0) {
     logger.info(
-      "✓ Todo el contenido soportado por DeepSeek - Passthrough directo",
+      "Todo el contenido soportado por DeepSeek - Passthrough directo",
     );
     return {
       processedMessages: messages,
@@ -86,17 +83,15 @@ export async function processMultimodalContent(
     };
   }
 
-  // 4. Procesar contenido con Gemini y localmente
   const userContext = extractUserContext(messages);
   logger.debug(`Contexto del usuario: "${userContext.substring(0, 100)}..."`);
 
   const startTime = Date.now();
 
-  // Procesar contenido con Gemini
-  const geminiDescriptions = await Promise.all(
-    geminiContent.map(async (content, index) => {
+  const visionDescriptions = await Promise.all(
+    visionContent.map(async (content, index) => {
       logger.info(
-        `🔍 Procesando ${content.type} ${index + 1}/${geminiContent.length} con Gemini...`,
+        `Procesando ${content.type} ${index + 1}/${visionContent.length} con Gemini...`,
       );
       try {
         return await geminiService.analyzeContent(content, userContext);
@@ -113,41 +108,37 @@ export async function processMultimodalContent(
   const localDescriptions = await Promise.all(
     localContent.map(async (content, index) => {
       logger.info(
-        `📄 Procesando ${content.type} ${index + 1}/${localContent.length} localmente...`,
+        `Procesando ${content.type} ${index + 1}/${localContent.length} localmente...`,
       );
       try {
-        // Validar tamaño antes de descargar
         const { downloader } = await import("../utils/downloader");
         const validation = await downloader.validateFile(content.source);
 
         if (!validation.valid) {
-          throw new Error(`Archivo no válido: ${validation.reason}`);
+          throw new Error(`Archivo no valido: ${validation.reason}`);
         }
 
         logger.info(
-          `✓ Archivo validado: ${(validation.size! / 1024 / 1024).toFixed(2)}MB, ${validation.contentType}`,
+          `Archivo validado: ${(validation.size! / 1024 / 1024).toFixed(2)}MB, ${validation.contentType}`,
         );
 
-        // Descargar el PDF
         const { buffer } = await downloader.downloadFile(content.source);
 
-        // Procesar localmente con el procesador de PDFs
         return await pdfProcessor.analyzePDF(buffer, userContext);
       } catch (error: unknown) {
         logger.error(
           `Error procesando ${content.type} ${index + 1} localmente: ${getErrorMessage(error)}`,
         );
 
-        // Fallback a Gemini si el procesamiento local falla
         logger.info(
-          `🔄 Fallback a Gemini para ${content.type} ${index + 1}...`,
+          `Fallback a Gemini para ${content.type} ${index + 1}...`,
         );
         try {
           const { geminiService } = await import("../services/geminiService");
           return await geminiService.analyzeContent(content, userContext);
         } catch (geminiError: unknown) {
           logger.error(
-            `Fallback a Gemini también falló: ${getErrorMessage(geminiError)}`,
+            `Fallback a Gemini tambien fallo: ${getErrorMessage(geminiError)}`,
           );
           throw new Error(
             `Procesamiento local y fallback a Gemini fallaron: ${getErrorMessage(error)}`,
@@ -159,7 +150,7 @@ export async function processMultimodalContent(
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   logger.info(
-    `✓ ${geminiContent.length + localContent.length} elemento(s) procesado(s) en ${elapsed}s (${geminiContent.length} Gemini, ${localContent.length} local)`,
+    `${visionContent.length + localContent.length} elemento(s) procesado(s) en ${elapsed}s (${visionContent.length} Gemini, ${localContent.length} local)`,
   );
 
   // 5. Reemplazar contenido procesado en los mensajes
@@ -168,8 +159,8 @@ export async function processMultimodalContent(
   ) as ChatMessage[];
 
   // Combinar todo el contenido procesado
-  const allContent = [...geminiContent, ...localContent];
-  const allDescriptions = [...geminiDescriptions, ...localDescriptions];
+  const allContent = [...visionContent, ...localContent];
+  const allDescriptions = [...visionDescriptions, ...localDescriptions];
 
   for (let i = 0; i < allContent.length; i++) {
     const content = allContent[i];
@@ -202,20 +193,16 @@ export async function processMultimodalContent(
   // (ya está en los mensajes originales)
 
   // Determine strategy
-  let strategy: "direct" | "gemini" | "local" | "mixed" | "gemini-direct" =
+  let strategy: "direct" | "vision" | "local" | "mixed" | "vision-direct" =
     "mixed";
-  if (geminiContent.length > 0 && localContent.length === 0)
-    strategy = "gemini";
-  else if (geminiContent.length === 0 && localContent.length > 0)
+  if (visionContent.length > 0 && localContent.length === 0)
+    strategy = "vision";
+  else if (visionContent.length === 0 && localContent.length > 0)
     strategy = "local";
 
   return { processedMessages, useDeepseekDirectly: false, strategy };
 }
 
-/**
- * Determina si el contenido puede ser manejado directamente por DeepSeek
- * Ahora async para soportar detección de tamaño en PDFs
- */
 export async function canDeepseekHandleDirectly(
   messages: ChatMessage[],
 ): Promise<boolean> {
@@ -223,12 +210,12 @@ export async function canDeepseekHandleDirectly(
 
   if (analysis.hasOnlyText) return true;
 
-  const geminiContent = await getGeminiRequiredContent(
+  const visionContent = await getVisionRequiredContent(
     analysis.detectedContent,
   );
   const localContent = await getLocalProcessingContent(
     analysis.detectedContent,
   );
 
-  return geminiContent.length === 0 && localContent.length === 0;
+  return visionContent.length === 0 && localContent.length === 0;
 }

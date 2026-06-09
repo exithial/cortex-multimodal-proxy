@@ -9,6 +9,7 @@ import { anthropicAdapter } from "./services/anthropicAdapter";
 import type {
   ChatCompletionRequest,
   ChatCompletionResponse,
+  ChatMessage,
   ErrorResponse,
 } from "./types/openai";
 import type {
@@ -67,8 +68,8 @@ function stableStringify(value: any): string {
   return `{${entries.join(",")}}`;
 }
 
-function getModelRoutingStrategy(model: string): "gemini-direct" | "deepseek-routing" {
-  return model === "haiku" ? "gemini-direct" : "deepseek-routing";
+function getModelRoutingStrategy(model: string): "vision-direct" | "deepseek-routing" {
+  return model === "haiku" ? "vision-direct" : "deepseek-routing";
 }
 
 function getAnthropicRequestKey(request: AnthropicRequest): string {
@@ -100,7 +101,7 @@ function cacheAnthropicResponse(key: string, response: AnthropicMessage): void {
   });
 }
 
-// Middleware con límite de 50MB (compatible con límite de Gemini API)
+// Middleware con limite de 50MB
 app.use(express.json({ limit: "50mb" }));
 
 // Health check - Verifica estado del servicio multimodal
@@ -179,6 +180,23 @@ async function* createOpenAIStreamFromText(
   yield "data: [DONE]\n\n";
 }
 
+function extractAssistantContent(messages: ChatMessage[]): string {
+  const msg = messages[0];
+  if (!msg?.content) return "";
+
+  if (typeof msg.content === "string") return msg.content;
+
+  if (Array.isArray(msg.content)) {
+    const textParts = msg.content
+      .filter((part: any) => part.type === "text" && part.text)
+      .map((part: any) => part.text)
+      .join("\n\n");
+    return textParts || JSON.stringify(msg.content);
+  }
+
+  return JSON.stringify(msg.content);
+}
+
 // Cache stats
 app.get("/v1/cache/stats", async (req: Request, res: Response) => {
   try {
@@ -191,7 +209,7 @@ app.get("/v1/cache/stats", async (req: Request, res: Response) => {
 });
 
 // Models endpoint - Lista modelos multimodales disponibles
-// Compatible 100% con OpenAI API, expone 2 modelos con capacidades multimodales completas
+// Compatible 100% con OpenAI API
 app.get("/v1/models", (req: Request, res: Response) => {
   const isAnthropicClient = req.headers["anthropic-version"] !== undefined;
 
@@ -228,30 +246,30 @@ app.get("/v1/models", (req: Request, res: Response) => {
     object: "list",
     data: [
       {
-        id: "deepseek-multimodal-chat",
+        id: "deepseek-multimodal-flash",
         object: "model",
         created: 1706745600,
         owned_by: "deepseek-proxy",
         permission: [],
-        root: "deepseek-chat",
+        root: "deepseek-v4-flash",
         parent: null,
       },
       {
-        id: "deepseek-multimodal-reasoner",
+        id: "deepseek-multimodal-pro",
         object: "model",
         created: 1706745600,
         owned_by: "deepseek-proxy",
         permission: [],
-        root: "deepseek-reasoner",
+        root: "deepseek-v4-pro (max thinking)",
         parent: null,
       },
       {
-        id: "gemini-direct",
+        id: "vision-direct",
         object: "model",
         created: 1706745600,
         owned_by: "gemini-proxy",
         permission: [],
-        root: process.env.GEMINI_MODEL || "gemini-2.5-flash-lite",
+        root: process.env.GEMINI_MODEL || "gemini-2.5-flash",
         parent: null,
       },
     ],
@@ -259,7 +277,7 @@ app.get("/v1/models", (req: Request, res: Response) => {
 });
 
 // Chat completions - Endpoint principal compatible OpenAI
-// Implementa arquitectura "Córtex Sensorial": routing inteligente basado en tipo de contenido
+// Arquitectura "Cortex Sensorial v2": routing inteligente basado en tipo de contenido
 app.post("/v1/chat/completions", async (req: Request, res: Response) => {
   const startTime = Date.now();
 
@@ -270,17 +288,14 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
       `POST /v1/chat/completions | model: ${request.model} | stream: ${request.stream || false} | tools: ${!!request.tools}`,
     );
 
-    // Procesar contenido multimodal - Detección de tipos de contenido
-    // Routing inteligente: texto/código → DeepSeek, multimedia → Gemini
     const { processedMessages, useDeepseekDirectly, strategy } =
       await processMultimodalContent(request.messages, request.model);
 
-    // Setear header de estrategia para debugging y testing
     res.setHeader("X-Multimodal-Strategy", strategy);
 
-    if (strategy === "gemini-direct") {
+    if (strategy === "vision-direct") {
       logger.info(
-        "OK Contenido procesado (gemini-direct) - Respuesta Gemini directa",
+        "OK Contenido procesado (vision-direct) - Respuesta Gemini directa",
       );
     } else if (useDeepseekDirectly) {
       logger.info("OK Contenido soportado por DeepSeek - Passthrough directo");
@@ -294,23 +309,8 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
       messages: processedMessages,
     };
 
-    if (strategy === "gemini-direct") {
-      const assistantMessage = processedMessages[0];
-      let content = "";
-      if (assistantMessage?.content) {
-        if (typeof assistantMessage.content === "string") {
-          content = assistantMessage.content;
-        } else if (Array.isArray(assistantMessage.content)) {
-          const textParts = assistantMessage.content
-            .filter((part: any) => part.type === "text" && part.text)
-            .map((part: any) => part.text)
-            .join("\n\n");
-          content = textParts || JSON.stringify(assistantMessage.content);
-        } else {
-          content = JSON.stringify(assistantMessage.content);
-        }
-      }
-      content = content || "";
+    if (strategy === "vision-direct") {
+      const content = extractAssistantContent(processedMessages);
 
       if (request.stream) {
         res.setHeader("Content-Type", "text/event-stream");
@@ -369,7 +369,6 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
     } else {
       const response = await deepseekService.createChatCompletion(
         processedRequest,
-        processedMessages,
       );
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       logger.info(`✓ Request completado (${elapsed}s total)`);
@@ -530,11 +529,11 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
     );
 
     let processedMessages = openaiRequest.messages;
-    let strategy: "gemini-direct" | "direct" | "gemini" | "mixed" | "local" = "direct";
+    let strategy: "vision-direct" | "direct" | "vision" | "mixed" | "local" = "direct";
     let useDeepseekDirectly = true;
 
-    if (modelRoutingStrategy === "gemini-direct") {
-      strategy = "gemini-direct";
+    if (modelRoutingStrategy === "vision-direct") {
+      strategy = "vision-direct";
       const geminiResponse = await geminiService.generateDirectResponse(openaiRequest.messages);
       processedMessages = [
         {
@@ -578,23 +577,8 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
 
       const requestId = randomUUID();
 
-    if (strategy === "gemini-direct") {
-      const assistantMessage = processedMessages[0];
-      let content = "";
-      if (assistantMessage?.content) {
-        if (typeof assistantMessage.content === "string") {
-          content = assistantMessage.content;
-        } else if (Array.isArray(assistantMessage.content)) {
-          const textParts = assistantMessage.content
-            .filter((part: any) => part.type === "text" && part.text)
-            .map((part: any) => part.text)
-            .join("\n\n");
-          content = textParts || JSON.stringify(assistantMessage.content);
-        } else {
-          content = JSON.stringify(assistantMessage.content);
-        }
-      }
-      content = content || "";
+    if (strategy === "vision-direct") {
+      const content = extractAssistantContent(processedMessages);
 
         const openaiStream = createOpenAIStreamFromText(
           content,
@@ -701,23 +685,8 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
       return;
     }
 
-    if (strategy === "gemini-direct") {
-      const assistantMessage = processedMessages[0];
-      let content = "";
-      if (assistantMessage?.content) {
-        if (typeof assistantMessage.content === "string") {
-          content = assistantMessage.content;
-        } else if (Array.isArray(assistantMessage.content)) {
-          const textParts = assistantMessage.content
-            .filter((part: any) => part.type === "text" && part.text)
-            .map((part: any) => part.text)
-            .join("\n\n");
-          content = textParts || JSON.stringify(assistantMessage.content);
-        } else {
-          content = JSON.stringify(assistantMessage.content);
-        }
-      }
-      content = content || "";
+    if (strategy === "vision-direct") {
+      const content = extractAssistantContent(processedMessages);
       const openaiResponse = createOpenAIResponseFromText(
         content,
         openaiRequest.model,
@@ -744,7 +713,6 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
 
     const openaiResponse = await deepseekService.createChatCompletion(
       processedRequest,
-      processedMessages,
     );
 
     const anthropicResponse = anthropicAdapter.internalToAnthropic(
@@ -810,26 +778,29 @@ app.use((req: Request, res: Response) => {
 // Inicialización del proxy multimodal
 async function init() {
   try {
-    logger.info("🚀 Iniciando DeepSeek Multimodal Proxy...");
+    logger.info("Iniciando DeepSeek Multimodal Proxy v2...");
     logger.info(
-      "🎯 Arquitectura 'Córtex Sensorial': DeepSeek = Cerebro, Gemini = Sentidos",
+      "Arquitectura 'Cortex Sensorial v2': DeepSeek V4 = Cerebro, Gemini 2.5 Flash = Sentidos",
     );
     await cacheService.init();
 
     app.listen(PORT, () => {
       logger.info(
-        `✓ Servidor multimodal escuchando en http://localhost:${PORT}`,
+        `Servidor multimodal escuchando en http://localhost:${PORT}`,
       );
-      logger.info(`📊 Health check: http://localhost:${PORT}/health`);
-      logger.info(`🔌 Modelos: http://localhost:${PORT}/v1/models`);
+      logger.info(`Health check: http://localhost:${PORT}/health`);
+      logger.info(`Modelos: http://localhost:${PORT}/v1/models`);
       logger.info(
-        `🎯 Capacidades: texto, imágenes, audio, video, documentos, PDFs`,
-      );
-      logger.info(
-        `📏 Límite por archivo: ${process.env.MAX_FILE_SIZE_MB || "50"}MB`,
+        `Capacidades: texto, imagenes, audio, video, documentos, PDFs`,
       );
       logger.info(
-        `  Modelo multimodal: ${process.env.GEMINI_MODEL || "gemini-2.5-flash-lite"}`,
+        `Limite por archivo: ${process.env.MAX_FILE_SIZE_MB || "50"}MB`,
+      );
+      logger.info(
+        `  Modelo vision: ${process.env.GEMINI_MODEL || "gemini-2.5-flash"}`,
+      );
+      logger.info(
+        `  Modelo cerebro: deepseek-v4-pro (max thinking)`,
       );
     });
   } catch (error) {

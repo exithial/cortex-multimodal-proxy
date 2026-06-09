@@ -7,15 +7,13 @@ import type {
   ChatMessage,
 } from "../types/openai";
 
-/**
- * Servicio para interactuar con DeepSeek API.
- * Parte del "Cerebro" en la arquitectura "Córtex Sensorial".
- * Maneja texto y código puro, mientras que el contenido multimedia es procesado por Gemini.
- */
 class DeepSeekService {
   private apiKey: string;
   private baseURL: string;
   private timeout: number;
+  private contextWindow: number;
+  private maxOutputTokens: number;
+  private thinkingEffort: string;
 
   constructor() {
     this.apiKey = process.env.DEEPSEEK_API_KEY || "";
@@ -23,54 +21,33 @@ class DeepSeekService {
       process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com/v1";
     this.timeout = parseInt(process.env.DEEPSEEK_TIMEOUT_MS || "30000");
 
-    // Límites de tokens para modelos DeepSeek
-    this.contextWindowChat = parseInt(
-      process.env.DEEPSEEK_CONTEXT_WINDOW_CHAT || "100000",
+    this.contextWindow = parseInt(
+      process.env.DEEPSEEK_CONTEXT_WINDOW || "872000",
     );
-    this.contextWindowReasoner = parseInt(
-      process.env.DEEPSEEK_CONTEXT_WINDOW_REASONER || "100000",
+    this.maxOutputTokens = parseInt(
+      process.env.DEEPSEEK_MAX_OUTPUT || "384000",
     );
-    this.maxOutputChat = parseInt(
-      process.env.DEEPSEEK_MAX_OUTPUT_CHAT || "8000",
-    );
-    this.maxOutputReasoner = parseInt(
-      process.env.DEEPSEEK_MAX_OUTPUT_REASONER || "64000",
-    );
+    this.thinkingEffort = process.env.DEEPSEEK_THINKING_EFFORT || "max";
 
     if (!this.apiKey) {
       throw new Error("DEEPSEEK_API_KEY no configurado en .env");
     }
+
+    const validEfforts = ["high", "max"];
+    if (!validEfforts.includes(this.thinkingEffort)) {
+      logger.warn(`DEEPSEEK_THINKING_EFFORT="${this.thinkingEffort}" invalido, usando "max"`);
+      this.thinkingEffort = "max";
+    }
   }
 
-  private contextWindowChat: number;
-  private contextWindowReasoner: number;
-  private maxOutputChat: number;
-  private maxOutputReasoner: number;
-
-  /**
-   * Mapea el modelo del proxy al modelo destino de DeepSeek.
-   * Convierte nombres multimodales del proxy a modelos reales de DeepSeek API.
-   */
-  private mapModel(proxyModel: string): { target: "deepseek"; model: string } {
-    // Modelos DeepSeek - Soporta tanto nombres antiguos como nuevos multimodales
-    if (proxyModel.includes("reasoner")) {
-      return { target: "deepseek", model: "deepseek-reasoner" };
+  private mapModel(proxyModel: string): { target: "deepseek"; model: string; thinking: boolean } {
+    if (proxyModel === "deepseek-multimodal-pro") {
+      return { target: "deepseek", model: "deepseek-v4-pro", thinking: true };
     }
 
-    const deepseekModelMap: Record<string, string> = {
-      "deepseek-multimodal-chat": "deepseek-chat",
-      "deepseek-multimodal-reasoner": "deepseek-reasoner",
-    };
-
-    return {
-      target: "deepseek",
-      model: deepseekModelMap[proxyModel] || "deepseek-chat",
-    };
+    return { target: "deepseek", model: "deepseek-v4-flash", thinking: true };
   }
 
-  /**
-   * Trunca el historial de mensajes para que quepa en el contexto
-   */
   private truncateMessages(
     messages: ChatMessage[],
     maxContextTokens: number,
@@ -154,49 +131,45 @@ class DeepSeekService {
    * Este es el endpoint principal donde DeepSeek procesa el texto enriquecido
    * con descripciones de contenido multimedia generadas por Gemini.
    */
-  async createChatCompletion(
+  private buildPayload(
     request: ChatCompletionRequest,
-    _messages: ChatMessage[],
-  ): Promise<ChatCompletionResponse> {
-    const mapped = this.mapModel(request.model);
-
-    const isReasoner = mapped.model === "deepseek-reasoner";
-    const contextWindow = isReasoner
-      ? this.contextWindowReasoner
-      : this.contextWindowChat;
-
+    mapped: { target: "deepseek"; model: string; thinking: boolean },
+  ): any {
     const validMessages = this.prepareMessages(request.messages);
-    const truncatedMessages = this.truncateMessages(
-      validMessages,
-      contextWindow,
-    );
+    const truncatedMessages = this.truncateMessages(validMessages, this.contextWindow);
 
     const payload: any = {
       model: mapped.model,
       messages: truncatedMessages,
-      stream: false,
+      stream: request.stream || false,
     };
 
-    // Forward tool-related fields
+    if (mapped.thinking) {
+      payload.thinking = { type: "enabled" };
+      payload.reasoning_effort = this.thinkingEffort;
+    }
+
     if (request.tools) payload.tools = request.tools;
     if (request.tool_choice) payload.tool_choice = request.tool_choice;
-
-    if (request.temperature !== undefined)
-      payload.temperature = request.temperature;
+    if (request.temperature !== undefined) payload.temperature = request.temperature;
     if (request.top_p !== undefined) payload.top_p = request.top_p;
 
-    const maxOutputTokens =
-      mapped.model === "deepseek-reasoner"
-        ? this.maxOutputReasoner
-        : this.maxOutputChat;
-    const requestedMaxTokens = request.max_tokens || maxOutputTokens;
-    payload.max_tokens = Math.min(requestedMaxTokens, maxOutputTokens);
+    const requestedMaxTokens = request.max_tokens || this.maxOutputTokens;
+    payload.max_tokens = Math.min(requestedMaxTokens, this.maxOutputTokens);
 
-    if (request.frequency_penalty !== undefined)
-      payload.frequency_penalty = request.frequency_penalty;
-    if (request.presence_penalty !== undefined)
-      payload.presence_penalty = request.presence_penalty;
+    if (request.frequency_penalty !== undefined) payload.frequency_penalty = request.frequency_penalty;
+    if (request.presence_penalty !== undefined) payload.presence_penalty = request.presence_penalty;
     if (request.stop !== undefined) payload.stop = request.stop;
+
+    return payload;
+  }
+
+  async createChatCompletion(
+    request: ChatCompletionRequest,
+  ): Promise<ChatCompletionResponse> {
+    const mapped = this.mapModel(request.model);
+    const payload = this.buildPayload(request, mapped);
+    payload.stream = false;
 
     try {
       const response = await axios.post<ChatCompletionResponse>(
@@ -228,46 +201,11 @@ class DeepSeekService {
     const mapped = this.mapModel(request.model);
 
     logger.info(
-      `→ Forwarding to DeepSeek (model: ${mapped.model}, streaming: true)`,
+      `Forwarding to DeepSeek (model: ${mapped.model}, thinking: ${mapped.thinking}, streaming: true)`,
     );
 
-    const isReasoner = mapped.model === "deepseek-reasoner";
-    const contextWindow = isReasoner
-      ? this.contextWindowReasoner
-      : this.contextWindowChat;
-
-    const validMessages = this.prepareMessages(request.messages);
-    const truncatedMessages = this.truncateMessages(
-      validMessages,
-      contextWindow,
-    );
-
-    const payload: any = {
-      model: mapped.model,
-      messages: truncatedMessages,
-      stream: true,
-    };
-
-    // Forward tool-related fields
-    if (request.tools) payload.tools = request.tools;
-    if (request.tool_choice) payload.tool_choice = request.tool_choice;
-
-    if (request.temperature !== undefined)
-      payload.temperature = request.temperature;
-    if (request.top_p !== undefined) payload.top_p = request.top_p;
-
-    const maxOutputTokens =
-      mapped.model === "deepseek-reasoner"
-        ? this.maxOutputReasoner
-        : this.maxOutputChat;
-    const requestedMaxTokens = request.max_tokens || maxOutputTokens;
-    payload.max_tokens = Math.min(requestedMaxTokens, maxOutputTokens);
-
-    if (request.frequency_penalty !== undefined)
-      payload.frequency_penalty = request.frequency_penalty;
-    if (request.presence_penalty !== undefined)
-      payload.presence_penalty = request.presence_penalty;
-    if (request.stop !== undefined) payload.stop = request.stop;
+    const payload = this.buildPayload(request, mapped);
+    payload.stream = true;
 
     try {
       const response = await axios.post(
@@ -284,6 +222,14 @@ class DeepSeekService {
       );
 
       let buffer = "";
+      let streamEnded = false;
+      const safeEnd = () => {
+        if (!streamEnded) {
+          streamEnded = true;
+          onEnd();
+        }
+      };
+
       response.data.on("data", (chunk: Buffer) => {
         buffer += chunk.toString();
         
@@ -296,7 +242,7 @@ class DeepSeekService {
           if (line.startsWith("data: ")) {
             const data = line.substring(6);
             if (data === "[DONE]") {
-              onEnd();
+              safeEnd();
               return;
             }
             
@@ -311,7 +257,7 @@ class DeepSeekService {
       });
 
       response.data.on("error", (error: Error) => onError(error));
-      response.data.on("end", () => onEnd());
+      response.data.on("end", () => safeEnd());
     } catch (error: any) {
       this.handleStreamError(error, onError);
     }
