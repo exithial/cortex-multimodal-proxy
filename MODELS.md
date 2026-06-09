@@ -46,8 +46,8 @@ All models use **Gemini 2.5 Flash** for multimodal perception:
 
 | Model                      | Input  | Output |
 | :------------------------- | :----- | :----- |
-| `deepseek-multimodal-flash`| $0.30  | $0.88  |
-| `deepseek-multimodal-pro`  | $0.59  | $1.47  |
+| `deepseek-multimodal-flash`| $0.30  | $0.90  |
+| `deepseek-multimodal-pro`  | $0.60  | $1.50  |
 | `vision-direct`            | $0.15  | $0.60  |
 
 ## Claude Code Models (Anthropic)
