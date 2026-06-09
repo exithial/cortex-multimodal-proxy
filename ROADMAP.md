@@ -104,16 +104,16 @@
 
 ### Testing
 - [ ] Coverage de 59% a 70%+: tests para `buildPayload`, `extractAssistantContent`, `safeEnd`
-- [ ] Tests unitarios para `geminiService.ts` (537 lineas, 0 tests) y `deepseekService.ts` (268 lineas, 0 tests)
-- [ ] Tests de integracion para modelos nuevos (V4 Flash/Pro con API real)
-- [ ] Tests de edge cases: mensajes vacios, overflow de max_tokens, streams concurrentes
+- [ ] Tests unitarios para `geminiService.ts` (537 líneas, 0 tests) y `deepseekService.ts` (268 líneas, 0 tests)
+- [ ] Tests de integración para modelos nuevos (V4 Flash/Pro con API real)
+- [ ] Tests de edge cases: mensajes vacíos, overflow de max_tokens, streams concurrentes
 - [ ] Test del handler de error de streaming
 
 ### Refactor
-- [ ] Split `src/index.ts` (848 lineas) en `src/routes/chat.ts` + `src/routes/anthropic.ts`
-- [ ] Extraer logica de deduplicacion Anthropic a `src/services/dedupService.ts`
+- [ ] Split `src/index.ts` (848 líneas) en `src/routes/chat.ts` + `src/routes/anthropic.ts`
+- [ ] Extraer lógica de deduplicación Anthropic a `src/services/dedupService.ts`
 - [ ] Crear `src/types/strategy.ts` para tipos compartidos de estrategia
-- [ ] Fix streaming Anthropic: `openaiChunksGenerator()` acumula todos los chunks en memoria antes de streamear al adapter (rompe el proposito del streaming)
+- [ ] Fix streaming Anthropic: `openaiChunksGenerator()` acumula todos los chunks en memoria antes de streamear al adapter (rompe el propósito del streaming)
 
 ### CI/CD
 - [ ] `npm audit fix` — resolver vulnerabilidades en dependencias
@@ -136,7 +136,7 @@
 - [ ] Dashboard web simple: stats de cache, uso de modelos, logs recientes
 
 ### Performance
-- [ ] Reemplazar estimacion `chars/3` con `tiktoken` o tokenizer nativo de DeepSeek
+- [ ] Reemplazar estimación `chars/3` con `tiktoken` o tokenizer nativo de DeepSeek
 - [ ] Axios connection pooling + retry con backoff
 - [ ] PDF download + procesamiento en pipeline paralelo
 - [ ] Cache en disco con write-locking: `fs.writeFile` concurrente puede corromper `descriptions.json`

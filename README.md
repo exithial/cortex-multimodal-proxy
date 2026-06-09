@@ -88,7 +88,7 @@ Agrega a `~/.config/opencode/opencode.json`:
       "models": {
         "deepseek-multimodal-flash": {
           "name": "deepseek-multimodal-flash",
-          "cost": { "input": 0.30, "output": 0.90 },
+          "cost": { "input": 0.44, "output": 2.78 },
           "limit": { "context": 872000, "output": 384000 },
           "modalities": {
             "input": ["text", "image", "audio", "video", "pdf"],
@@ -97,7 +97,7 @@ Agrega a `~/.config/opencode/opencode.json`:
         },
         "deepseek-multimodal-pro": {
           "name": "deepseek-multimodal-pro",
-          "cost": { "input": 0.60, "output": 1.50 },
+          "cost": { "input": 0.74, "output": 3.37 },
           "limit": { "context": 872000, "output": 384000 },
           "modalities": {
             "input": ["text", "image", "audio", "video", "pdf"],
@@ -106,7 +106,7 @@ Agrega a `~/.config/opencode/opencode.json`:
         },
         "vision-direct": {
           "name": "vision-direct",
-          "cost": { "input": 0.15, "output": 0.60 },
+          "cost": { "input": 0.30, "output": 2.50 },
           "limit": { "context": 1000000, "output": 8192 },
           "modalities": {
             "input": ["text", "image", "audio", "video", "pdf"],
