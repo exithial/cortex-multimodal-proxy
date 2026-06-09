@@ -42,7 +42,6 @@ describe('multimodalDetector', () => {
 
       expect(result.hasOnlyText).toBe(true);
       expect(result.detectedContent).toHaveLength(0);
-      expect(result.needsGemini).toBe(false);
     });
 
     it('debe detectar imagen en formato image_url', async () => {
@@ -63,7 +62,6 @@ describe('multimodalDetector', () => {
       expect(result.detectedContent[0].internalType).toBe('image');
       expect(result.detectedContent[0].source).toBe('https://example.com/image.png');
       expect(result.hasOnlyText).toBe(false);
-      expect(result.needsGemini).toBe(true);
     });
 
     it('debe detectar imagen base64 embebida en texto', async () => {
@@ -99,7 +97,6 @@ describe('multimodalDetector', () => {
       expect(result.detectedContent).toHaveLength(1);
       expect(result.detectedContent[0].type).toBe('audio');
       expect(result.detectedContent[0].internalType).toBe('audio');
-      expect(result.needsGemini).toBe(true);
     });
 
     it('debe detectar video en formato video_url', async () => {
@@ -154,7 +151,6 @@ describe('multimodalDetector', () => {
       expect(result.detectedContent).toHaveLength(1);
       expect(result.detectedContent[0].type).toBe('text');
       expect(result.detectedContent[0].internalType).toBe('code');
-      expect(result.needsGemini).toBe(false);
     });
 
     it('debe detectar múltiples tipos de contenido', async () => {

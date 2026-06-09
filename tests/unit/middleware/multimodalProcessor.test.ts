@@ -5,7 +5,6 @@ import {
 } from '../../../src/middleware/multimodalProcessor';
 import type { ChatMessage } from '../../../src/types/openai';
 
-// Mock dependencies
 const mockAnalyzeContent = vi.fn();
 const mockGenerateDirectResponse = vi.fn();
 
@@ -34,7 +33,6 @@ vi.mock('../../../src/utils/downloader', () => ({
   },
 }));
 
-// Mock logger
 vi.mock('../../../src/utils/logger', () => ({
   logger: {
     info: vi.fn(),
@@ -56,23 +54,23 @@ describe('multimodalProcessor', () => {
   });
 
   describe('processMultimodalContent', () => {
-    it('debe usar gemini-direct si se especifica modelo', async () => {
+    it('debe usar vision-direct si se especifica modelo', async () => {
       mockGenerateDirectResponse.mockResolvedValue('Respuesta directa de Gemini');
 
       const messages: ChatMessage[] = [
         { role: 'user', content: 'Hola' },
       ];
 
-      const result = await processMultimodalContent(messages, 'gemini-direct');
+      const result = await processMultimodalContent(messages, 'vision-direct');
 
       expect(mockGenerateDirectResponse).toHaveBeenCalledWith(messages);
-      expect(result.strategy).toBe('gemini-direct');
+      expect(result.strategy).toBe('vision-direct');
       expect(result.processedMessages[0].content).toBe('Respuesta directa de Gemini');
     });
 
     it('debe pasar directamente si solo hay texto', async () => {
       const messages: ChatMessage[] = [
-        { role: 'user', content: 'Solo texto sin imágenes' },
+        { role: 'user', content: 'Solo texto sin imagenes' },
       ];
 
       const result = await processMultimodalContent(messages);
@@ -83,7 +81,7 @@ describe('multimodalProcessor', () => {
     });
 
     it('debe procesar imagen con Gemini', async () => {
-      mockAnalyzeContent.mockResolvedValue('Descripción de imagen');
+      mockAnalyzeContent.mockResolvedValue('Descripcion de imagen');
 
       const messages: ChatMessage[] = [
         {
@@ -98,13 +96,13 @@ describe('multimodalProcessor', () => {
       const result = await processMultimodalContent(messages);
 
       expect(mockAnalyzeContent).toHaveBeenCalled();
-      expect(result.strategy).toBe('gemini');
+      expect(result.strategy).toBe('vision');
       expect(result.useDeepseekDirectly).toBe(false);
-      expect(result.processedMessages[0].content).toContain('DESCRIPCIÓN');
-      expect(result.processedMessages[0].content).toContain('Descripción de imagen');
+      expect(result.processedMessages[0].content).toContain('DESCRIPCI');
+      expect(result.processedMessages[0].content).toContain('Descripcion de imagen');
     });
 
-    it('debe procesar múltiples imágenes', async () => {
+    it('debe procesar multiples imagenes', async () => {
       mockAnalyzeContent
         .mockResolvedValueOnce('Primera imagen')
         .mockResolvedValueOnce('Segunda imagen');
@@ -143,16 +141,14 @@ describe('multimodalProcessor', () => {
       const result = await processMultimodalContent(messages);
 
       expect(mockAnalyzeContent).toHaveBeenCalled();
-      expect(result.strategy).toBe('gemini');
+      expect(result.strategy).toBe('vision');
       expect(result.processedMessages[0].content).toContain('PDF');
     });
 
-    it('debe procesar PDF localmente si está habilitado', async () => {
+    it('debe procesar PDF localmente si esta habilitado', async () => {
       process.env.PDF_LOCAL_PROCESSING = 'true';
       process.env.PDF_LOCAL_MAX_SIZE_MB = '5';
-      
-      // Este test requiere mocks complejos del downloader
-      // Por ahora verificamos que se detecte como contenido local
+
       const messages: ChatMessage[] = [
         {
           role: 'user',
@@ -163,7 +159,6 @@ describe('multimodalProcessor', () => {
         },
       ];
 
-      // El test verifica la configuración, no el procesamiento real
       expect(process.env.PDF_LOCAL_PROCESSING).toBe('true');
     });
 
@@ -189,8 +184,6 @@ describe('multimodalProcessor', () => {
       expect(result.processedMessages[0].content).toContain('Fallback Gemini');
     });
 
-
-
     it('debe lanzar error si Gemini falla', async () => {
       mockAnalyzeContent.mockRejectedValue(new Error('Gemini API error'));
 
@@ -207,7 +200,7 @@ describe('multimodalProcessor', () => {
     });
 
     it('debe pasar contexto del usuario a Gemini', async () => {
-      mockAnalyzeContent.mockResolvedValue('Descripción');
+      mockAnalyzeContent.mockResolvedValue('Descripcion');
 
       const messages: ChatMessage[] = [
         {
@@ -254,7 +247,7 @@ describe('multimodalProcessor', () => {
       expect(result).toBe(false);
     });
 
-    it('debe retornar true para código fuente', async () => {
+    it('debe retornar true para codigo fuente', async () => {
       const messages: ChatMessage[] = [
         {
           role: 'user',

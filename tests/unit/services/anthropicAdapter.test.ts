@@ -17,24 +17,24 @@ vi.mock('../../../src/utils/logger', () => ({
 
 describe('anthropicAdapter', () => {
   describe('mapClaudeModelToInternal', () => {
-    it('debe mapear haiku a gemini-direct', () => {
+    it('debe mapear haiku a vision-direct', () => {
       const result = anthropicAdapter.mapClaudeModelToInternal('haiku');
-      expect(result).toBe('gemini-direct');
+      expect(result).toBe('vision-direct');
     });
 
-    it('debe mapear sonnet a deepseek-multimodal-chat', () => {
+    it('debe mapear sonnet a deepseek-multimodal-flash', () => {
       const result = anthropicAdapter.mapClaudeModelToInternal('sonnet');
-      expect(result).toBe('deepseek-multimodal-chat');
+      expect(result).toBe('deepseek-multimodal-flash');
     });
 
-    it('debe mapear opus a deepseek-multimodal-reasoner', () => {
+    it('debe mapear opus a deepseek-multimodal-pro', () => {
       const result = anthropicAdapter.mapClaudeModelToInternal('opus');
-      expect(result).toBe('deepseek-multimodal-reasoner');
+      expect(result).toBe('deepseek-multimodal-pro');
     });
 
     it('debe usar default para modelos desconocidos', () => {
       const result = anthropicAdapter.mapClaudeModelToInternal('unknown-model');
-      expect(result).toBe('deepseek-multimodal-chat');
+      expect(result).toBe('deepseek-multimodal-flash');
     });
   });
 
@@ -50,7 +50,7 @@ describe('anthropicAdapter', () => {
 
       const result = anthropicAdapter.anthropicToInternal(request);
 
-      expect(result.model).toBe('deepseek-multimodal-chat');
+      expect(result.model).toBe('deepseek-multimodal-flash');
       expect(result.messages).toHaveLength(1);
       expect(result.messages[0].role).toBe('user');
       expect(result.messages[0].content).toBe('Hola');

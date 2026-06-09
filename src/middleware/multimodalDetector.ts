@@ -26,12 +26,11 @@ export interface DetectedContent {
 }
 
 export interface ContentAnalysis {
-  needsGemini: boolean;
   needsLocalProcessing: boolean;
   detectedContent: DetectedContent[];
   hasOnlyText: boolean;
   deepseekDirectContent: DetectedContent[];
-  geminiRequiredContent: DetectedContent[];
+  visionRequiredContent: DetectedContent[];
   localProcessingContent: DetectedContent[];
 }
 
@@ -302,27 +301,24 @@ export async function detectMultimodalContent(
   // Si no hay mensaje de usuario, no hay contenido
   if (lastUserMessageIndex === -1) {
     return {
-      needsGemini: false,
       needsLocalProcessing: false,
       detectedContent: [],
       hasOnlyText: true,
       deepseekDirectContent: [],
-      geminiRequiredContent: [],
+      visionRequiredContent: [],
       localProcessingContent: [],
     };
   }
 
-  // Solo procesar el último mensaje del usuario
   const message = messages[lastUserMessageIndex];
 
   if (!message.content) {
     return {
-      needsGemini: false,
       needsLocalProcessing: false,
       detectedContent: [],
       hasOnlyText: true,
       deepseekDirectContent: [],
-      geminiRequiredContent: [],
+      visionRequiredContent: [],
       localProcessingContent: [],
     };
   }
@@ -524,23 +520,19 @@ export async function detectMultimodalContent(
     }
   }
 
-  // Separar contenido por destino
   const deepseekDirectContent = getDeepseekSupportedContent(detectedContent);
-  const geminiRequiredContent = await getGeminiRequiredContent(detectedContent);
+  const visionRequiredContent = await getVisionRequiredContent(detectedContent);
   const localProcessingContent =
     await getLocalProcessingContent(detectedContent);
 
-  // Determinar si necesita procesamiento
-  const needsGemini = geminiRequiredContent.length > 0;
   const needsLocalProcessing = localProcessingContent.length > 0;
 
   return {
-    needsGemini,
     needsLocalProcessing,
     detectedContent,
     hasOnlyText,
     deepseekDirectContent,
-    geminiRequiredContent,
+    visionRequiredContent,
     localProcessingContent,
   };
 }
@@ -594,24 +586,23 @@ export function getDeepseekSupportedContent(
       return true; // DeepSeek puede leer estos formatos
     }
 
-    // 4. PDFs ahora van a Gemini (soporta application/pdf)
+    // PDFs ahora van a Gemini (soporta vision)
     // El texto procesado por Gemini va a DeepSeek
     if (item.internalType === "pdf") {
       return false; // PDFs van a Gemini, no directo a DeepSeek
     }
 
-    // NOTA: Imágenes URL ya NO van directo a DeepSeek
-    // Todas las imágenes pasan por Gemini para consistencia y mejor calidad
+    // Todas las imagenes pasan por Gemini para consistencia y mejor calidad
 
     return false;
   });
 }
 
 /**
- * Determina qué contenido necesita procesamiento por Gemini.
+ * Determina que contenido necesita procesamiento por Gemini (vision).
  * Gemini procesa contenido visual, auditivo y documentos complejos.
  */
-export async function getGeminiRequiredContent(
+export async function getVisionRequiredContent(
   content: DetectedContent[],
 ): Promise<DetectedContent[]> {
   // Primero obtener qué contenido va local
@@ -624,14 +615,14 @@ export async function getGeminiRequiredContent(
       return false;
     }
 
-    // 1. TODAS las imágenes van por Gemini (URLs y Base64)
+    // 1. TODAS las imagenes van por Gemini (URLs y Base64)
     if (item.type === "image") {
-      return true; // Gemini descarga y analiza todas las imágenes
+      return true;
     }
 
     // 2. Audio, video, documentos densos
     if (["audio", "video", "document"].includes(item.type)) {
-      return true; // Gemini convierte a texto estructurado
+      return true;
     }
 
     // 3. Documentos complejos (INCLUYENDO PDFs - Gemini los soporta)
@@ -641,23 +632,21 @@ export async function getGeminiRequiredContent(
         item.extension,
       )
     ) {
-      return true; // Gemini extrae estructura y contenido
+      return true;
     }
 
-    // 4. Contenido que requiere percepción especializada
-
-    // Documentos con tablas/gráficos
+    // 4. Contenido que requiere percepcion especializada
     if (
       item.internalType === "document" &&
       item.extension &&
       ["xlsx", "csv"].includes(item.extension)
     ) {
-      return true; // Gemini extrae estructura tabular
+      return true;
     }
 
     // 5. PDFs por MIME type (application/pdf)
     if (item.mimeType && item.mimeType.includes("pdf")) {
-      return true; // Gemini SÍ soporta PDFs
+      return true;
     }
 
     return false;
@@ -676,7 +665,7 @@ export async function getLocalProcessingContent(
   const maxLocalSizeBytes = maxLocalSizeMB * 1024 * 1024;
 
   if (!useLocalProcessing) {
-    return []; // Todo va a Gemini
+      return []; // Todo va a Gemini
   }
 
   const localContent: DetectedContent[] = [];
@@ -739,12 +728,12 @@ export async function getLocalProcessingContent(
       localContent.push(item);
     } else if (fileSizeBytes > maxLocalSizeBytes) {
       logger.info(
-        `✗ PDF grande (${(fileSizeBytes / 1024 / 1024).toFixed(2)}MB) → Gemini`,
+        `PDF grande (${(fileSizeBytes / 1024 / 1024).toFixed(2)}MB) -> Gemini`,
       );
       // PDF grande va a Gemini, no lo agregamos a localContent
     } else {
-      // Tamaño desconocido: por seguridad, va a Gemini
-      logger.info(`? PDF tamaño desconocido → Gemini (más seguro)`);
+      // Tamano desconocido: por seguridad, va a Gemini
+      logger.info(`? PDF tamano desconocido -> Gemini (mas seguro)`);
     }
   }
 

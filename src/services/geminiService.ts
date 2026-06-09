@@ -21,7 +21,7 @@ class GeminiService {
   private apiKey: string | null = null;
 
   constructor() {
-    this.model = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+    this.model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
     this.multimodalPrompt =
       process.env.MULTIMODAL_PROMPT ||
       "Analyze this content thoroughly and describe what you see/hear/read in detail. Include all relevant information. Be precise and comprehensive.";
