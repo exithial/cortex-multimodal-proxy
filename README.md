@@ -107,7 +107,7 @@ Agrega a `~/.config/opencode/opencode.json`:
         "vision-direct": {
           "name": "vision-direct",
           "cost": { "input": 0.30, "output": 2.50 },
-          "limit": { "context": 1000000, "output": 8192 },
+          "limit": { "context": 1000000, "output": 65536 },
           "modalities": {
             "input": ["text", "image", "audio", "video", "pdf"],
             "output": ["text"]

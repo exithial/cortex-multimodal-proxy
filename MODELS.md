@@ -40,7 +40,7 @@ All models use **Gemini 2.5 Flash** for multimodal perception:
 | :------------------------- | :------------------ | :----- | :----- | :------------------------------- |
 | `deepseek-multimodal-flash`| `deepseek-v4-flash` | 872K   | 384K   | Text, Image, Audio, Video, PDF   |
 | `deepseek-multimodal-pro`  | `deepseek-v4-pro`   | 872K   | 384K   | Text, Image, Audio, Video, PDF   |
-| `vision-direct`            | `gemini-2.5-flash`  | 1M     | 8K     | Full Multimodal (Direct)         |
+| `vision-direct`            | `gemini-2.5-flash`  | 1M     | 64K    | Full Multimodal (Direct)         |
 
 ### Pricing (per 1M tokens, worst case combined)
 

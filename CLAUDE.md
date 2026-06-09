@@ -18,9 +18,9 @@
 - Proxy model IDs: `deepseek-multimodal-flash`, `deepseek-multimodal-pro`, `vision-direct`
 
 ## Token Limits
-- DeepSeek context: 872K (1M native minus 128K slack for client headers)
+- DeepSeek context: 1M nativo, proxy expone 872K (128K slack para headers de OpenCode/Claude Code y margen de trabajo del proxy)
 - DeepSeek output: 384K (V4 max)
-- Always leave headroom for OpenCode/Claude Code header injection
+- Siempre dejar headroom para que OpenCode/Claude Code inyecte sus headers sin exceder el limite real
 
 ## Pricing
 - Always calculate combined worst-case (vision model + DeepSeek) and present in README
