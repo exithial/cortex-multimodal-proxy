@@ -1,7 +1,7 @@
 {
   "name": "deepseek-multimodal-proxy",
-  "version": "1.8.0",
-  "description": "Proxy OpenAI-compatible que añade capacidades multimodales a DeepSeek mediante Google Gemini",
+  "version": "2.0.0",
+  "description": "Proxy OpenAI-compatible que a\u00f1ade capacidades multimodales a DeepSeek V4 mediante Gemini 2.5 Flash",
   "author": "exithial <en.solis.g@gmail.com>",
   "main": "dist/index.js",
   "scripts": {

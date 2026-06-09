@@ -5,44 +5,43 @@
 ![Node.js](https://img.shields.io/badge/node.js->=20.x-green?style=flat-square&logo=node.js)
 ![CI](https://github.com/exithial/deepseek-multimodal-proxy/workflows/CI%2FCD%20Pipeline/badge.svg)
 
-Proxy HTTP OpenAI-compatible que implementa **arquitectura "Córtex Sensorial"** para añadir capacidades multimodales a DeepSeek utilizando **Google Gemini 2.5 Flash Lite** como sistema de percepción.
+Proxy HTTP OpenAI-compatible con arquitectura **"Cortex Sensorial v2"**: DeepSeek V4 como cerebro y Gemini 2.5 Flash como sistema de percepcion multimodal.
 
-## 🎯 Arquitectura "Córtex Sensorial"
+## Arquitectura "Cortex Sensorial v2"
 
-### **Visión Conceptual**
+- **DeepSeek V4 = Cerebro**: Logica, codigo, razonamiento puro (Flash + Pro con Max thinking)
+- **Gemini 2.5 Flash = Sentidos**: Percepcion multimodal completa (imagen, audio, video, documentos, PDFs)
+- **Proxy = Cortex**: Routing inteligente segun especialidad cognitiva
 
-- **DeepSeek = Cerebro**: Lógica, código, razonamiento puro
-- **Gemini 2.5 Flash Lite = Sentidos**: Percepción multimodal (imágenes, audio, video, documentos, PDFs)
-- **Proxy = Córtex**: Routing inteligente según especialidad cognitiva
+### Caracteristicas Principales
 
-### **Características Principales**
+- **Routing Inteligente Automatico**: Detecta 8 tipos de contenido y decide routing optimo
+- **Multimodalidad Completa**: Imagenes, audio, video, PDFs, documentos, codigo, texto
+- **Modo Directo**: Usa `vision-direct` para bypassing DeepSeek con respuestas directas de Gemini
+- **Procesamiento Hibrido de PDFs**: Local (<1MB) para velocidad o Gemini (>1MB) para calidad/OCR
+- **Descarga Automatica con Validacion**: URLs con validacion Content-Type real y limite de 50MB
+- **Cache Contextual SHA-256**: Hash unico por contenido + pregunta (evita re-procesamiento)
+- **Streaming SSE**: Soporte nativo para respuestas en tiempo real
+- **Optimizado para OpenCode**: Mapeo transparente de modalidades `text`, `image`, `audio`, `video`, `pdf`
+- **DeepSeek V4 Max Thinking**: Ambos Flash y Pro con `reasoning_effort: "max"` para maxima calidad
 
-- ✅ **Routing Inteligente Automático**: Detecta 8 tipos de contenido y decide routing óptimo
-- ✅ **Multimodalidad Completa**: Imágenes, audio, video, PDFs, documentos, código, texto
-- ✅ **Modo Directo**: Usa `gemini-direct` para bypassing DeepSeek y obtener respuestas ultra-rápidas directamente de Gemini
-- ✅ **Procesamiento Híbrido de PDFs**: Local (<1MB) para velocidad o Gemini (>1MB) para calidad/OCR
-- ✅ **Descarga Automática con Validación**: URLs con validación Content-Type real y límite de 50MB
-- ✅ **Caché Contextual SHA-256**: Hash único por contenido + pregunta (Evita re-procesamiento)
-- ✅ **Streaming SSE**: Soporte nativo para respuestas en tiempo real (compatible con OpenCode)
-- ✅ **Optimizado para OpenCode**: Mapeo transparente de modalidades `text`, `image`, `audio`, `video`, `pdf`
-
-## 📦 Requisitos
+## Requisitos
 
 - **Node.js** >= 20.x (LTS)
-- **DeepSeek API Key** (Para razonamiento/texto)
-- **Google Gemini API Key** (Para percepción multimodal)
-- **Windows PowerShell 5.1+** o **bash** si vas a usar los scripts de gestión
+- **DeepSeek API Key** (para razonamiento/texto)
+- **Google Gemini API Key** (para percepcion multimodal)
+- **Windows PowerShell 5.1+** o **bash** si usas scripts de gestion
 
-## 🪟 Compatibilidad de Plataforma
+## Compatibilidad de Plataforma
 
-- **Windows nativo**: Compatible mediante wrappers Node + scripts PowerShell
-- **Linux**: Compatible mediante scripts Bash + `systemd`
-- **Docker / Docker Compose**: Compatible en Windows, Linux y macOS
-- **node_modules compartido entre SOs**: No recomendado; si cambias entre Linux y Windows, reinstala dependencias con `npm install`
+- **Windows nativo**: Mediante wrappers Node + scripts PowerShell
+- **Linux**: Mediante scripts Bash + `systemd`
+- **Docker / Docker Compose**: Windows, Linux y macOS
+- **node_modules compartido entre SOs**: No recomendado; reinstala con `npm install` al cambiar de SO
 
-## 🚀 Instalación Rápida
+## Instalacion Rapida
 
-### Opción 1: Script Automático (Recomendado)
+### Opcion 1: Script Automatico (Recomendado)
 
 ```bash
 git clone https://github.com/exithial/deepseek-multimodal-proxy.git
@@ -51,130 +50,63 @@ npm install
 npm run setup
 ```
 
-Esto configurará todo automáticamente:
+Esto configura todo automaticamente: compila TypeScript, instala el servicio `systemd` (Linux) o inicia el proxy en segundo plano (Windows), y verifica disponibilidad.
 
-- Recompila el proyecto con TypeScript
-- En Linux, instala el servicio `systemd` `deepseek-proxy`
-- En Windows, inicia el proxy en segundo plano con gestión por PID y logs
-- Verifica la disponibilidad del servicio y los modelos
-
-### Opción 2: Instalación Manual
+### Opcion 2: Instalacion Manual
 
 ```bash
-# 1. Instalar dependencias
 npm install
-
-# 2. Compilar
 npm run build
-
-# 3. Configurar .env
 cp .env.example .env
-
-# 4. Iniciar servicio
+# Edita .env con tus API keys
 npm run proxy:start
 ```
 
-En PowerShell:
-
-```powershell
-npm install
-npm run build
-Copy-Item .env.example .env
-npm run proxy:start
-```
-
-### Opción 3: Docker Compose
+### Opcion 3: Docker Compose
 
 ```bash
 npm run docker:build
 npm run docker:up
-npm run docker:ps
 ```
 
-Notas:
+Notas: Usa `.env` como configuracion del contenedor, publica puerto `7777`, persiste `cache/` en volumen Docker, arranca con `restart: always`.
 
-- Usa `.env` como fuente de configuración del contenedor
-- Publica el puerto `7777`
-- Persiste `cache/` en un volumen Docker
-- Arranca con política `unless-stopped`, ideal para autoarranque cuando Docker inicia con el sistema
+## Integracion con OpenCode
 
-## 🧪 Pruebas
-
-### Tests Unitarios (Rápidos - Sin costo de API)
-```bash
-npm run test:unit       # 103 tests en <1 segundo
-npm run test:unit:watch # Modo desarrollo
-npm run test:coverage   # Ver cobertura (64%)
-```
-
-### Tests de Integración (Requieren APIs)
-```bash
-npm run test:master     # Suite maestra completa
-npm run test:claude     # Tests de compatibilidad Anthropic
-npm run test:all        # Todos los tests de integración
-```
-
-## 🐳 Operación con Docker
-
-Comandos principales:
-
-```bash
-npm run docker:build
-npm run docker:up
-npm run docker:logs
-npm run docker:ps
-npm run docker:down
-```
-
-Verificación rápida:
-
-```bash
-curl http://localhost:7777/health
-```
-
-Autoarranque:
-
-- **Docker Desktop (Windows/macOS)**: habilita el inicio automático de Docker Desktop; `restart: unless-stopped` levantará el contenedor cuando Docker esté disponible
-- **Docker Engine (Linux)**: habilita el servicio Docker al arranque; el contenedor volverá automáticamente
-
-## 🔌 Integración con OpenCode
-
-### Configuración Multimodal Completa
-
-Agrega esto a tu `~/.config/opencode/opencode.json`:
+Agrega a `~/.config/opencode/opencode.json`:
 
 ```json
 {
   "provider": {
     "deepseek-multimodal": {
-      "name": "DeepSeek Multimodal (Proxy Inteligente)",
+      "name": "DeepSeek Multimodal (Proxy v2)",
       "npm": "@ai-sdk/openai-compatible",
       "options": {
         "baseURL": "http://localhost:7777/v1",
         "apiKey": "not-needed"
       },
       "models": {
-        "deepseek-multimodal-chat": {
-          "name": "deepseek-multimodal-chat",
-          "cost": { "input": 0.5, "output": 1.5 },
-          "limit": { "context": 100000, "output": 8000 },
+        "deepseek-multimodal-flash": {
+          "name": "deepseek-multimodal-flash",
+          "cost": { "input": 0.30, "output": 0.90 },
+          "limit": { "context": 872000, "output": 384000 },
           "modalities": {
             "input": ["text", "image", "audio", "video", "pdf"],
             "output": ["text"]
           }
         },
-        "deepseek-multimodal-reasoner": {
-          "name": "deepseek-multimodal-reasoner",
-          "cost": { "input": 1.0, "output": 3.0 },
-          "limit": { "context": 100000, "output": 64000 },
+        "deepseek-multimodal-pro": {
+          "name": "deepseek-multimodal-pro",
+          "cost": { "input": 0.60, "output": 1.50 },
+          "limit": { "context": 872000, "output": 384000 },
           "modalities": {
             "input": ["text", "image", "audio", "video", "pdf"],
             "output": ["text"]
           }
         },
-        "gemini-direct": {
-          "name": "gemini-direct",
-          "cost": { "input": 0.0, "output": 0.0 },
+        "vision-direct": {
+          "name": "vision-direct",
+          "cost": { "input": 0.15, "output": 0.60 },
           "limit": { "context": 1000000, "output": 8192 },
           "modalities": {
             "input": ["text", "image", "audio", "video", "pdf"],
@@ -187,21 +119,13 @@ Agrega esto a tu `~/.config/opencode/opencode.json`:
 }
 ```
 
-## 🤖 Integración con Claude Code (Anthropic)
-
-Configura el CLI para usar el proxy como backend Anthropic:
+## Integracion con Claude Code
 
 ```bash
 export ANTHROPIC_BASE_URL="http://localhost:7777"
 ```
 
-En PowerShell:
-
-```powershell
-$env:ANTHROPIC_BASE_URL = "http://localhost:7777"
-```
-
-Tambien puedes configurar `.claude/settings.json`:
+O en `.claude/settings.json`:
 
 ```json
 {
@@ -220,188 +144,131 @@ Tambien puedes configurar `.claude/settings.json`:
 }
 ```
 
-Modelos disponibles para Claude Code:
+Modelos para Claude Code:
 
-- `haiku` → **gemini-direct** (rápido/económico, bypass total de DeepSeek)
-- `sonnet` → **deepseek-multimodal-chat** (routing inteligente por contenido)
-- `opus` → **deepseek-multimodal-reasoner** (routing inteligente por contenido)
+| Claude | Interno | Routing |
+|--------|---------|---------|
+| `haiku` | `vision-direct` | Gemini directo |
+| `sonnet` | `deepseek-multimodal-flash` | Inteligente por contenido |
+| `opus` | `deepseek-multimodal-pro` | Inteligente por contenido |
 
-### **Routing Inteligente por Modelo**
+## Flujo de Trabajo "Cortex Sensorial v2"
 
-El proxy implementa routing automático basado en el modelo:
+### Matriz de Routing
 
-- **Haiku**: Todo va a `gemini-direct` para máxima velocidad
-- **Sonnet/Opus**: Routing inteligente según tipo de contenido:
-  - **Texto/código** → DeepSeek directo
-  - **Imágenes/audio/video** → Gemini → DeepSeek
-  - **PDFs pequeños** → Procesamiento local → DeepSeek
-  - **PDFs grandes** → Gemini → DeepSeek
+| Contenido | Ejemplos | Routing | Razon |
+|-----------|----------|---------|-------|
+| Texto / Codigo | `.js`, `.py`, `.md` | DeepSeek directo | Maxima precision logica |
+| Imagenes | `.jpg`, `.png`, Base64 | Gemini -> DeepSeek | OCR + descripcion visual |
+| Audio | `.mp3`, `.wav`, `.m4a` | Gemini -> DeepSeek | Transcripcion + analisis de tono |
+| Video | `.mp4`, `.mov`, `.webm` | Gemini -> DeepSeek | Analisis temporal de frames y audio |
+| PDF (< 1MB) | `invoice.pdf` | Local -> DeepSeek | Privacidad y velocidad (pdf-parse) |
+| PDF (> 1MB) | `manual.pdf` | Gemini -> DeepSeek | Mejor manejo de contexto y tablas |
+| Docs | `.docx`, `.xlsx`, `.pptx` | Gemini -> DeepSeek | Extraccion estructural compleja |
 
-## 🔄 Flujo de Trabajo "Córtex Sensorial"
+### Proceso Detallado
 
-### **Matriz de Routing Validada**
-
-| Contenido          | Ejemplos                  | Routing                  | Razón                                |
-| :----------------- | :------------------------ | :----------------------- | :----------------------------------- |
-| **Texto / Código** | `.js`, `.py`, `.md`       | 🚀 **DeepSeek directo**  | Máxima precisión lógica y sintáctica |
-| **Imágenes**       | `.jpg`, `.png`, Base64    | 👁️ **Gemini → DeepSeek** | OCR superior y descripción visual    |
-| **Audio**          | `.mp3`, `.wav`, `.m4a`    | 👁️ **Gemini → DeepSeek** | Transcripción y análisis de tono     |
-| **Video**          | `.mp4`, `.mov`, `.webm`   | 👁️ **Gemini → DeepSeek** | Análisis temporal de frames y audio  |
-| **PDF (< 1MB)**    | `invoice.pdf`             | 🏠 **Local → DeepSeek**  | Privacidad y velocidad (pdf-parse)   |
-| **PDF (> 1MB)**    | `manual.pdf`              | 👁️ **Gemini → DeepSeek** | Mejor manejo de contexto y tablas    |
-| **Docs**           | `.docx`, `.xlsx`, `.pptx` | 👁️ **Gemini → DeepSeek** | Extracción estructural compleja      |
-
-### **Proceso Detallado**
-
-1. **Recepción**: Request en puerto 7777 (compatible OpenAI)
-2. **Detección**: Analiza contenido por extensión/MIME type (múltiples categorías)
-3. **Routing Inteligente**: Decide según matriz anterior
-4. **Procesamiento** (según tipo):
-
-   **Para PDFs (Routing Inteligente Basado en Tamaño):**
-   - **Descarga**: URL o Base64 con validación de tamaño (HEAD request para URLs)
-   - **Detección de tamaño**: Automática para decidir routing óptimo
-   - **Routing inteligente**:
-     - **PDFs pequeños (< 1MB por defecto)**: Procesamiento local (configurable)
-     - **PDFs grandes o complejos**: Gemini (mejor calidad, soporta OCR)
-   - **Configurable**: Variables `PDF_LOCAL_PROCESSING` y `PDF_LOCAL_MAX_SIZE_MB`
-   - **Extracción Doble Local**: pdf2json (estructurado) → pdf-parse (fallback)
-   - **Análisis Gemini**: Mejor comprensión de estructura, tablas, OCR, multilenguaje
-   - **Fallback automático**: Si procesamiento local falla → Gemini automáticamente
-   - **Cache**: SHA-256(content + pregunta)
-   - **Envío**: Texto procesado por Gemini o extraído localmente a DeepSeek
-
-   **Para Otros Formatos (Gemini):**
-   - **Descarga con Validación**: URLs con Content-Type real
-   - **Hash Contextual**: SHA-256(content + user question)
-   - **Caché**: Consulta local para evitar llamadas repetidas
-   - **Análisis Especializado**: Prompt adaptado al tipo de contenido
-   - **Transformación**: Contenido físico → Texto estructurado
-
+1. **Recepcion**: Request en puerto 7777 (compatible OpenAI)
+2. **Deteccion**: Analiza contenido por extension/MIME type
+3. **Routing Inteligente**: Decide segun matriz anterior
+4. **Procesamiento**:
+   - **PDFs**: Routing basado en tamano. Local (<1MB) usa pdf2json + pdf-parse. Gemini (>1MB) para calidad/OCR. Fallback automatico.
+   - **Otros formatos**: Descarga con validacion, hash contextual SHA-256, cache, analisis especializado con prompt por tipo
 5. **Respuesta**: DeepSeek genera respuesta final (streaming o batch)
 
-### **Configuración de Procesamiento de PDFs**
-
-El sistema implementa **routing inteligente basado en tamaño** para PDFs:
-
-#### **Variables de Entorno (.env):**
+### Configuracion de PDFs
 
 ```bash
-# Procesamiento de PDFs
-PDF_LOCAL_PROCESSING=true          # Habilitar procesamiento local para PDFs pequeños
-PDF_LOCAL_MAX_SIZE_MB=1            # Tamaño máximo para procesamiento local (1MB por defecto)
+PDF_LOCAL_PROCESSING=true     # Procesamiento local para PDFs pequenos
+PDF_LOCAL_MAX_SIZE_MB=1       # Tamano maximo para local (1MB)
 ```
 
-#### **Ventajas de Cada Opción:**
+**Local (<1MB)**: Sin costo de API Gemini, mas rapido, privacidad.
+**Gemini (>1MB)**: Mejor calidad, OCR integrado, multilenguaje.
 
-**Procesamiento Local (PDFs pequeños):**
+## Endpoints y Metricas
 
-- ✅ **Sin costo de API** Gemini
-- ✅ **Más rápido** para PDFs de texto simple
-- ✅ **Privacidad**: Datos no salen del servidor
+| Endpoint | Metodo | Descripcion |
+|----------|--------|-------------|
+| `/v1/chat/completions` | POST | Chat multimodal (OpenAI) |
+| `/v1/messages` | POST | Anthropic Messages API |
+| `/v1/models` | GET | Lista de modelos |
+| `/v1/cache/stats` | GET | Estadisticas de cache contextual |
+| `/health` | GET | Estado del servicio + version |
 
-**Gemini (PDFs grandes/complejos):**
+### Metricas Tecnicas
 
-- ✅ **Mejor calidad**: Entiende estructura, tablas, gráficos
-- ✅ **OCR integrado**: Soporta PDFs escaneados/imágenes
-- ✅ **Multilenguaje**: Mejor soporte para idiomas diversos
+- **Tamano maximo**: 50MB por archivo
+- **Validacion previa**: HEAD requests detectan archivos >50MB antes de descargar
+- **Timeout descarga**: 120 segundos para archivos grandes
+- **Cache TTL**: 7 dias (configurable)
+- **Formatos soportados**: JPEG, PNG, GIF, WebP, BMP, TIFF, SVG, MP3, WAV, M4A, MP4, MOV, WebM, PDF, DOCX, XLSX, PPTX
 
-## 🛡️ Micro-Optimizaciones Críticas
-
-### **Validación Content-Type Real**
-
-```typescript
-// No confía en extensiones, valida headers HTTP reales
-if (contentType.includes("text/html")) {
-  throw new Error("URL devuelve HTML, no un tipo de archivo válido");
-}
-```
-
-### **Manejo Filtros Seguridad Gemini**
-
-```typescript
-// Fallback informativo, no error silencioso
-return `[SISTEMA: Contenido bloqueado por seguridad. Describe verbalmente...]`;
-```
-
-### **Caché Contextual SHA-256**
-
-```typescript
-// Hash único por combinación contenido + pregunta
-const cacheKey = sha256(content + userQuestion);
-```
-
-## �️ Soporte para Herramientas (Tools)
-
-El proxy soporta completamente las herramientas de OpenAI (`tools` y `tool_choice`):
-
-- **Forward transparente**: Tools reenviadas directamente a DeepSeek
-- **Compatible con multimodalidad**: Funciona después del procesamiento Gemini
-
-## �📊 Endpoints & Métricas
-
-| Endpoint               | Método | Descripción                         |
-| ---------------------- | ------ | ----------------------------------- |
-| `/v1/chat/completions` | POST   | Chat multimodal (compatible OpenAI) |
-| `/v1/cache/stats`      | GET    | Estadísticas de caché contextual    |
-| `/v1/models`           | GET    | Lista de modelos multimodales       |
-| `/health`              | GET    | Estado del servicio + versión       |
-
-### **Métricas Técnicas**
-
-- **Tamaño máximo**: **50MB por archivo** (límite oficial de Gemini API)
-- **Validación previa**: HEAD requests detectan archivos > 50MB antes de descargar
-- **Timeout descarga**: **120 segundos** para archivos grandes
-- **Caché TTL**: 7 días (configurable)
-- **Formatos soportados**:
-  - **Imágenes**: JPEG, PNG, GIF, WebP, BMP, TIFF, SVG
-  - **Audio**: MP3, WAV
-  - **Video**: MP4, MOV
-  - **Documentos**: PDF, Excel, Word, PowerPoint
-
-## 🧪 Pruebas y Gestión
-
-Usa los comandos npm unificados para controlar el proxy:
+## Comandos NPM
 
 ```bash
-npm run proxy:start
-npm run proxy:stop
-npm run status
-npm run proxy:logs
-npm run proxy:uninstall
+npm run dev              # Desarrollo con hot reload
+npm run build            # Compilar TypeScript
+npm run start            # Iniciar produccion
+npm run proxy:start      # Iniciar servicio en background
+npm run proxy:stop       # Detener servicio
+npm run proxy:logs       # Ver logs
+npm run proxy:uninstall  # Remover servicio
+npm run test:unit        # Tests unitarios (88 tests)
+npm run test:coverage    # Cobertura de tests
+npm run lint             # ESLint
+npm run docker:up        # Iniciar con Docker
+npm run docker:down      # Detener Docker
+npm run docker:logs      # Logs de Docker
 ```
 
-Para pruebas rápidas sin instalación:
+## Variables de Entorno (.env)
 
 ```bash
-npm run proxy:local
+# DeepSeek V4
+DEEPSEEK_API_KEY=sk-xxx
+DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+DEEPSEEK_CONTEXT_WINDOW=872000       # 1M nativo - 128K holgura
+DEEPSEEK_MAX_OUTPUT=384000
+DEEPSEEK_THINKING_EFFORT=max         # high | max
+
+# Gemini 2.5 Flash (Google AI)
+GEMINI_API_KEY=tu_api_key
+GEMINI_MODEL=gemini-2.5-flash
+
+# Cache
+CACHE_ENABLED=true
+CACHE_DIR=./cache
+CACHE_TTL_DAYS=7
+CACHE_MAX_ENTRIES=1000
+
+# Limites
+MAX_FILE_SIZE_MB=50
+MAX_IMAGES_PER_REQUEST=999
+
+# PDFs
+PDF_LOCAL_PROCESSING=true
+PDF_LOCAL_MAX_SIZE_MB=1
 ```
 
-**Verificación Integral:**
+## Estado Actual - Version 2.0.0
 
-```bash
-node test/test-master.js
-```
+- **Arquitectura "Cortex Sensorial v2"** completa
+- **DeepSeek V4 Flash + Pro** con Max Thinking (`reasoning_effort: "max"`)
+- **Gemini 2.5 Flash** para percepcion multimodal (imagen, audio, video)
+- **ESLint** configurado
+- **88 Tests Unitarios** con Vitest
+- **CI/CD Pipeline** con GitHub Actions
+- **Soporte completo Claude Code** con tipos de contenido extendidos
+- **Cache contextual SHA-256** eficiente
+- **PDFs hibridos** local + Gemini con fallback automatico
 
-## ✅ Estado Actual - Versión 1.8.0
+## Soporte
 
-- ✅ **Arquitectura "Córtex Sensorial"** completa
-- ✅ **ESLint** configurado para verificación de código
-- ✅ **103 Tests Unitarios** con 64% de cobertura (Vitest)
-- ✅ **CI/CD Pipeline** con GitHub Actions (tests automáticos en cada push)
-- ✅ **Bug fix reasoner** - razonamiento largas conversaciones
-- ✅ **Soporte completo Claude Code** con tipos de contenido extendidos (input_audio, clipboard, file)
-- ✅ **Descarga con validación robusta** (Content-Type real)
-- ✅ **Caché contextual SHA-256** eficiente
-- ✅ **Audio/Video soportados** (MP3/MP4 testeados)
-- ✅ **PDFs soportados** vía Gemini o localmente
-
-## ☕ Soporte y Café
-
-Si encuentras útil este proxy y quieres apoyar el desarrollo de más herramientas de código abierto, ¡puedes invitarme a un café!
+Si encuentras util este proxy, puedes apoyar el desarrollo:
 
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-orange?style=for-the-badge&logo=buy-me-a-coffee)](https://buymeacoffee.com/exithial)
 
-## 📝 Licencia
+## Licencia
 
 MIT

@@ -6,7 +6,7 @@ Actualmente, solo la última versión mayor estable recibe parches de seguridad.
 
 | Versión | Soportada          |
 | ------- | ------------------ |
-| 1.6.x   | :white_check_mark: |
+| 2.x   | :white_check_mark: |
 | < 1.6   | :x:                |
 
 ## Reportando una Vulnerabilidad

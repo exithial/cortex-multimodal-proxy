@@ -10,7 +10,7 @@ services:
       - "${PORT:-7777}:7777"
     volumes:
       - proxy-cache:/app/cache
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test:
         [

@@ -1,94 +1,59 @@
-# Límites de Contexto de Modelos
+# Model Configuration
 
-## Modelos OpenCode (OpenAI API)
+## OpenCode Models (OpenAI API)
 
-### DeepSeek Chat
+### DeepSeek V4 Flash - Chat (Max Thinking)
 
-- **Contexto máximo**: 128,000 tokens
-- **Generación máxima**: 8,000 tokens
-- **Características**: Modelo general de chat
+- **Context max**: 872,000 tokens (1M nativo, 128K holgura para headers)
+- **Output max**: 384,000 tokens
+- **API params**: `thinking: { type: "enabled" }` + `reasoning_effort: "max"`
+- **Model**: `deepseek-v4-flash`
 
-### DeepSeek Reasoner
+### DeepSeek V4 Pro - Reasoner (Max Thinking)
 
-- **Contexto máximo**: 128,000 tokens
-- **Generación máxima**: 64,000 tokens
-- **Características**: Modelo de razonamiento mejorado
+- **Context max**: 872,000 tokens (1M nativo, 128K holgura)
+- **Output max**: 384,000 tokens
+- **API params**: `thinking: { type: "enabled" }` + `reasoning_effort: "max"`
+- **Model**: `deepseek-v4-pro`
 
-## Modelos con Visión (OpenCode)
+### Vision with Gemini 2.5 Flash
 
-### 🖼️ Modelos Multimodales con Gemini 2.5 Flash Lite
+All models use **Gemini 2.5 Flash** for multimodal perception:
 
-Todos los modelos ahora usan **Gemini 2.5 Flash Lite** para análisis multimodal avanzado:
+- **Image analysis**: OCR and visual description
+- **Audio analysis**: Transcription and contextual description
+- **Video analysis**: Frame-by-frame description with audio sync
+- **PDF support**: Hybrid system (local for <1MB, Gemini for quality/OCR)
+- **Contextual cache**: SHA-256(content + question) hash
+- **File limit**: 50MB
 
-- **Procesamiento Universal**: Cualquier modelo que pase por el proxy tiene multimodalidad habilitada.
-- **Análisis de Imágenes**: OCR superior y descripción visual.
-- **Análisis de Audio/Video**: Transcripción y descripción contextual (MP3/MP4 validados).
-- **Soporte de PDFs**: Sistema híbrido. Gemini soporta PDFs nativamente para análisis de tablas/gráficos complejos. El proxy añade procesamiento local para archivos < 1MB por velocidad y costo.
-- **Caché Contextual**: Hash SHA-256(content + pregunta) para evitar llamadas Gemini repetidas.
-- **Límite por archivo**: **50MB** (Con validación HEAD previa para evitar descargas innecesarias).
+### Intelligent Routing
 
-### 🔄 Enrutamiento Inteligente
-
-El proxy detecta automáticamente el destino basado en el modelo solicitado:
-
-```typescript
-"deepseek-multimodal-chat"     → DeepSeek Chat (v3.2) + Gemini Percepción
-"deepseek-multimodal-reasoner" → DeepSeek Reasoner (r1) + Gemini Percepción
+```
+"deepseek-multimodal-flash" -> DeepSeek V4 Flash (max thinking) + Gemini Vision
+"deepseek-multimodal-pro"   -> DeepSeek V4 Pro (max thinking) + Gemini Vision
 ```
 
-### 📊 Modelos Disponibles en el Proxy
+### Available Proxy Models
 
-| Modelo Proxy                   | Modelo Destino      | Contexto (Input) | Salida (Output) | Modalidades                       |
-| :----------------------------- | :------------------ | :--------------- | :-------------- | :-------------------------------- |
-| `deepseek-multimodal-chat`     | `deepseek-chat`     | 100K             | 8K              | ✅ Text, Image, Audio, Video, PDF |
-| `deepseek-multimodal-reasoner` | `deepseek-reasoner` | 100K             | 64K             | ✅ Text, Image, Audio, Video, PDF |
-| `gemini-direct`                | `gemini-2.5-flash-` | 1M+              | 8K              | ✅ Full Multimodal (Direct)       |
+| Proxy Model                | Backend Model       | Input  | Output | Modalities                       |
+| :------------------------- | :------------------ | :----- | :----- | :------------------------------- |
+| `deepseek-multimodal-flash`| `deepseek-v4-flash` | 872K   | 384K   | Text, Image, Audio, Video, PDF   |
+| `deepseek-multimodal-pro`  | `deepseek-v4-pro`   | 872K   | 384K   | Text, Image, Audio, Video, PDF   |
+| `vision-direct`            | `gemini-2.5-flash`  | 1M     | 8K     | Full Multimodal (Direct)         |
 
-## Modelos Claude Code (Anthropic)
+### Pricing (per 1M tokens, worst case combined)
 
-Los clientes Anthropic usan `/v1/messages` y estos alias:
+| Model                      | Input  | Output |
+| :------------------------- | :----- | :----- |
+| `deepseek-multimodal-flash`| $0.30  | $0.88  |
+| `deepseek-multimodal-pro`  | $0.59  | $1.47  |
+| `vision-direct`            | $0.15  | $0.60  |
 
-| Modelo Claude | Modelo Interno                 | Routing Estratégico                                               |
-| :------------ | :----------------------------- | :---------------------------------------------------------------- |
-| `haiku`       | `gemini-direct`                | **Bypass total**: Todo va a Gemini, sin DeepSeek                  |
-| `sonnet`      | `deepseek-multimodal-chat`     | **Inteligente**: Texto → DeepSeek, Multimodal → Gemini → DeepSeek |
-| `opus`        | `deepseek-multimodal-reasoner` | **Inteligente**: Texto → DeepSeek, Multimodal → Gemini → DeepSeek |
+## Claude Code Models (Anthropic)
 
-### **Routing Inteligente por Modelo**
-
-- **Haiku**: Estrategia `gemini-direct` para máxima velocidad y economía
-- **Sonnet/Opus**: Estrategia `deepseek-routing` con análisis de contenido:
-  - **Texto/código**: DeepSeek directo
-  - **Imágenes/audio/video**: Gemini → DeepSeek
-  - **PDFs**: Procesamiento local o Gemini → DeepSeek
-
-### Configuración de Límites (vía .env)
-
-Los límites son personalizables para adaptarse a las cuotas de tu API de DeepSeek:
-
-- **Chat**: 100,000 contextual / 8,000 generación.
-- **Reasoner**: 100,000 contextual / 64,000 generación.
-
-```json
-{
-  "context": 100000,
-  "output": 8000,
-  "cost": {
-    "input": 0.27,
-    "output": 1.1
-  }
-}
-```
-
-### Para DeepSeek Reasoner:
-
-```json
-{
-  "context": 100000,
-  "output": 64000,
-  "cost": {
-    "input": 0.55,
-    "output": 2.19
-  }
-}
-```
+| Claude | Internal Model             | Routing                                                   |
+| :----- | :------------------------- | :--------------------------------------------------------- |
+| `haiku`| `vision-direct`            | Gemini 2.5 Flash directo                                   |
+| `sonnet`| `deepseek-multimodal-flash`| Inteligente: Texto -> DeepSeek, Multimodal -> Gemini       |
+| `opus` | `deepseek-multimodal-pro`  | Inteligente: Texto -> DeepSeek, Multimodal -> Gemini       |
