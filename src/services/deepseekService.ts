@@ -14,6 +14,7 @@ class DeepSeekService {
   private contextWindow: number;
   private maxOutputTokens: number;
   private thinkingEffort: string;
+  private thinkingEnabled: boolean;
 
   constructor() {
     this.apiKey = process.env.DEEPSEEK_API_KEY || "";
@@ -28,6 +29,7 @@ class DeepSeekService {
       process.env.DEEPSEEK_MAX_OUTPUT || "384000",
     );
     this.thinkingEffort = process.env.DEEPSEEK_THINKING_EFFORT || "max";
+    this.thinkingEnabled = process.env.DEEPSEEK_THINKING_ENABLED !== "false";
 
     if (!this.apiKey) {
       throw new Error("DEEPSEEK_API_KEY no configurado en .env");
@@ -42,10 +44,18 @@ class DeepSeekService {
 
   private mapModel(proxyModel: string): { target: "deepseek"; model: string; thinking: boolean } {
     if (proxyModel === "deepseek-multimodal-pro") {
-      return { target: "deepseek", model: "deepseek-v4-pro", thinking: true };
+      return { target: "deepseek", model: "deepseek-v4-pro", thinking: this.thinkingEnabled };
     }
 
-    return { target: "deepseek", model: "deepseek-v4-flash", thinking: true };
+    if (proxyModel === "deepseek-multimodal-pro-nothink") {
+      return { target: "deepseek", model: "deepseek-v4-pro", thinking: false };
+    }
+
+    if (proxyModel === "deepseek-multimodal-flash-nothink") {
+      return { target: "deepseek", model: "deepseek-v4-flash", thinking: false };
+    }
+
+    return { target: "deepseek", model: "deepseek-v4-flash", thinking: this.thinkingEnabled };
   }
 
   private truncateMessages(
@@ -99,9 +109,11 @@ class DeepSeekService {
   }
 
   /**
-   * Procesa los mensajes para asegurar que son compatibles con DeepSeek
+   * Procesa los mensajes para asegurar que son compatibles con DeepSeek.
+   * Si `thinking` es false, descarta `reasoning_content` para evitar 400
+   * cuando clientes como AnthingLLM lo reenvían en el historial.
    */
-  private prepareMessages(messages: ChatMessage[]): any[] {
+  private prepareMessages(messages: ChatMessage[], thinking: boolean): any[] {
     return messages
       .filter((msg) =>
         ["system", "user", "assistant", "tool"].includes(msg.role),
@@ -120,7 +132,9 @@ class DeepSeekService {
         if (msg.name) prepared.name = msg.name;
         if (msg.tool_calls) prepared.tool_calls = msg.tool_calls;
         if (msg.tool_call_id) prepared.tool_call_id = msg.tool_call_id;
-        if (msg.reasoning_content !== undefined) prepared.reasoning_content = msg.reasoning_content;
+        if (thinking && msg.reasoning_content !== undefined) {
+          prepared.reasoning_content = msg.reasoning_content;
+        }
 
         return prepared;
       });
@@ -135,7 +149,7 @@ class DeepSeekService {
     request: ChatCompletionRequest,
     mapped: { target: "deepseek"; model: string; thinking: boolean },
   ): any {
-    const validMessages = this.prepareMessages(request.messages);
+    const validMessages = this.prepareMessages(request.messages, mapped.thinking);
     const truncatedMessages = this.truncateMessages(validMessages, this.contextWindow);
 
     const payload: any = {
