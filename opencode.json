@@ -12,19 +12,13 @@
         "proxy/glm-5.2": {
           "name": "GLM-5.2 (Cortex Proxy)",
           "cost": { "input": 1.54, "output": 4.40 },
-          "limit": { "context": 1048576, "output": 131072 },
-          "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
-        },
-        "proxy/qwen3.7-max": {
-          "name": "Qwen3.7 Max (Cortex Proxy)",
-          "cost": { "input": 2.64, "output": 7.50 },
-          "limit": { "context": 1048576, "output": 65536 },
+          "limit": { "context": 800000, "output": 131072 },
           "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
         },
         "proxy/deepseek-v4-pro": {
           "name": "DeepSeek V4 Pro (Cortex Proxy)",
           "cost": { "input": 1.88, "output": 3.48 },
-          "limit": { "context": 1048576, "output": 384000 },
+          "limit": { "context": 800000, "output": 384000 },
           "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
         },
         "mimo-v2.5": {

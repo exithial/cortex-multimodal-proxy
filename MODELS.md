@@ -4,9 +4,8 @@
 
 | Model ID | Upstream | Endpoint | Thinking | Context | Max Output | Input/Output per 1M | Combined with MiMo senses |
 |----------|----------|----------|----------|---------|------------|---------------------|---------------------------|
-| `proxy/glm-5.2` | `glm-5.2` | OpenAI | ✅ Always-on | 1M | 131K | $1.40 / $4.40 | $1.54 / $4.40 |
-| `proxy/qwen3.7-max` | `qwen3.7-max` | OpenAI | ✅ Always-on | 1M | 65K | $2.50 / $7.50 | $2.64 / $7.50 |
-| `proxy/deepseek-v4-pro` | `deepseek-v4-pro` | OpenAI | ✅ Always-on | 1M | 384K | $1.74 / $3.48 | $1.88 / $3.48 |
+| `proxy/glm-5.2` | `glm-5.2` | OpenAI | ✅ Always-on | 800K | 131K | $1.40 / $4.40 | $1.54 / $4.40 |
+| `proxy/deepseek-v4-pro` | `deepseek-v4-pro` | OpenAI | ✅ Always-on | 800K | 384K | $1.74 / $3.48 | $1.88 / $3.48 |
 
 All brains are text-only. Images go through MiMo V2.5 senses layer first (adds $0.14/$0.28 per 1M).
 All brains use `thinking: { type: "enabled" }` for max reasoning.
@@ -41,12 +40,11 @@ Available in `/v1/models` but not proxied (configured directly in OpenCode).
 
 ## Thinking Configuration
 
-All3 brains use max thinking via `thinking: { type: "enabled" }` parameter.
+All 2 brains use max thinking via `thinking: { type: "enabled" }` parameter.
 
 | Model | Thinking Behavior | Notes |
 |-------|-------------------|-------|
 | GLM-5.2 | Always-on | Responds via `reasoning_content` field |
-| Qwen3.7 Max | Always-on | Responds via `reasoning_content` field (OpenAI-format) |
 | DeepSeek V4 Pro | Always-on | Responds via `reasoning_content` field |
 
 ## Retry Policy

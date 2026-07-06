@@ -12,7 +12,7 @@ export interface BrainModelEntry {
 export const BRAIN_MODELS: Record<string, BrainModelEntry> = {
   "proxy/glm-5.2": {
     upstream: "glm-5.2",
-    context: 1048576,
+    context: 800000,
     maxOutput: 131072,
     thinking: true,
     inputPrice: 1.4,
@@ -20,19 +20,9 @@ export const BRAIN_MODELS: Record<string, BrainModelEntry> = {
     endpoint: "openai",
     multimodal: false,
   },
-  "proxy/qwen3.7-max": {
-    upstream: "qwen3.7-max",
-    context: 1048576,
-    maxOutput: 65536,
-    thinking: true,
-    inputPrice: 2.5,
-    outputPrice: 7.5,
-    endpoint: "openai",
-    multimodal: false,
-  },
   "proxy/deepseek-v4-pro": {
     upstream: "deepseek-v4-pro",
-    context: 1048576,
+    context: 800000,
     maxOutput: 384000,
     thinking: true,
     inputPrice: 1.74,

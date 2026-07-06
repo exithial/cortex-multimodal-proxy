@@ -52,14 +52,14 @@ describe("OpenCodeGoService", () => {
       vi.unstubAllEnvs();
     });
 
-    it("should translate payload to Anthropic format for anthropic endpoint brain", async () => {
+    it("should translate payload to Anthropic format when endpoint is anthropic", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
       const { opencodeGoService } = await import(
         "../../../src/services/opencodeGoService"
       );
 
       const request = {
-        model: "proxy/qwen3.7-max",
+        model: "proxy/glm-5.2",
         messages: [
           { role: "system" as const, content: "You are helpful." },
           { role: "user" as const, content: "hello" },
@@ -69,12 +69,12 @@ describe("OpenCodeGoService", () => {
 
       const payload = opencodeGoService.buildPayload(
         request,
-        "qwen3.7-max",
+        "glm-5.2",
         true,
         1048576,
         "anthropic",
       );
-      expect(payload.model).toBe("qwen3.7-max");
+      expect(payload.model).toBe("glm-5.2");
       expect(payload.system).toBe("You are helpful.");
       expect(payload.messages).toHaveLength(1);
       expect(payload.messages[0].role).toBe("user");
@@ -89,7 +89,7 @@ describe("OpenCodeGoService", () => {
       );
 
       const request = {
-        model: "proxy/qwen3.7-max",
+        model: "proxy/glm-5.2",
         messages: [{ role: "user" as const, content: "hello" }],
         tools: [
           {
@@ -106,7 +106,7 @@ describe("OpenCodeGoService", () => {
 
       const payload = opencodeGoService.buildPayload(
         request,
-        "qwen3.7-max",
+        "glm-5.2",
         false,
         1048576,
         "anthropic",
@@ -124,7 +124,7 @@ describe("OpenCodeGoService", () => {
       );
 
       const request = {
-        model: "proxy/qwen3.7-max",
+        model: "proxy/glm-5.2",
         messages: [
           {
             role: "assistant" as const,
@@ -143,7 +143,7 @@ describe("OpenCodeGoService", () => {
 
       const payload = opencodeGoService.buildPayload(
         request,
-        "qwen3.7-max",
+        "glm-5.2",
         false,
         1048576,
         "anthropic",
@@ -272,7 +272,7 @@ describe("OpenCodeGoService", () => {
           type: "message",
           role: "assistant",
           content: [{ type: "text", text: "hi" }],
-          model: "qwen3.7-max",
+          model: "glm-5.2",
           stop_reason: "end_turn",
         },
       });
@@ -285,7 +285,7 @@ describe("OpenCodeGoService", () => {
           stream: false,
         },
         {
-          upstream: "qwen3.7-max",
+          upstream: "glm-5.2",
           context: 1048576,
           maxOutput: 65536,
           thinking: false,

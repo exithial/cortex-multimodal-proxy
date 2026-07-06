@@ -10,8 +10,8 @@ import {
 
 describe("brainRegistry", () => {
   describe("BRAIN_MODELS", () => {
-    it("should contain 3 brain entries (glm-5.2, qwen3.7-max, deepseek-v4-pro)", () => {
-      expect(Object.keys(BRAIN_MODELS)).toHaveLength(3);
+    it("should contain 2 brain entries (glm-5.2, deepseek-v4-pro)", () => {
+      expect(Object.keys(BRAIN_MODELS)).toHaveLength(2);
     });
 
     it("each entry should have required fields", () => {
@@ -44,12 +44,6 @@ describe("brainRegistry", () => {
       expect(BRAIN_MODELS["proxy/glm-5.2"]).toBeDefined();
       expect(BRAIN_MODELS["proxy/glm-5.2"].upstream).toBe("glm-5.2");
       expect(BRAIN_MODELS["proxy/glm-5.2"].endpoint).toBe("openai");
-    });
-
-    it("should include proxy/qwen3.7-max with openai endpoint (verified empirically)", () => {
-      expect(BRAIN_MODELS["proxy/qwen3.7-max"]).toBeDefined();
-      expect(BRAIN_MODELS["proxy/qwen3.7-max"].upstream).toBe("qwen3.7-max");
-      expect(BRAIN_MODELS["proxy/qwen3.7-max"].endpoint).toBe("openai");
     });
 
     it("should include proxy/deepseek-v4-pro with openai endpoint", () => {

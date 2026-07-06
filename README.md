@@ -5,18 +5,18 @@
 ![Node.js](https://img.shields.io/badge/node.js->=20.x-green?style=flat-square&logo=node.js)
 ![CI](https://github.com/exithial/cortex-multimodal-proxy/workflows/CI%2FCD%20Pipeline/badge.svg)
 
-OpenAI/Anthropic-compatible HTTP proxy with **"Cortex Sensorial v3"** architecture: 3 brains via OpenCode Go subscription, MiMo V2.5 as multimodal senses for images, Gemini fallback for audio/video/PDF.
+OpenAI/Anthropic-compatible HTTP proxy with **"Cortex Sensorial v3"** architecture: 2 brains via OpenCode Go subscription, MiMo V2.5 as multimodal senses for images, Gemini fallback for audio/video/PDF.
 
 ## "Cortex Sensorial v3" Architecture
 
-- **3 Brains (text-only, max thinking)**: GLM-5.2, Qwen3.7 Max, DeepSeek V4 Pro
+- **2 Brains (text-only, max thinking)**: GLM-5.2, DeepSeek V4 Pro
 - **MiMo V2.5 = Senses**: Cheap multimodal ($0.14/$0.28 per 1M tokens) for image description
 - **Gemini 2.5 Flash = Fallback**: Audio, video, large PDFs (optional, only when needed)
 - **Proxy = Cortex**: Intelligent routing per brain + content type, single Bearer token, retry with backoff
 
 ### Key Features
 
-- **3 Brains via OpenCode Go**: One subscription ($10/month), single API key, curated models
+- **2 Brains via OpenCode Go**: One subscription ($10/month), single API key, curated models
 - **Multimodal Layer**: MiMo V2.5 describes images; brain receives text descriptions
 - **Per-Brain Selection**: `proxy/<brain-id>` in `/v1/chat/completions` — choose brain per request
 - **Claude Code Compatible**: `haiku`/`sonnet`/`opus` aliases mapped via env to brain models
@@ -165,7 +165,7 @@ Default Claude Code mappings (configurable via env vars):
 |----------|--------|-------------|
 | `/v1/chat/completions` | POST | Multimodal chat (OpenAI) |
 | `/v1/messages` | POST | Anthropic Messages API (Claude Code) |
-| `/v1/models` | GET | Model list (3 proxy brains + 4 passthrough) |
+| `/v1/models` | GET | Model list (2 proxy brains + 4 passthrough) |
 | `/v1/cache/stats` | GET | Contextual cache statistics |
 | `/health` | GET | Service status + version |
 

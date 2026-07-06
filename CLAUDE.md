@@ -7,7 +7,7 @@
 - **Docs (README, MODELS.md, all documentation)**: English
 
 ## Architecture
-- Pattern: "Cortex Sensorial v3" — 3 brains via OpenCode Go + MiMo V2.5 senses + Gemini fallback
+- Pattern: "Cortex Sensorial v3" — 2 brains via OpenCode Go + MiMo V2.5 senses + Gemini fallback
 - Text/code -> proxy/<brain> direct; images -> MiMo V2.5 -> brain; audio/video/PDF -> Gemini -> brain
 - Brain selection: `proxy/<model-id>` for text-only models, passthrough for natively multimodal
 - Natively multimodal models (mimo-v2.5, mimo-v2.5-pro, minimax-m3, minimax-m2.7) bypass the senses layer
@@ -23,24 +23,22 @@
 - The proxy exists solely to serve these two clients — compatibility is non-negotiable
 
 ## Models
-- Brain options (text-only via `proxy/` prefix): `proxy/glm-5.2`, `proxy/qwen3.7-max`, `proxy/deepseek-v4-pro`
+- Brain options (text-only via `proxy/` prefix): `proxy/glm-5.2`, `proxy/deepseek-v4-pro`
 - All brains: thinking enabled, context1M, all use OpenAI-format endpoint at OpenCode Go
 - Passthrough (natively multimodal): `mimo-v2.5`, `mimo-v2.5-pro`, `minimax-m3`, `minimax-m2.7`
 - Claude Code aliases: `haiku` → `mimo-v2.5` (passthrough), `sonnet` → `proxy/deepseek-v4-pro` (default), `opus` → `proxy/glm-5.2` (default)
 - Senses: MiMo V2.5 for images (mimo-v2.5 multimodal native), Gemini for audio/video/PDFs
-- All brain models use `/chat/completions` endpoint (OpenAI-format) — verified empirically that Qwen also works in this format
+- All brain models use `/chat/completions` endpoint (OpenAI-format)
 
 ## Token Limits
 - Per brain — see `src/services/brainRegistry.ts`
-- GLM-5.2: 1M ctx, 131K output
-- Qwen3.7 Max: 1M ctx, 65K output
-- DeepSeek V4 Pro: 1M ctx, 384K output
+- GLM-5.2: 800K ctx (headroom for image descriptions), 131K output
+- DeepSeek V4 Pro: 800K ctx (headroom for image descriptions), 384K output
 
 ## Pricing
 - Always calculate combined worst-case (MiMo senses + brain) and present in README
 - MiMo V2.5 senses: $0.14 in / $0.28 out per 1M tokens
 - GLM-5.2: $1.40 in / $4.40 out per 1M
-- Qwen3.7 Max: $2.50 in / $7.50 out per 1M
 - DeepSeek V4 Pro: $1.74 in / $3.48 out per 1M
 
 ## Code Quality
@@ -68,7 +66,7 @@
 - Delete local + remote branch after merge
 
 ## Services
-- `src/services/opencodeGoService.ts`: Generic OpenCode Go caller with retry logic for all3 brain models + passthrough
+- `src/services/opencodeGoService.ts`: Generic OpenCode Go caller with retry logic for all2 brain models + passthrough
 - `src/services/mimoSensesService.ts`: MiMo V2.5 image description
 - `src/services/geminiService.ts`: Gemini fallback for audio/video/PDF (still required for non-image media)
 - `src/services/brainRegistry.ts`: 3 brain entries + 4 passthrough models + helpers (getBrainEntry, isPassthrough, parseProxyModelId, isKnownModel)
