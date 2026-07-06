@@ -258,6 +258,50 @@ describe("OpenCodeGoService", () => {
       expect(headers.Authorization).toBe("Bearer sk-test-key");
       vi.unstubAllEnvs();
     });
+
+    it("should send x-api-key header and anthropic-version for Anthropic endpoint", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      mockedAxios.post.mockResolvedValueOnce({
+        data: {
+          id: "x",
+          type: "message",
+          role: "assistant",
+          content: [{ type: "text", text: "hi" }],
+          model: "qwen3.6-plus",
+          stop_reason: "end_turn",
+        },
+      });
+
+      await opencodeGoService.createChatCompletion(
+        {
+          model: "proxy/qwen3.6-plus",
+          messages: [{ role: "user", content: "hi" }],
+          max_tokens: 30,
+          stream: false,
+        },
+        {
+          upstream: "qwen3.6-plus",
+          context: 1048576,
+          maxOutput: 65536,
+          thinking: false,
+          inputPrice: 0,
+          outputPrice: 0,
+          endpoint: "anthropic",
+        },
+      );
+
+      expect(mockedAxios.post).toHaveBeenCalledTimes(1);
+      const call = mockedAxios.post.mock.calls[0];
+      const headers = call[2]?.headers as Record<string, string>;
+      expect(headers["x-api-key"]).toBe("sk-test-key");
+      expect(headers["anthropic-version"]).toBe("2023-06-01");
+      expect(headers.Authorization).toBeUndefined();
+      vi.unstubAllEnvs();
+    });
   });
 
   describe("chatCompletionStream", () => {

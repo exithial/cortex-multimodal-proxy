@@ -124,6 +124,20 @@ class OpenCodeGoService {
     return `${this.baseUrl}/chat/completions`;
   }
 
+  private buildAuthHeaders(endpoint: "openai" | "anthropic"): Record<string, string> {
+    if (endpoint === "anthropic") {
+      return {
+        "x-api-key": this.apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      };
+    }
+    return {
+      Authorization: `Bearer ${this.apiKey}`,
+      "Content-Type": "application/json",
+    };
+  }
+
   buildPayload(
     request: ChatCompletionRequest,
     upstreamModel: string,
@@ -186,10 +200,7 @@ class OpenCodeGoService {
     );
 
     const response = await axios.post(url, payload, {
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: this.buildAuthHeaders(brainEntry.endpoint),
       timeout: this.timeout,
     });
 
@@ -228,10 +239,7 @@ class OpenCodeGoService {
 
     try {
       const response = await axios.post(url, payload, {
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          "Content-Type": "application/json",
-        },
+        headers: this.buildAuthHeaders(brainEntry.endpoint),
         timeout: this.timeout,
         responseType: "stream",
       });
