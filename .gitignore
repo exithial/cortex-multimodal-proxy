@@ -16,7 +16,5 @@ coverage/
 # Engram AI agent memory
 .engram/
 
-# Graphify - keep graph.json + GRAPH_REPORT.md, ignore build artifacts
-graphify-out/graph.html
-graphify-out/.graphify_*
-graphify-out/cache/
+# Graphify knowledge graph (regenerated locally, not committed)
+graphify-out/

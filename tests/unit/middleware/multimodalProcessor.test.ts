@@ -15,6 +15,15 @@ vi.mock('../../../src/services/geminiService', () => ({
   },
 }));
 
+const mockDescribeImage = vi.fn();
+
+vi.mock('../../../src/services/mimoSensesService', () => ({
+  mimoSensesService: {
+    describeImage: (...args: any[]) => mockDescribeImage(...args),
+    isAvailable: () => true,
+  },
+}));
+
 const mockAnalyzePDF = vi.fn();
 
 vi.mock('../../../src/utils/pdfProcessor', () => ({
@@ -218,6 +227,87 @@ describe('multimodalProcessor', () => {
         expect.objectContaining({ type: 'image' }),
         'Describe detalladamente esta imagen'
       );
+    });
+
+    it('debe usar MiMo V2.5 para imagenes cuando el modelo es proxy/', async () => {
+      mockDescribeImage.mockResolvedValue('Descripcion via MiMo');
+      mockAnalyzeContent.mockResolvedValue('Fallback Gemini');
+
+      const messages: ChatMessage[] = [
+        {
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: 'https://example.com/img.png' } },
+          ],
+        },
+      ];
+
+      const result = await processMultimodalContent(messages, 'proxy/kimi-k2.6');
+
+      expect(mockDescribeImage).toHaveBeenCalledWith(
+        'https://example.com/img.png',
+        ''
+      );
+      expect(mockAnalyzeContent).not.toHaveBeenCalled();
+      expect(result.strategy).toBe('vision-mimo');
+      expect(result.processedMessages[0].content).toContain('Descripcion via MiMo');
+    });
+
+    it('debe hacer fallback a Gemini si MiMo falla para imagen', async () => {
+      mockDescribeImage.mockRejectedValue(new Error('MiMo API error'));
+      mockAnalyzeContent.mockResolvedValue('Fallback Gemini descripcion');
+
+      const messages: ChatMessage[] = [
+        {
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: 'https://example.com/img.png' } },
+          ],
+        },
+      ];
+
+      const result = await processMultimodalContent(messages, 'proxy/deepseek-v4-pro');
+
+      expect(mockDescribeImage).toHaveBeenCalled();
+      expect(mockAnalyzeContent).toHaveBeenCalled();
+      expect(result.processedMessages[0].content).toContain('Fallback Gemini descripcion');
+    });
+
+    it('debe usar Gemini (no MiMo) para audio/video aunque modelo sea proxy/', async () => {
+      mockAnalyzeContent.mockResolvedValue('Descripcion de audio');
+
+      const messages: ChatMessage[] = [
+        {
+          role: 'user',
+          content: [
+            { type: 'audio_url', audio_url: { url: 'https://example.com/audio.mp3' } },
+          ],
+        },
+      ];
+
+      const result = await processMultimodalContent(messages, 'proxy/kimi-k2.6');
+
+      expect(mockDescribeImage).not.toHaveBeenCalled();
+      expect(mockAnalyzeContent).toHaveBeenCalled();
+      expect(result.strategy).toBe('vision');
+    });
+
+    it('debe pasar sin procesar si el modelo es passthrough (nativamente multimodal)', async () => {
+      const messages: ChatMessage[] = [
+        {
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: 'https://example.com/img.png' } },
+          ],
+        },
+      ];
+
+      const result = await processMultimodalContent(messages, 'mimo-v2.5');
+
+      expect(mockDescribeImage).not.toHaveBeenCalled();
+      expect(mockAnalyzeContent).not.toHaveBeenCalled();
+      expect(result.strategy).toBe('direct');
+      expect(result.useDeepseekDirectly).toBe(true);
     });
   });
 

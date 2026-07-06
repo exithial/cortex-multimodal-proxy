@@ -547,7 +547,7 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
     );
 
     let processedMessages = openaiRequest.messages;
-    let strategy: "vision-direct" | "direct" | "vision" | "mixed" | "local" = "direct";
+    let strategy: "vision-direct" | "direct" | "vision" | "vision-mimo" | "mixed" | "local" = "direct";
     let useDeepseekDirectly = true;
 
     if (modelRoutingStrategy === "vision-direct") {

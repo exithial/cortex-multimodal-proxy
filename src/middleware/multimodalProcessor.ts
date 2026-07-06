@@ -1,8 +1,10 @@
 import type { ChatMessage, MessageContent } from "../types/openai";
 import { logger } from "../utils/logger";
 import { geminiService } from "../services/geminiService";
+import { mimoSensesService } from "../services/mimoSensesService";
 import { pdfProcessor } from "../utils/pdfProcessor";
 import { getErrorMessage } from "../utils/error";
+import { isPassthrough } from "../services/brainRegistry";
 import {
   detectMultimodalContent,
   extractUserContext,
@@ -17,7 +19,7 @@ export async function processMultimodalContent(
 ): Promise<{
   processedMessages: ChatMessage[];
   useDeepseekDirectly: boolean;
-  strategy: "direct" | "vision" | "local" | "mixed" | "vision-direct";
+  strategy: "direct" | "vision" | "vision-mimo" | "local" | "mixed" | "vision-direct";
 }> {
   if (modelName === "vision-direct") {
     logger.info(
@@ -37,6 +39,22 @@ export async function processMultimodalContent(
       strategy: "vision-direct",
     };
   }
+
+  if (modelName && isPassthrough(modelName)) {
+    logger.info(
+      `Modelo passthrough ${modelName} - sin procesamiento multimodal`,
+    );
+    return {
+      processedMessages: messages,
+      useDeepseekDirectly: true,
+      strategy: "direct",
+    };
+  }
+
+  const useMimoForImages =
+    !!modelName &&
+    modelName.startsWith("proxy/") &&
+    mimoSensesService.isAvailable();
   // 1. Detectar contenido
   const analysis = await detectMultimodalContent(messages);
 
@@ -90,12 +108,26 @@ export async function processMultimodalContent(
 
   const visionDescriptions = await Promise.all(
     visionContent.map(async (content, index) => {
+      const useMimo = useMimoForImages && content.type === "image";
+      const processor = useMimo ? "MiMo V2.5" : "Gemini";
       logger.info(
-        `Procesando ${content.type} ${index + 1}/${visionContent.length} con Gemini...`,
+        `Procesando ${content.type} ${index + 1}/${visionContent.length} con ${processor}...`,
       );
       try {
+        if (useMimo) {
+          return await mimoSensesService.describeImage(
+            content.source,
+            userContext,
+          );
+        }
         return await geminiService.analyzeContent(content, userContext);
       } catch (error: unknown) {
+        if (useMimo) {
+          logger.warn(
+            `MiMo V2.5 fallo para ${content.type} ${index + 1}: ${getErrorMessage(error)}. Fallback a Gemini...`,
+          );
+          return await geminiService.analyzeContent(content, userContext);
+        }
         logger.error(
           `Error procesando ${content.type} ${index + 1} con Gemini: ${getErrorMessage(error)}`,
         );
@@ -192,11 +224,18 @@ export async function processMultimodalContent(
   // 6. Si hay contenido que DeepSeek puede manejar directamente, mantenerlo
   // (ya está en los mensajes originales)
 
-  // Determine strategy
-  let strategy: "direct" | "vision" | "local" | "mixed" | "vision-direct" =
-    "mixed";
+  const usedMimo = visionContent.some(
+    (c) => c.type === "image" && useMimoForImages,
+  );
+  let strategy:
+    | "direct"
+    | "vision"
+    | "vision-mimo"
+    | "local"
+    | "mixed"
+    | "vision-direct" = "mixed";
   if (visionContent.length > 0 && localContent.length === 0)
-    strategy = "vision";
+    strategy = usedMimo ? "vision-mimo" : "vision";
   else if (visionContent.length === 0 && localContent.length > 0)
     strategy = "local";
 
