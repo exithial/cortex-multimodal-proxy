@@ -293,40 +293,10 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
       `POST /v1/chat/completions | model: ${model} | stream: ${request.stream || false} | tools: ${!!request.tools}`,
     );
 
-    if (model === "vision-direct") {
-      const { processedMessages, strategy } = await processMultimodalContent(
-        request.messages,
-        model,
-        undefined,
-      );
-      res.setHeader("X-Multimodal-Strategy", strategy);
-      const content = extractAssistantContent(processedMessages);
-
-      if (request.stream) {
-        res.setHeader("Content-Type", "text/event-stream");
-        res.setHeader("Cache-Control", "no-cache");
-        res.setHeader("Connection", "keep-alive");
-        const requestId = `chatcmpl-${randomUUID()}`;
-        for await (const chunk of createOpenAIStreamFromText(
-          content,
-          model,
-          requestId,
-        )) {
-          res.write(chunk);
-        }
-        res.end();
-        logger.info(`OK vision-direct stream completado`);
-        return;
-      }
-      res.json(createOpenAIResponseFromText(content, model));
-      return;
-    }
-
     if (!isKnownModel(model)) {
       const allKnown = [
         ...Object.keys(BRAIN_MODELS),
         ...Array.from(PASSTHROUGH_MODELS),
-        "vision-direct",
       ];
       res.status(400).json({
         error: {
@@ -572,7 +542,6 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
 
     let processedMessages = openaiRequest.messages;
     let strategy:
-      | "vision-direct"
       | "direct"
       | "vision"
       | "vision-mimo"
@@ -615,46 +584,6 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
       );
 
       const requestId = randomUUID();
-
-    if (strategy === "vision-direct") {
-      const content = extractAssistantContent(processedMessages);
-
-        const openaiStream = createOpenAIStreamFromText(
-          content,
-          openaiRequest.model,
-          `chatcmpl-${requestId}`,
-        );
-        const anthropicStream = anthropicAdapter.createAnthropicStream(
-          openaiStream,
-          originalModel,
-          requestId,
-          (finalContent) => {
-            const openaiResponse = createOpenAIResponseFromText(
-              finalContent,
-              openaiRequest.model,
-            );
-            const anthropicResponse = anthropicAdapter.internalToAnthropic(
-              openaiResponse,
-              originalModel,
-            );
-            cacheAnthropicResponse(requestKey, anthropicResponse);
-            if (deferred) deferred.resolve(anthropicResponse);
-          },
-        );
-
-        for await (const event of anthropicStream) {
-          res.write(event);
-        }
-
-        res.end();
-        inFlightAnthropic.delete(requestKey);
-        inFlightAnthropicByContent.delete(contentKey);
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        logger.info(
-          `OK Request stream Anthropic completado (${elapsed}s total) | request_id: ${requestId} | internal: ${internalModel}`,
-        );
-        return;
-      }
 
       async function* openaiChunksGenerator() {
         const chunks: string[] = [];
@@ -721,32 +650,6 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       logger.info(
         `OK Request stream Anthropic completado (${elapsed}s total) | request_id: ${requestId} | internal: ${internalModel}`,
-      );
-      return;
-    }
-
-    if (strategy === "vision-direct") {
-      const content = extractAssistantContent(processedMessages);
-      const openaiResponse = createOpenAIResponseFromText(
-        content,
-        openaiRequest.model,
-      );
-      const anthropicResponse = anthropicAdapter.internalToAnthropic(
-        openaiResponse,
-        originalModel,
-      );
-      res.setHeader(
-        "anthropic-version",
-        req.headers["anthropic-version"] || "2023-06-01",
-      );
-      res.json(anthropicResponse);
-      cacheAnthropicResponse(requestKey, anthropicResponse);
-      if (deferred) deferred.resolve(anthropicResponse);
-      inFlightAnthropic.delete(requestKey);
-      inFlightAnthropicByContent.delete(contentKey);
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      logger.info(
-        `OK Request Anthropic completado (${elapsed}s total) | request_id: ${requestId} | internal: ${internalModel}`,
       );
       return;
     }
@@ -821,7 +724,7 @@ async function init() {
   try {
     logger.info("Iniciando Cortex Multimodal Proxy v3...");
     logger.info(
-      "Arquitectura 'Cortex Sensorial v3': 9 brains via OpenCode Go + MiMo V2.5 senses",
+      "Arquitectura 'Cortex Sensorial v3': 2 brains via OpenCode Go (glm-5.2, deepseek-v4-pro) + 1 passthrough (mimo-v2.5)",
     );
     await cacheService.init();
 
@@ -832,16 +735,19 @@ async function init() {
       logger.info(`Health check: http://localhost:${PORT}/health`);
       logger.info(`Modelos: http://localhost:${PORT}/v1/models`);
       logger.info(
-        `Capacidades: texto, imagenes, audio, video, documentos, PDFs`,
+        `Capacidades: texto, imagenes (MiMo), audio/video/PDF (Gemini fallback)`,
       );
       logger.info(
         `Limite por archivo: ${process.env.MAX_FILE_SIZE_MB || "50"}MB`,
       );
       logger.info(
-        `  Modelo vision: ${process.env.GEMINI_MODEL || "gemini-2.5-flash"}`,
+        `  Brains: ${Object.keys(BRAIN_MODELS).join(", ")} (max thinking)`,
       );
       logger.info(
-        `  Modelo cerebro: deepseek-v4-pro (max thinking)`,
+        `  Passthrough: ${Array.from(PASSTHROUGH_MODELS).join(", ")} (multimodal nativo)`,
+      );
+      logger.info(
+        `  Senses: MiMo V2.5 para imagenes | Gemini fallback: ${process.env.GEMINI_MODEL || "gemini-2.5-flash"}`,
       );
     });
   } catch (error) {

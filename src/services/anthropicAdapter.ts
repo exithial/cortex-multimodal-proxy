@@ -17,17 +17,17 @@ import { logger } from "../utils/logger";
 class AnthropicAdapter {
   mapClaudeModelToInternal(claudeModel: string): string {
     const mapping: Record<string, string> = {
-      haiku: "vision-direct",
-      sonnet: "deepseek-multimodal-flash",
-      opus: "deepseek-multimodal-pro",
+      haiku: process.env.CLAUDE_HAIKU_MODEL || "mimo-v2.5",
+      sonnet: process.env.CLAUDE_SONNET_MODEL || "proxy/deepseek-v4-pro",
+      opus: process.env.CLAUDE_OPUS_MODEL || "proxy/glm-5.2",
     };
 
     const mapped = mapping[claudeModel];
     if (!mapped) {
       logger.warn(
-        `Modelo Claude desconocido: ${claudeModel}, usando deepseek-multimodal-flash`,
+        `Modelo Claude desconocido: ${claudeModel}, usando proxy/deepseek-v4-pro`,
       );
-      return "deepseek-multimodal-flash";
+      return "proxy/deepseek-v4-pro";
     }
 
     logger.info(`Mapeo: ${claudeModel} -> ${mapped}`);

@@ -24,27 +24,8 @@ export async function processMultimodalContent(
 ): Promise<{
   processedMessages: ChatMessage[];
   useDeepseekDirectly: boolean;
-  strategy: "direct" | "vision" | "vision-mimo" | "local" | "mixed" | "vision-direct";
+  strategy: "direct" | "vision" | "vision-mimo" | "local" | "mixed";
 }> {
-  if (modelName === "vision-direct") {
-    logger.info(
-      "Modelo vision-direct detectado - Usando Gemini para respuesta completa",
-    );
-
-    const geminiResponse = await geminiService.generateDirectResponse(messages);
-
-    return {
-      processedMessages: [
-        {
-          role: "assistant",
-          content: geminiResponse,
-        },
-      ],
-      useDeepseekDirectly: false,
-      strategy: "vision-direct",
-    };
-  }
-
   if (modelName && isPassthrough(modelName)) {
     logger.info(
       `Modelo passthrough ${modelName} - sin procesamiento multimodal`,
@@ -257,8 +238,7 @@ export async function processMultimodalContent(
     | "vision"
     | "vision-mimo"
     | "local"
-    | "mixed"
-    | "vision-direct" = "mixed";
+    | "mixed" = "mixed";
   if (visionContent.length > 0 && localContent.length === 0)
     strategy = usedMimo ? "vision-mimo" : "vision";
   else if (visionContent.length === 0 && localContent.length > 0)

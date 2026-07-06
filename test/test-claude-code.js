@@ -58,8 +58,7 @@ async function testHaikuTextOnly() {
 
   const pass =
     res.data.type === "message" &&
-    (res.headers["x-multimodal-strategy"] === "direct" ||
-      res.headers["x-multimodal-strategy"] === "vision-direct");
+    res.headers["x-multimodal-strategy"] === "direct";
   console.log(pass ? "  PASS" : "  FAIL");
   return pass;
 }

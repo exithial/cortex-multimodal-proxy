@@ -17,24 +17,24 @@ vi.mock('../../../src/utils/logger', () => ({
 
 describe('anthropicAdapter', () => {
   describe('mapClaudeModelToInternal', () => {
-    it('debe mapear haiku a vision-direct', () => {
+    it('debe mapear haiku a mimo-v2.5 (passthrough)', () => {
       const result = anthropicAdapter.mapClaudeModelToInternal('haiku');
-      expect(result).toBe('vision-direct');
+      expect(result).toBe('mimo-v2.5');
     });
 
-    it('debe mapear sonnet a deepseek-multimodal-flash', () => {
+    it('debe mapear sonnet a proxy/deepseek-v4-pro', () => {
       const result = anthropicAdapter.mapClaudeModelToInternal('sonnet');
-      expect(result).toBe('deepseek-multimodal-flash');
+      expect(result).toBe('proxy/deepseek-v4-pro');
     });
 
-    it('debe mapear opus a deepseek-multimodal-pro', () => {
+    it('debe mapear opus a proxy/glm-5.2', () => {
       const result = anthropicAdapter.mapClaudeModelToInternal('opus');
-      expect(result).toBe('deepseek-multimodal-pro');
+      expect(result).toBe('proxy/glm-5.2');
     });
 
-    it('debe usar default para modelos desconocidos', () => {
+    it('debe usar proxy/deepseek-v4-pro como default para modelos desconocidos', () => {
       const result = anthropicAdapter.mapClaudeModelToInternal('unknown-model');
-      expect(result).toBe('deepseek-multimodal-flash');
+      expect(result).toBe('proxy/deepseek-v4-pro');
     });
   });
 
@@ -50,7 +50,7 @@ describe('anthropicAdapter', () => {
 
       const result = anthropicAdapter.anthropicToInternal(request);
 
-      expect(result.model).toBe('deepseek-multimodal-flash');
+      expect(result.model).toBe('proxy/deepseek-v4-pro');
       expect(result.messages).toHaveLength(1);
       expect(result.messages[0].role).toBe('user');
       expect(result.messages[0].content).toBe('Hola');

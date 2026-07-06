@@ -202,28 +202,13 @@ class MasterTestSuite {
   async testText() {
     print.header("2. PRUEBA DE TEXTO (Directo DeepSeek)");
     const result = await this.runRequest('/v1/chat/completions', {
-      model: 'proxy/deepseek-v4-flash',
+      model: 'proxy/deepseek-v4-pro',
       messages: [{ role: 'user', content: '¿Cuánto es 2+2?' }],
       max_tokens: 10
     }, "DeepSeek Chat (Texto simple)");
 
     if (result && result.strategy !== 'direct') {
        print.warn(`⚠️ Estrategia inesperada para Texto: ${result.strategy} (Esperado: direct)`);
-    }
-  }
-
-  async testGeminiDirect() {
-    print.header("2.5. PRUEBA GEMINI DIRECT");
-    const result = await this.runRequest('/v1/chat/completions', {
-      model: 'vision-direct',
-      messages: [{ role: 'user', content: 'Di "Gemini Direct funciona"' }],
-      max_tokens: 10
-    }, "Gemini Direct (Bypass DeepSeek)");
-
-    if (result && result.strategy !== 'vision-direct') {
-       print.warn(`⚠️ Estrategia inesperada para Gemini Direct: ${result.strategy} (Esperado: gemini-direct)`);
-    } else if (result) {
-       print.success("✓ Routing correcto: gemini-direct");
     }
   }
 
@@ -234,7 +219,7 @@ class MasterTestSuite {
     const imageUrl = `http://localhost:${TEST_SERVER_PORT}/image.png`;
     
     const result = await this.runRequest('/v1/chat/completions', {
-      model: 'proxy/deepseek-v4-flash',
+      model: 'proxy/deepseek-v4-pro',
       messages: [{ 
         role: 'user', 
         content: [
@@ -263,7 +248,7 @@ class MasterTestSuite {
     const audioUrl = `http://localhost:${TEST_SERVER_PORT}/audio.mp3`;
     
     const result = await this.runRequest('/v1/chat/completions', {
-      model: 'proxy/deepseek-v4-flash',
+      model: 'proxy/deepseek-v4-pro',
       messages: [{ 
         role: 'user', 
         content: [
@@ -285,7 +270,7 @@ class MasterTestSuite {
     const pdfUrl = `http://localhost:${TEST_SERVER_PORT}/small-test.pdf`;
     
     const result = await this.runRequest('/v1/chat/completions', {
-      model: 'proxy/deepseek-v4-flash',
+      model: 'proxy/deepseek-v4-pro',
       messages: [{ 
         role: 'user', 
         content: [
@@ -305,7 +290,7 @@ class MasterTestSuite {
     const largeRealPdfUrl = `http://localhost:${TEST_SERVER_PORT}/large-test.pdf`;
     
     const resultRealLarge = await this.runRequest('/v1/chat/completions', {
-      model: 'proxy/deepseek-v4-flash',
+      model: 'proxy/deepseek-v4-pro',
       messages: [{ 
         role: 'user', 
         content: [
@@ -325,7 +310,7 @@ class MasterTestSuite {
     const largeSimulatedPdfUrl = `http://localhost:${TEST_SERVER_PORT}/large.pdf`;
     
     const resultSimulated = await this.runRequest('/v1/chat/completions', {
-      model: 'proxy/deepseek-v4-flash',
+      model: 'proxy/deepseek-v4-pro',
       messages: [{ 
         role: 'user', 
         content: [
@@ -349,7 +334,7 @@ class MasterTestSuite {
     const videoUrl = `http://localhost:${TEST_SERVER_PORT}/video.mp4`;
     
     const result = await this.runRequest('/v1/chat/completions', {
-      model: 'proxy/deepseek-v4-flash',
+      model: 'proxy/deepseek-v4-pro',
       messages: [{ 
         role: 'user', 
         content: [
@@ -371,7 +356,7 @@ class MasterTestSuite {
     const base64Image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
     
     const result = await this.runRequest('/v1/chat/completions', {
-      model: 'proxy/deepseek-v4-flash',
+      model: 'proxy/deepseek-v4-pro',
       messages: [{ 
         role: 'user', 
         content: [
@@ -401,7 +386,7 @@ class MasterTestSuite {
           'Authorization': 'Bearer not-needed'
         },
         body: JSON.stringify({
-          model: 'proxy/deepseek-v4-flash',
+          model: 'proxy/deepseek-v4-pro',
           stream: true,
           messages: [{ role: 'user', content: 'Cuenta del 1 al 5' }]
         })
@@ -470,7 +455,7 @@ class MasterTestSuite {
     print.info("Ejecutando: Request repetido para verificar caché...");
     const start = Date.now();
     const result = await this.runRequest('/v1/chat/completions', {
-      model: 'proxy/deepseek-v4-flash',
+      model: 'proxy/deepseek-v4-pro',
       messages: [{ 
         role: 'user', 
         content: [
@@ -497,7 +482,6 @@ class MasterTestSuite {
     
     await this.checkHealth();
     await this.testText();
-    await this.testGeminiDirect();
     await this.testImage();
     await this.testAudio();
     await this.testPDF();

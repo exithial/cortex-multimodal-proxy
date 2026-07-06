@@ -63,18 +63,16 @@ describe('multimodalProcessor', () => {
   });
 
   describe('processMultimodalContent', () => {
-    it('debe usar vision-direct si se especifica modelo', async () => {
-      mockGenerateDirectResponse.mockResolvedValue('Respuesta directa de Gemini');
-
+    it('debe pasar directo si el modelo es passthrough (nativamente multimodal)', async () => {
       const messages: ChatMessage[] = [
         { role: 'user', content: 'Hola' },
       ];
 
-      const result = await processMultimodalContent(messages, 'vision-direct');
+      const result = await processMultimodalContent(messages, 'mimo-v2.5');
 
-      expect(mockGenerateDirectResponse).toHaveBeenCalledWith(messages);
-      expect(result.strategy).toBe('vision-direct');
-      expect(result.processedMessages[0].content).toBe('Respuesta directa de Gemini');
+      expect(result.strategy).toBe('direct');
+      expect(result.useDeepseekDirectly).toBe(true);
+      expect(result.processedMessages).toEqual(messages);
     });
 
     it('debe pasar directamente si solo hay texto', async () => {
