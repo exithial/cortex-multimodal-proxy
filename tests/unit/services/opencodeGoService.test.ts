@@ -1,11 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { Readable } from "node:stream";
+import axios from "axios";
 
 vi.mock("axios");
 vi.mock("dotenv/config", () => ({}));
 
+const mockedAxios = axios as unknown as {
+  post: ReturnType<typeof vi.fn>;
+};
+
 describe("OpenCodeGoService", () => {
   beforeEach(() => {
     vi.resetModules();
+    mockedAxios.post = vi.fn();
   });
 
   describe("constructor", () => {
@@ -35,10 +42,39 @@ describe("OpenCodeGoService", () => {
         request,
         "deepseek-v4-flash",
         true,
+        1048576,
       );
       expect(payload.model).toBe("deepseek-v4-flash");
       expect(payload.messages).toHaveLength(1);
       expect(payload.stream).toBe(false);
+      vi.unstubAllEnvs();
+    });
+
+    it("should respect maxContextTokens parameter and truncate overflow", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const longContent = "x".repeat(6000);
+      const messages = [
+        { role: "user" as const, content: longContent },
+      ];
+
+      const request = {
+        model: "proxy/kimi-k2.7-code",
+        messages,
+        stream: false,
+      };
+
+      const payload = opencodeGoService.buildPayload(
+        request,
+        "kimi-k2.7-code",
+        false,
+        1000,
+      );
+
+      expect(payload.messages.length).toBeLessThan(messages.length);
       vi.unstubAllEnvs();
     });
   });
@@ -65,6 +101,155 @@ describe("OpenCodeGoService", () => {
       const url = opencodeGoService.resolveEndpointUrl("anthropic");
       expect(url).toContain("/messages");
       expect(url).toContain("opencode.ai");
+      vi.unstubAllEnvs();
+    });
+  });
+
+  describe("createChatCompletion auth header", () => {
+    it("should send Bearer auth header", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      mockedAxios.post.mockResolvedValueOnce({
+        data: {
+          id: "x",
+          object: "chat.completion",
+          created: 1,
+          model: "kimi-k2.7-code",
+          choices: [
+            {
+              index: 0,
+              message: { role: "assistant", content: "hi" },
+              finish_reason: "stop",
+            },
+          ],
+        },
+      });
+
+      await opencodeGoService.createChatCompletion(
+        {
+          model: "proxy/kimi-k2.7-code",
+          messages: [{ role: "user", content: "hi" }],
+          stream: false,
+        },
+        {
+          upstream: "kimi-k2.7-code",
+          context: 262144,
+          maxOutput: 262144,
+          thinking: false,
+          inputPrice: 0,
+          outputPrice: 0,
+          endpoint: "openai",
+        },
+      );
+
+      expect(mockedAxios.post).toHaveBeenCalledTimes(1);
+      const call = mockedAxios.post.mock.calls[0];
+      const headers = call[2]?.headers as Record<string, string>;
+      expect(headers.Authorization).toBe("Bearer sk-test-key");
+      vi.unstubAllEnvs();
+    });
+  });
+
+  describe("chatCompletionStream", () => {
+    it("should buffer SSE chunks split across the packet boundary", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const eventPayload = JSON.stringify({
+        id: "x",
+        object: "chat.completion.chunk",
+        created: 1,
+        model: "kimi-k2.7-code",
+        choices: [
+          { index: 0, delta: { content: "hi" }, finish_reason: null },
+        ],
+      });
+
+      const stream = Readable.from([
+        Buffer.from(`data: ${eventPayload.slice(0, 40)}`),
+        Buffer.from(`${eventPayload.slice(40)}\n\n`),
+        Buffer.from("data: [DONE]\n\n"),
+      ]);
+
+      mockedAxios.post.mockResolvedValueOnce({ data: stream });
+
+      const chunks: string[] = [];
+      const errors: unknown[] = [];
+      let completed = false;
+      let safeEndGuard = true;
+
+      await opencodeGoService.chatCompletionStream(
+        {
+          model: "proxy/kimi-k2.7-code",
+          messages: [{ role: "user", content: "hi" }],
+          stream: true,
+        },
+        {
+          upstream: "kimi-k2.7-code",
+          context: 262144,
+          maxOutput: 262144,
+          thinking: false,
+          inputPrice: 0,
+          outputPrice: 0,
+          endpoint: "openai",
+        },
+        (chunk) => chunks.push(chunk),
+        (error) => errors.push(error),
+        () => {
+          if (!safeEndGuard) return;
+          safeEndGuard = false;
+          completed = true;
+        },
+      );
+
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(errors).toHaveLength(0);
+      expect(completed).toBe(true);
+      const reconstructed = chunks.join("");
+      expect(reconstructed).toContain(eventPayload);
+      expect(reconstructed).not.toContain("[DONE]");
+      vi.unstubAllEnvs();
+    });
+
+    it("should send Bearer auth header on stream requests", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const stream = Readable.from([]);
+      mockedAxios.post.mockResolvedValueOnce({ data: stream });
+
+      await opencodeGoService.chatCompletionStream(
+        {
+          model: "proxy/kimi-k2.7-code",
+          messages: [{ role: "user", content: "hi" }],
+          stream: true,
+        },
+        {
+          upstream: "kimi-k2.7-code",
+          context: 262144,
+          maxOutput: 262144,
+          thinking: false,
+          inputPrice: 0,
+          outputPrice: 0,
+          endpoint: "openai",
+        },
+        () => {},
+        () => {},
+        () => {},
+      );
+
+      const call = mockedAxios.post.mock.calls[0];
+      const headers = call[2]?.headers as Record<string, string>;
+      expect(headers.Authorization).toBe("Bearer sk-test-key");
+      expect(call[2]?.responseType).toBe("stream");
       vi.unstubAllEnvs();
     });
   });

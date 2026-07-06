@@ -3,9 +3,12 @@ import { logger } from "../utils/logger";
 import type {
   ChatCompletionRequest,
   ChatCompletionResponse,
-  ChatMessage,
 } from "../types/openai";
 import type { BrainModelEntry } from "./brainRegistry";
+import {
+  prepareMessages,
+  truncateMessages,
+} from "./messageTransforms";
 
 const OPENCODE_GO_API_KEY = process.env.OPENCODE_GO_API_KEY || "";
 const OPENCODE_GO_BASE_URL =
@@ -36,91 +39,14 @@ class OpenCodeGoService {
     return `${this.baseUrl}/chat/completions`;
   }
 
-  private truncateMessages(
-    messages: ChatMessage[],
-    maxContextTokens: number,
-  ): ChatMessage[] {
-    const estimateTokens = (text: string | null) =>
-      Math.ceil((text || "").length / 3);
-
-    const systemMessages = messages.filter((m) => m.role === "system");
-    const otherMessages = messages.filter((m) => m.role !== "system");
-
-    let systemTokens = systemMessages.reduce((sum, msg) => {
-      const content =
-        typeof msg.content === "string"
-          ? msg.content
-          : JSON.stringify(msg.content);
-      return sum + estimateTokens(content);
-    }, 0);
-
-    if (systemTokens > maxContextTokens * 0.3) {
-      systemMessages.splice(1);
-      const content =
-        typeof systemMessages[0]?.content === "string"
-          ? systemMessages[0].content
-          : JSON.stringify(systemMessages[0]?.content);
-      systemTokens = estimateTokens(content);
-    }
-
-    const result = [...systemMessages];
-    let currentTokens = systemTokens;
-    const maxTokensForHistory = maxContextTokens - systemTokens;
-
-    for (let i = otherMessages.length - 1; i >= 0; i--) {
-      const msg = otherMessages[i];
-      const content =
-        typeof msg.content === "string"
-          ? msg.content
-          : JSON.stringify(msg.content);
-      const msgTokens = estimateTokens(content);
-
-      if (currentTokens + msgTokens > maxTokensForHistory) {
-        break;
-      }
-
-      result.splice(systemMessages.length, 0, msg);
-      currentTokens += msgTokens;
-    }
-
-    return result;
-  }
-
-  private prepareMessages(
-    messages: ChatMessage[],
-    thinking: boolean,
-  ): any[] {
-    return messages
-      .filter((msg) =>
-        ["system", "user", "assistant", "tool"].includes(msg.role),
-      )
-      .map((msg) => {
-        const prepared: any = {
-          role: msg.role,
-          content:
-            msg.content === null
-              ? null
-              : typeof msg.content === "string"
-                ? msg.content
-                : JSON.stringify(msg.content),
-        };
-        if (msg.name) prepared.name = msg.name;
-        if (msg.tool_calls) prepared.tool_calls = msg.tool_calls;
-        if (msg.tool_call_id) prepared.tool_call_id = msg.tool_call_id;
-        if (thinking && msg.reasoning_content !== undefined) {
-          prepared.reasoning_content = msg.reasoning_content;
-        }
-        return prepared;
-      });
-  }
-
   buildPayload(
     request: ChatCompletionRequest,
     upstreamModel: string,
     thinking: boolean,
+    maxContextTokens: number,
   ): any {
-    const validMessages = this.prepareMessages(request.messages, thinking);
-    const truncatedMessages = this.truncateMessages(validMessages, 1048576);
+    const validMessages = prepareMessages(request.messages, thinking);
+    const truncatedMessages = truncateMessages(validMessages, maxContextTokens);
 
     const payload: any = {
       model: upstreamModel,
@@ -155,6 +81,7 @@ class OpenCodeGoService {
       request,
       brainEntry.upstream,
       brainEntry.thinking,
+      brainEntry.context,
     );
     const url = this.resolveEndpointUrl(brainEntry.endpoint);
 
@@ -184,6 +111,7 @@ class OpenCodeGoService {
       request,
       brainEntry.upstream,
       brainEntry.thinking,
+      brainEntry.context,
     );
     payload.stream = true;
     const url = this.resolveEndpointUrl(brainEntry.endpoint);
@@ -204,17 +132,45 @@ class OpenCodeGoService {
 
       const stream = response.data;
 
+      let buffer = "";
+      let streamEnded = false;
+      const safeEnd = () => {
+        if (!streamEnded) {
+          streamEnded = true;
+          onComplete();
+        }
+      };
+
       stream.on("data", (chunk: Buffer) => {
-        onChunk(chunk.toString());
+        buffer += chunk.toString();
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.trim() === "") continue;
+
+          if (line.startsWith("data: ")) {
+            const data = line.substring(6);
+            if (data === "[DONE]") {
+              safeEnd();
+              return;
+            }
+
+            try {
+              JSON.parse(data);
+              onChunk(`data: ${data}\n\n`);
+            } catch (error) {
+              logger.warn(
+                `JSON parsing error, skipping incomplete chunk: ${data.substring(0, 100)}...`,
+              );
+            }
+          }
+        }
       });
 
-      stream.on("end", () => {
-        onComplete();
-      });
-
-      stream.on("error", (error: unknown) => {
-        onError(error);
-      });
+      stream.on("end", () => safeEnd());
+      stream.on("error", (error: unknown) => onError(error));
     } catch (error: unknown) {
       onError(error);
     }
