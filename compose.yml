@@ -1,9 +1,9 @@
 services:
-  deepseek-multimodal-proxy:
+  cortex-multimodal-proxy:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: deepseek-multimodal-proxy
+    container_name: cortex-multimodal-proxy
     env_file:
       - .env
     ports:
