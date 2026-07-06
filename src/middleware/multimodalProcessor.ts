@@ -4,7 +4,11 @@ import { geminiService } from "../services/geminiService";
 import { mimoSensesService } from "../services/mimoSensesService";
 import { pdfProcessor } from "../utils/pdfProcessor";
 import { getErrorMessage } from "../utils/error";
-import { isPassthrough } from "../services/brainRegistry";
+import {
+  isPassthrough,
+  getBrainEntry,
+  type BrainModelEntry,
+} from "../services/brainRegistry";
 import {
   detectMultimodalContent,
   extractUserContext,
@@ -16,6 +20,7 @@ import {
 export async function processMultimodalContent(
   messages: ChatMessage[],
   modelName?: string,
+  brainEntry?: BrainModelEntry,
 ): Promise<{
   processedMessages: ChatMessage[];
   useDeepseekDirectly: boolean;
@@ -51,7 +56,10 @@ export async function processMultimodalContent(
     };
   }
 
+  const resolvedBrain = brainEntry ?? (modelName ? getBrainEntry(modelName) : undefined);
+  const isMultimodalNative = resolvedBrain?.multimodal === true;
   const useMimoForImages =
+    !isMultimodalNative &&
     !!modelName &&
     modelName.startsWith("proxy/") &&
     mimoSensesService.isAvailable();
@@ -99,6 +107,23 @@ export async function processMultimodalContent(
       useDeepseekDirectly: true,
       strategy: "direct",
     };
+  }
+
+  // 3b. Brain multimodal nativo: filtrar visionContent para solo imagenes;
+  //     audio/video/PDF siguen requiriendo Gemini.
+  if (isMultimodalNative && visionContent.length > 0) {
+    const imageContent = visionContent.filter((c) => c.type === "image");
+    const nonImageContent = visionContent.filter((c) => c.type !== "image");
+    if (imageContent.length > 0 && nonImageContent.length === 0 && localContent.length === 0) {
+      logger.info(
+        `Brain multimodal nativo: ${imageContent.length} imagen(es) pasa(n) directo al brain, sin MiMo senses`,
+      );
+      return {
+        processedMessages: messages,
+        useDeepseekDirectly: true,
+        strategy: "direct",
+      };
+    }
   }
 
   const userContext = extractUserContext(messages);

@@ -273,6 +273,7 @@ function resolveBrainServiceEntry(modelId: string): BrainModelEntry | null {
     inputPrice: 0,
     outputPrice: 0,
     endpoint: "openai",
+    multimodal: true,
   };
 
   if (isPassthrough(modelId)) return passthroughEntry;
@@ -296,6 +297,7 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
       const { processedMessages, strategy } = await processMultimodalContent(
         request.messages,
         model,
+        undefined,
       );
       res.setHeader("X-Multimodal-Strategy", strategy);
       const content = extractAssistantContent(processedMessages);
@@ -349,6 +351,7 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
     const { processedMessages, strategy } = await processMultimodalContent(
       request.messages,
       model,
+      brainEntry,
     );
     res.setHeader("X-Multimodal-Strategy", strategy);
 
@@ -583,7 +586,11 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
       );
     } else {
       const { processedMessages: pm, strategy: st } =
-        await processMultimodalContent(openaiRequest.messages, mappedModel);
+        await processMultimodalContent(
+          openaiRequest.messages,
+          mappedModel,
+          brainEntry,
+        );
       processedMessages = pm;
       strategy = st;
       logger.info(

@@ -10,8 +10,8 @@ import {
 
 describe("brainRegistry", () => {
   describe("BRAIN_MODELS", () => {
-    it("should contain 9 text-only brain entries", () => {
-      expect(Object.keys(BRAIN_MODELS)).toHaveLength(9);
+    it("should contain 3 brain entries (glm-5.2, qwen3.7-max, deepseek-v4-pro)", () => {
+      expect(Object.keys(BRAIN_MODELS)).toHaveLength(3);
     });
 
     it("each entry should have required fields", () => {
@@ -22,33 +22,40 @@ describe("brainRegistry", () => {
         expect(entry.maxOutput).toBeGreaterThan(0);
         expect(typeof entry.thinking).toBe("boolean");
         expect(["openai", "anthropic"]).toContain(entry.endpoint);
+        expect(typeof entry.multimodal).toBe("boolean");
         expect(entry.inputPrice).toBeGreaterThanOrEqual(0);
         expect(entry.outputPrice).toBeGreaterThanOrEqual(0);
       }
     });
 
-    it("should include proxy/deepseek-v4-pro", () => {
+    it("all brains should be text-only (multimodal: false) since they use MiMo V2.5 senses", () => {
+      for (const entry of Object.values(BRAIN_MODELS)) {
+        expect(entry.multimodal).toBe(false);
+      }
+    });
+
+    it("all brains should have thinking enabled for max-thinking policy", () => {
+      for (const entry of Object.values(BRAIN_MODELS)) {
+        expect(entry.thinking).toBe(true);
+      }
+    });
+
+    it("should include proxy/glm-5.2 with openai endpoint", () => {
+      expect(BRAIN_MODELS["proxy/glm-5.2"]).toBeDefined();
+      expect(BRAIN_MODELS["proxy/glm-5.2"].upstream).toBe("glm-5.2");
+      expect(BRAIN_MODELS["proxy/glm-5.2"].endpoint).toBe("openai");
+    });
+
+    it("should include proxy/qwen3.7-max with anthropic endpoint", () => {
+      expect(BRAIN_MODELS["proxy/qwen3.7-max"]).toBeDefined();
+      expect(BRAIN_MODELS["proxy/qwen3.7-max"].upstream).toBe("qwen3.7-max");
+      expect(BRAIN_MODELS["proxy/qwen3.7-max"].endpoint).toBe("anthropic");
+    });
+
+    it("should include proxy/deepseek-v4-pro with openai endpoint", () => {
       expect(BRAIN_MODELS["proxy/deepseek-v4-pro"]).toBeDefined();
       expect(BRAIN_MODELS["proxy/deepseek-v4-pro"].upstream).toBe("deepseek-v4-pro");
-      expect(BRAIN_MODELS["proxy/deepseek-v4-pro"].thinking).toBe(true);
-    });
-
-    it("should include proxy/kimi-k2.6", () => {
-      expect(BRAIN_MODELS["proxy/kimi-k2.6"]).toBeDefined();
-      expect(BRAIN_MODELS["proxy/kimi-k2.6"].upstream).toBe("kimi-k2.6");
-      expect(BRAIN_MODELS["proxy/kimi-k2.6"].thinking).toBe(false);
-    });
-
-    it("qwen brains should use anthropic endpoint", () => {
-      expect(BRAIN_MODELS["proxy/qwen3.7-max"].endpoint).toBe("anthropic");
-      expect(BRAIN_MODELS["proxy/qwen3.7-plus"].endpoint).toBe("anthropic");
-      expect(BRAIN_MODELS["proxy/qwen3.6-plus"].endpoint).toBe("anthropic");
-    });
-
-    it("non-qwen brains should use openai endpoint", () => {
-      expect(BRAIN_MODELS["proxy/kimi-k2.6"].endpoint).toBe("openai");
-      expect(BRAIN_MODELS["proxy/glm-5.2"].endpoint).toBe("openai");
-      expect(BRAIN_MODELS["proxy/deepseek-v4-flash"].endpoint).toBe("openai");
+      expect(BRAIN_MODELS["proxy/deepseek-v4-pro"].endpoint).toBe("openai");
     });
   });
 

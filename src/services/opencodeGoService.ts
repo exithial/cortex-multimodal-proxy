@@ -27,6 +27,7 @@ function openAIToAnthropicPayload(
   upstreamModel: string,
   validMessages: any[],
   stream: boolean,
+  thinking: boolean,
 ): any {
   const systemMsg = validMessages.find((m) => m.role === "system");
   const nonSystemMessages = validMessages.filter((m) => m.role !== "system");
@@ -102,6 +103,16 @@ function openAIToAnthropicPayload(
       return tool;
     });
   }
+  if (thinking) {
+    const budgetTokens = Math.max(1024, Math.floor(payload.max_tokens / 4));
+    payload.thinking = {
+      type: "enabled",
+      budget_tokens: budgetTokens,
+    };
+    if (!payload.max_tokens || payload.max_tokens < budgetTokens + 1024) {
+      payload.max_tokens = budgetTokens + 4096;
+    }
+  }
 
   return payload;
 }
@@ -154,6 +165,7 @@ class OpenCodeGoService {
         upstreamModel,
         truncatedMessages,
         request.stream || false,
+        thinking,
       );
     }
 
@@ -177,6 +189,9 @@ class OpenCodeGoService {
     }
     if (request.response_format !== undefined) {
       payload.response_format = request.response_format;
+    }
+    if (thinking) {
+      payload.thinking = { type: "enabled" };
     }
 
     return payload;

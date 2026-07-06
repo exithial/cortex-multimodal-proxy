@@ -33,19 +33,20 @@ describe("OpenCodeGoService", () => {
       );
 
       const request = {
-        model: "proxy/deepseek-v4-flash",
+        model: "proxy/deepseek-v4-pro",
         messages: [{ role: "user" as const, content: "hello" }],
         stream: false,
       };
 
       const payload = opencodeGoService.buildPayload(
         request,
-        "deepseek-v4-flash",
+        "deepseek-v4-pro",
         true,
         1048576,
         "openai",
       );
-      expect(payload.model).toBe("deepseek-v4-flash");
+      expect(payload.model).toBe("deepseek-v4-pro");
+      expect(payload.thinking).toEqual({ type: "enabled" });
       expect(payload.messages).toHaveLength(1);
       expect(payload.stream).toBe(false);
       vi.unstubAllEnvs();
@@ -168,15 +169,15 @@ describe("OpenCodeGoService", () => {
       ];
 
       const request = {
-        model: "proxy/kimi-k2.7-code",
+        model: "proxy/glm-5.2",
         messages,
         stream: false,
       };
 
       const payload = opencodeGoService.buildPayload(
         request,
-        "kimi-k2.7-code",
-        false,
+        "glm-5.2",
+        true,
         1000,
         "openai",
       );
@@ -224,7 +225,7 @@ describe("OpenCodeGoService", () => {
           id: "x",
           object: "chat.completion",
           created: 1,
-          model: "kimi-k2.7-code",
+          model: "glm-5.2",
           choices: [
             {
               index: 0,
@@ -242,7 +243,7 @@ describe("OpenCodeGoService", () => {
           stream: false,
         },
         {
-          upstream: "kimi-k2.7-code",
+          upstream: "glm-5.2",
           context: 262144,
           maxOutput: 262144,
           thinking: false,
@@ -271,7 +272,7 @@ describe("OpenCodeGoService", () => {
           type: "message",
           role: "assistant",
           content: [{ type: "text", text: "hi" }],
-          model: "qwen3.6-plus",
+          model: "qwen3.7-max",
           stop_reason: "end_turn",
         },
       });
@@ -284,7 +285,7 @@ describe("OpenCodeGoService", () => {
           stream: false,
         },
         {
-          upstream: "qwen3.6-plus",
+          upstream: "qwen3.7-max",
           context: 1048576,
           maxOutput: 65536,
           thinking: false,
@@ -315,7 +316,7 @@ describe("OpenCodeGoService", () => {
         id: "x",
         object: "chat.completion.chunk",
         created: 1,
-        model: "kimi-k2.7-code",
+        model: "glm-5.2",
         choices: [
           { index: 0, delta: { content: "hi" }, finish_reason: null },
         ],
@@ -341,7 +342,7 @@ describe("OpenCodeGoService", () => {
           stream: true,
         },
         {
-          upstream: "kimi-k2.7-code",
+          upstream: "glm-5.2",
           context: 262144,
           maxOutput: 262144,
           thinking: false,
@@ -384,7 +385,7 @@ describe("OpenCodeGoService", () => {
           stream: true,
         },
         {
-          upstream: "kimi-k2.7-code",
+          upstream: "glm-5.2",
           context: 262144,
           maxOutput: 262144,
           thinking: false,
