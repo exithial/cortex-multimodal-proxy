@@ -242,76 +242,115 @@ app.get("/v1/models", (req: Request, res: Response) => {
   });
 });
 
+function resolveBrainServiceEntry(modelId: string): BrainModelEntry | null {
+  const passthroughEntry: BrainModelEntry = {
+    upstream: modelId,
+    context: 1048576,
+    maxOutput: 131072,
+    thinking: false,
+    inputPrice: 0,
+    outputPrice: 0,
+    endpoint: "openai",
+  };
+
+  if (isPassthrough(modelId)) return passthroughEntry;
+  return getBrainEntry(modelId) || null;
+}
+
 // Chat completions - Endpoint principal compatible OpenAI
-// Arquitectura "Cortex Sensorial v2": routing inteligente basado en tipo de contenido
+// Arquitectura "Cortex Sensorial v3": MiMo V2.5 senses + multi-brain router
 app.post("/v1/chat/completions", async (req: Request, res: Response) => {
   const startTime = Date.now();
 
   try {
     const request = req.body as ChatCompletionRequest;
+    const model = request.model;
 
     logger.info(
-      `POST /v1/chat/completions | model: ${request.model} | stream: ${request.stream || false} | tools: ${!!request.tools}`,
+      `POST /v1/chat/completions | model: ${model} | stream: ${request.stream || false} | tools: ${!!request.tools}`,
     );
 
-    const { processedMessages, useDeepseekDirectly, strategy } =
-      await processMultimodalContent(request.messages, request.model);
-
-    res.setHeader("X-Multimodal-Strategy", strategy);
-
-    if (strategy === "vision-direct") {
-      logger.info(
-        "OK Contenido procesado (vision-direct) - Respuesta Gemini directa",
+    if (model === "vision-direct") {
+      const { processedMessages, strategy } = await processMultimodalContent(
+        request.messages,
+        model,
       );
-    } else if (useDeepseekDirectly) {
-      logger.info("OK Contenido soportado por DeepSeek - Passthrough directo");
-    } else {
-      logger.info(`OK Contenido procesado (${strategy}) - Enrutando a DeepSeek`);
-    }
-
-    // Crear request procesado (preservando tools y otros campos)
-    const processedRequest: ChatCompletionRequest = {
-      ...request,
-      messages: processedMessages,
-    };
-
-    if (strategy === "vision-direct") {
+      res.setHeader("X-Multimodal-Strategy", strategy);
       const content = extractAssistantContent(processedMessages);
 
       if (request.stream) {
         res.setHeader("Content-Type", "text/event-stream");
         res.setHeader("Cache-Control", "no-cache");
         res.setHeader("Connection", "keep-alive");
-
         const requestId = `chatcmpl-${randomUUID()}`;
         for await (const chunk of createOpenAIStreamFromText(
           content,
-          request.model,
+          model,
           requestId,
         )) {
           res.write(chunk);
         }
         res.end();
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        logger.info(`OK Request stream completado (${elapsed}s total)`);
+        logger.info(`OK vision-direct stream completado`);
         return;
       }
-
-      const response = createOpenAIResponseFromText(content, request.model);
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      logger.info(`OK Request completado (${elapsed}s total)`);
-      res.json(response);
+      res.json(createOpenAIResponseFromText(content, model));
       return;
     }
 
-    // Streaming vs non-streaming
+    if (!isKnownModel(model)) {
+      const allKnown = [
+        ...Object.keys(BRAIN_MODELS),
+        ...Array.from(PASSTHROUGH_MODELS),
+        "vision-direct",
+      ];
+      res.status(400).json({
+        error: {
+          message: `Modelo desconocido: ${model}. Modelos válidos: ${allKnown.join(", ")}`,
+          type: "invalid_request_error",
+        },
+      });
+      return;
+    }
+
+    const brainEntry = resolveBrainServiceEntry(model);
+    if (!brainEntry) {
+      res.status(400).json({
+        error: {
+          message: `No se pudo resolver brain para modelo: ${model}`,
+          type: "invalid_request_error",
+        },
+      });
+      return;
+    }
+
+    const { processedMessages, strategy } = await processMultimodalContent(
+      request.messages,
+      model,
+    );
+    res.setHeader("X-Multimodal-Strategy", strategy);
+
+    if (isPassthrough(model)) {
+      logger.info(`Passthrough: ${model} (nativamente multimodal)`);
+    } else if (strategy === "direct") {
+      logger.info(`Brain directo: ${brainEntry.upstream}`);
+    } else {
+      logger.info(`Brain: ${brainEntry.upstream} via ${strategy}`);
+    }
+
+    const processedRequest: ChatCompletionRequest = {
+      ...request,
+      messages: processedMessages,
+    };
+
     if (request.stream) {
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      await deepseekService.chatCompletionStream(
+      await opencodeGoService.chatCompletionStream(
         processedRequest,
+        brainEntry,
         (chunk) => {
           res.write(chunk);
         },
@@ -329,15 +368,20 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
           res.write("data: [DONE]\n\n");
           res.end();
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-          logger.info(`✓ Request stream completado (${elapsed}s total)`);
+          logger.info(
+            `✓ Request stream completado (${elapsed}s) | ${brainEntry.upstream}`,
+          );
         },
       );
     } else {
-      const response = await deepseekService.createChatCompletion(
+      const response = await opencodeGoService.createChatCompletion(
         processedRequest,
+        brainEntry,
       );
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      logger.info(`✓ Request completado (${elapsed}s total)`);
+      logger.info(
+        `✓ Request completado (${elapsed}s) | ${brainEntry.upstream}`,
+      );
       res.json(response);
     }
   } catch (error: unknown) {
