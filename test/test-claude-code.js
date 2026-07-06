@@ -35,7 +35,7 @@ async function testAnthropicModels() {
 }
 
 async function testHaikuTextOnly() {
-  console.log("\nTest 2: Haiku (gemini-direct) - Solo texto");
+  console.log("\nTest 2: Haiku (mimo-v2.5 passthrough) - Solo texto");
 
   const res = await axios.post(
     `${BASE_URL}/v1/messages`,
