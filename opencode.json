@@ -12,36 +12,18 @@
         "proxy/glm-5.2": {
           "name": "GLM-5.2 (Cortex Proxy)",
           "cost": { "input": 1.54, "output": 4.40 },
-          "limit": { "context": 800000, "output": 131072 },
+          "limit": { "context": 819200, "output": 131072 },
           "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
         },
         "proxy/deepseek-v4-pro": {
           "name": "DeepSeek V4 Pro (Cortex Proxy)",
           "cost": { "input": 1.88, "output": 3.48 },
-          "limit": { "context": 800000, "output": 384000 },
+          "limit": { "context": 819200, "output": 384000 },
           "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
         },
         "mimo-v2.5": {
           "name": "MiMo V2.5 (Passthrough)",
           "cost": { "input": 0.14, "output": 0.28 },
-          "limit": { "context": 1048576, "output": 131072 },
-          "modalities": { "input": ["text", "image"], "output": ["text"] }
-        },
-        "mimo-v2.5-pro": {
-          "name": "MiMo V2.5 Pro (Passthrough)",
-          "cost": { "input": 1.74, "output": 3.48 },
-          "limit": { "context": 1048576, "output": 131072 },
-          "modalities": { "input": ["text", "image"], "output": ["text"] }
-        },
-        "minimax-m3": {
-          "name": "MiniMax M3 (Passthrough)",
-          "cost": { "input": 0.30, "output": 1.20 },
-          "limit": { "context": 1048576, "output": 131072 },
-          "modalities": { "input": ["text", "image"], "output": ["text"] }
-        },
-        "minimax-m2.7": {
-          "name": "MiniMax M2.7 (Passthrough)",
-          "cost": { "input": 0.30, "output": 1.20 },
           "limit": { "context": 1048576, "output": 131072 },
           "modalities": { "input": ["text", "image"], "output": ["text"] }
         }

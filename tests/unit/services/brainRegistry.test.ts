@@ -54,12 +54,9 @@ describe("brainRegistry", () => {
   });
 
   describe("PASSTHROUGH_MODELS", () => {
-    it("should contain 4 natively multimodal models", () => {
-      expect(PASSTHROUGH_MODELS.size).toBe(4);
+    it("should contain 1 natively multimodal model (mimo-v2.5)", () => {
+      expect(PASSTHROUGH_MODELS.size).toBe(1);
       expect(PASSTHROUGH_MODELS.has("mimo-v2.5")).toBe(true);
-      expect(PASSTHROUGH_MODELS.has("mimo-v2.5-pro")).toBe(true);
-      expect(PASSTHROUGH_MODELS.has("minimax-m3")).toBe(true);
-      expect(PASSTHROUGH_MODELS.has("minimax-m2.7")).toBe(true);
     });
   });
 
@@ -82,7 +79,6 @@ describe("brainRegistry", () => {
   describe("isPassthrough", () => {
     it("should return true for natively multimodal models", () => {
       expect(isPassthrough("mimo-v2.5")).toBe(true);
-      expect(isPassthrough("minimax-m3")).toBe(true);
     });
 
     it("should return false for brain models", () => {

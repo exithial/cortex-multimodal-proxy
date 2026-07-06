@@ -89,19 +89,13 @@ Add to `~/.config/opencode/opencode.json`:
         "proxy/glm-5.2": {
           "name": "GLM-5.2 (via proxy)",
           "cost": { "input": 1.54, "output": 4.40 },
-          "limit": { "context": 1048576, "output": 131072 },
-          "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
-        },
-        "proxy/qwen3.7-max": {
-          "name": "Qwen3.7 Max (via proxy)",
-          "cost": { "input": 2.64, "output": 7.50 },
-          "limit": { "context": 1048576, "output": 65536 },
+          "limit": { "context": 819200, "output": 131072 },
           "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
         },
         "proxy/deepseek-v4-pro": {
           "name": "DeepSeek V4 Pro (via proxy)",
           "cost": { "input": 1.88, "output": 3.48 },
-          "limit": { "context": 1048576, "output": 384000 },
+          "limit": { "context": 819200, "output": 384000 },
           "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
         }
       }
@@ -157,7 +151,6 @@ Default Claude Code mappings (configurable via env vars):
 
 - **OpenCode**: `model: "proxy/deepseek-v4-pro"` (or any `proxy/<brain-id>`) in `/v1/chat/completions`
 - **Claude Code**: `model: "sonnet"` (mapped to `proxy/deepseek-v4-pro` by default)
-- **Natively multimodal models** (`mimo-v2.5`, etc.) bypass the proxy entirely when configured in OpenCode directly
 
 ## Endpoints and Metrics
 
@@ -165,7 +158,7 @@ Default Claude Code mappings (configurable via env vars):
 |----------|--------|-------------|
 | `/v1/chat/completions` | POST | Multimodal chat (OpenAI) |
 | `/v1/messages` | POST | Anthropic Messages API (Claude Code) |
-| `/v1/models` | GET | Model list (2 proxy brains + 4 passthrough) |
+| `/v1/models` | GET | Model list (2 proxy brains + 1 passthrough) |
 | `/v1/cache/stats` | GET | Contextual cache statistics |
 | `/health` | GET | Service status + version |
 
@@ -233,10 +226,10 @@ PDF_LOCAL_MAX_SIZE_MB=1
 ## Current Status - Version 3.0.0
 
 - **"Cortex Sensorial v3" architecture** complete
-- **3 brains** via OpenCode Go: GLM-5.2, Qwen3.7 Max, DeepSeek V4 Pro (all max thinking)
+- **2 brains** via OpenCode Go: GLM-5.2, DeepSeek V4 Pro (all max thinking)
+- **1 passthrough model** for natively multimodal: mimo-v2.5
 - **MiMo V2.5** as multimodal senses for images (replaces Gemini for vision)
 - **Gemini 2.5 Flash** fallback for audio/video/PDFs (optional)
-- **4 passthrough models** for natively multimodal: mimo-v2.5, mimo-v2.5-pro, minimax-m3, minimax-m2.7
 - **Retry with exponential backoff** (3 attempts, 2s/4s delays) for upstream503/502/429
 - **Single Bearer token** via OpenCode Go subscription ($10/month)
 

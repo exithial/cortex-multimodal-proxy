@@ -33,7 +33,7 @@ export function getClaudeCodeModelsList(): any[] {
       owned_by: "anthropic",
     },
     {
-      id: process.env.CLAUDE_SONNET_MODEL || "proxy/kimi-k2.6",
+      id: process.env.CLAUDE_SONNET_MODEL || "proxy/deepseek-v4-pro",
       object: "model",
       created: 1706745600,
       owned_by: "anthropic",

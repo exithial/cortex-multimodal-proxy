@@ -81,7 +81,7 @@ function stableStringify(value: any): string {
 }
 
 function getClaudeModelMapping(model: string): {
-  internalModel: string;
+internalModel: string;
   strategy: "passthrough" | "proxy-brain";
 } {
   const haikuModel = process.env.CLAUDE_HAIKU_MODEL || "mimo-v2.5";

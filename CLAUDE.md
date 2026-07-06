@@ -7,10 +7,10 @@
 - **Docs (README, MODELS.md, all documentation)**: English
 
 ## Architecture
-- Pattern: "Cortex Sensorial v3" — 2 brains via OpenCode Go + MiMo V2.5 senses + Gemini fallback
+- Pattern: "Cortex Sensorial v3" — 2 brains + 1 passthrough via OpenCode Go + MiMo V2.5 senses + Gemini fallback
 - Text/code -> proxy/<brain> direct; images -> MiMo V2.5 -> brain; audio/video/PDF -> Gemini -> brain
 - Brain selection: `proxy/<model-id>` for text-only models, passthrough for natively multimodal
-- Natively multimodal models (mimo-v2.5, mimo-v2.5-pro, minimax-m3, minimax-m2.7) bypass the senses layer
+- Natively multimodal model (mimo-v2.5) bypasses the senses layer
 - All brains use max thinking (`thinking: { type: "enabled" }`)
 - Retry with exponential backoff (3 attempts, 2s/4s delays) on503/502/429
 
@@ -24,8 +24,8 @@
 
 ## Models
 - Brain options (text-only via `proxy/` prefix): `proxy/glm-5.2`, `proxy/deepseek-v4-pro`
-- All brains: thinking enabled, context1M, all use OpenAI-format endpoint at OpenCode Go
-- Passthrough (natively multimodal): `mimo-v2.5`, `mimo-v2.5-pro`, `minimax-m3`, `minimax-m2.7`
+- All brains: thinking enabled, context819200, all use OpenAI-format endpoint at OpenCode Go
+- Passthrough (natively multimodal): `mimo-v2.5`
 - Claude Code aliases: `haiku` → `mimo-v2.5` (passthrough), `sonnet` → `proxy/deepseek-v4-pro` (default), `opus` → `proxy/glm-5.2` (default)
 - Senses: MiMo V2.5 for images (mimo-v2.5 multimodal native), Gemini for audio/video/PDFs
 - All brain models use `/chat/completions` endpoint (OpenAI-format)
@@ -66,10 +66,10 @@
 - Delete local + remote branch after merge
 
 ## Services
-- `src/services/opencodeGoService.ts`: Generic OpenCode Go caller with retry logic for all2 brain models + passthrough
+- `src/services/opencodeGoService.ts`: Generic OpenCode Go caller with retry logic for both brain models + passthrough
 - `src/services/mimoSensesService.ts`: MiMo V2.5 image description
 - `src/services/geminiService.ts`: Gemini fallback for audio/video/PDF (still required for non-image media)
-- `src/services/brainRegistry.ts`: 3 brain entries + 4 passthrough models + helpers (getBrainEntry, isPassthrough, parseProxyModelId, isKnownModel)
+- `src/services/brainRegistry.ts`: 2 brain entries + 1 passthrough model + helpers (getBrainEntry, isPassthrough, parseProxyModelId, isKnownModel)
 - `src/services/messageTransforms.ts`: Shared truncateMessages and prepareMessages helpers
 - `src/services/anthropicAdapter.ts`: Claude Code ↔ OpenAI translation
 - `src/middleware/multimodalDetector.ts`: Content type detection
