@@ -99,8 +99,10 @@ export const PASSTHROUGH_MODELS = new Set([
   "minimax-m2.7",
 ]);
 
+const PROXY_PREFIX = "proxy/";
+
 export function getBrainEntry(modelId: string): BrainModelEntry | undefined {
-  return BRAIN_MODELS[modelId];
+  return Object.hasOwn(BRAIN_MODELS, modelId) ? BRAIN_MODELS[modelId] : undefined;
 }
 
 export function isPassthrough(modelId: string): boolean {
@@ -108,12 +110,11 @@ export function isPassthrough(modelId: string): boolean {
 }
 
 export function parseProxyModelId(modelId: string): string | null {
-  if (modelId.startsWith("proxy/")) {
-    return modelId.substring(6);
-  }
-  return null;
+  if (!modelId.startsWith(PROXY_PREFIX)) return null;
+  const upstream = modelId.slice(PROXY_PREFIX.length);
+  return upstream || null;
 }
 
 export function isKnownModel(modelId: string): boolean {
-  return modelId in BRAIN_MODELS || PASSTHROUGH_MODELS.has(modelId);
+  return Object.hasOwn(BRAIN_MODELS, modelId) || PASSTHROUGH_MODELS.has(modelId);
 }

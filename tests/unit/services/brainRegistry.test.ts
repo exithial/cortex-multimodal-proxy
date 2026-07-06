@@ -103,6 +103,18 @@ describe("brainRegistry", () => {
       expect(parseProxyModelId("mimo-v2.5")).toBeNull();
       expect(parseProxyModelId("unknown")).toBeNull();
     });
+
+    it("should return null for empty upstream", () => {
+      expect(parseProxyModelId("proxy/")).toBeNull();
+    });
+
+    it("should be case-sensitive", () => {
+      expect(parseProxyModelId("Proxy/foo")).toBeNull();
+    });
+
+    it("should return null for empty string", () => {
+      expect(parseProxyModelId("")).toBeNull();
+    });
   });
 
   describe("isKnownModel", () => {
@@ -116,6 +128,14 @@ describe("brainRegistry", () => {
 
     it("should return false for unknown models", () => {
       expect(isKnownModel("unknown")).toBe(false);
+    });
+  });
+
+  describe("isKnownModel prototype safety", () => {
+    it("should return false for prototype-named IDs", () => {
+      expect(isKnownModel("toString")).toBe(false);
+      expect(isKnownModel("constructor")).toBe(false);
+      expect(isKnownModel("hasOwnProperty")).toBe(false);
     });
   });
 });
