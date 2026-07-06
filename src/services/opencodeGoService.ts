@@ -214,12 +214,38 @@ class OpenCodeGoService {
       `OpenCode Go: POST ${url} | model: ${brainEntry.upstream} | thinking: ${brainEntry.thinking}`,
     );
 
-    const response = await axios.post(url, payload, {
-      headers: this.buildAuthHeaders(brainEntry.endpoint),
-      timeout: this.timeout,
-    });
+    const maxRetries = 3;
+    const baseDelay = 2000;
+    let lastError: unknown;
 
-    return response.data;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await axios.post(url, payload, {
+          headers: this.buildAuthHeaders(brainEntry.endpoint),
+          timeout: this.timeout,
+        });
+        return response.data;
+      } catch (error: unknown) {
+        lastError = error;
+        const status = axios.isAxiosError(error) ? error.response?.status : 0;
+        const isRetryable = status === 503 || status === 502 || status === 429;
+
+        if (!isRetryable || attempt === maxRetries) {
+          throw error;
+        }
+
+        const retryAfter = axios.isAxiosError(error)
+          ? parseInt(error.response?.headers?.["retry-after"] || "0") * 1000
+          : 0;
+        const delay = retryAfter || baseDelay * Math.pow(2, attempt - 1);
+        logger.warn(
+          `OpenCode Go: ${status} en ${brainEntry.upstream}, reintento ${attempt}/${maxRetries} en ${delay}ms`,
+        );
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+
+    throw lastError;
   }
 
   async chatCompletionStream(
@@ -252,12 +278,40 @@ class OpenCodeGoService {
       onComplete();
     };
 
+    const maxRetries = 3;
+    const baseDelay = 2000;
+    let response: any;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        response = await axios.post(url, payload, {
+          headers: this.buildAuthHeaders(brainEntry.endpoint),
+          timeout: this.timeout,
+          responseType: "stream",
+        });
+        break;
+      } catch (error: unknown) {
+        const status = axios.isAxiosError(error) ? error.response?.status : 0;
+        const isRetryable = status === 503 || status === 502 || status === 429;
+
+        if (!isRetryable || attempt === maxRetries) {
+          safeEnd();
+          onError(error);
+          return;
+        }
+
+        const retryAfter = axios.isAxiosError(error)
+          ? parseInt(error.response?.headers?.["retry-after"] || "0") * 1000
+          : 0;
+        const delay = retryAfter || baseDelay * Math.pow(2, attempt - 1);
+        logger.warn(
+          `OpenCode Go (stream): ${status} en ${brainEntry.upstream}, reintento ${attempt}/${maxRetries} en ${delay}ms`,
+        );
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+
     try {
-      const response = await axios.post(url, payload, {
-        headers: this.buildAuthHeaders(brainEntry.endpoint),
-        timeout: this.timeout,
-        responseType: "stream",
-      });
 
       const stream = response.data;
 
