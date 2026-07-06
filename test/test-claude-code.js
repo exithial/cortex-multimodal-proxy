@@ -58,7 +58,8 @@ async function testHaikuTextOnly() {
 
   const pass =
     res.data.type === "message" &&
-    res.headers["x-multimodal-strategy"] === "gemini-direct";
+    (res.headers["x-multimodal-strategy"] === "direct" ||
+      res.headers["x-multimodal-strategy"] === "vision-direct");
   console.log(pass ? "  PASS" : "  FAIL");
   return pass;
 }
@@ -107,7 +108,9 @@ async function testSonnetWithImage() {
 
     const pass =
       res.data.type === "message" &&
-      ["gemini", "mixed"].includes(res.headers["x-multimodal-strategy"]);
+      ["vision", "vision-mimo", "mixed"].includes(
+        res.headers["x-multimodal-strategy"],
+      );
     console.log(pass ? "  PASS" : "  FAIL");
     return pass;
   } catch (error) {

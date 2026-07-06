@@ -215,12 +215,12 @@ class MasterTestSuite {
   async testGeminiDirect() {
     print.header("2.5. PRUEBA GEMINI DIRECT");
     const result = await this.runRequest('/v1/chat/completions', {
-      model: 'gemini-direct',
+      model: 'vision-direct',
       messages: [{ role: 'user', content: 'Di "Gemini Direct funciona"' }],
       max_tokens: 10
     }, "Gemini Direct (Bypass DeepSeek)");
 
-    if (result && result.strategy !== 'gemini-direct') {
+    if (result && result.strategy !== 'vision-direct') {
        print.warn(`⚠️ Estrategia inesperada para Gemini Direct: ${result.strategy} (Esperado: gemini-direct)`);
     } else if (result) {
        print.success("✓ Routing correcto: gemini-direct");
@@ -245,7 +245,7 @@ class MasterTestSuite {
       max_tokens: 100
     }, "Análisis de Imagen (Gemini → DeepSeek)");
 
-    if (result && result.strategy !== 'gemini' && result.strategy !== 'mixed') {
+    if (result && result.strategy !== 'vision' && result.strategy !== 'mixed') {
        print.warn(`⚠️ Estrategia inesperada para Imagen: ${result.strategy} (Esperado: gemini/mixed)`);
     }
   }
@@ -274,7 +274,7 @@ class MasterTestSuite {
       max_tokens: 100
     }, "Análisis de Audio (Gemini → DeepSeek)");
 
-    if (result && result.strategy !== 'gemini' && result.strategy !== 'mixed') {
+    if (result && result.strategy !== 'vision' && result.strategy !== 'mixed') {
        print.warn(`⚠️ Estrategia inesperada para Audio: ${result.strategy} (Esperado: gemini/mixed)`);
     }
   }
@@ -336,7 +336,7 @@ class MasterTestSuite {
       max_tokens: 100
     }, "Análisis de PDF Simulado >1MB (Gemini)");
 
-    if (resultSimulated && resultSimulated.strategy !== 'gemini') {
+    if (resultSimulated && resultSimulated.strategy !== 'vision') {
        print.warn(`⚠️ Estrategia fallo para PDF Simulado. Obtuvimos: ${resultSimulated.strategy} (Esperado: gemini)`);
     } else if (resultSimulated) {
        print.success(`✓ Routing correcto: PDF Simulado fue enviado a Gemini`);
@@ -360,7 +360,7 @@ class MasterTestSuite {
       max_tokens: 100
     }, "Análisis de Video (Gemini → DeepSeek)");
 
-    if (result && result.strategy !== 'gemini' && result.strategy !== 'mixed') {
+    if (result && result.strategy !== 'vision' && result.strategy !== 'mixed') {
        print.warn(`⚠️ Estrategia inesperada para Video: ${result.strategy} (Esperado: gemini/mixed)`);
     }
   }
@@ -382,7 +382,7 @@ class MasterTestSuite {
       max_tokens: 50
     }, "Análisis de Imagen Base64 (Directo en Payload)");
 
-    if (result && result.strategy !== 'gemini') {
+    if (result && result.strategy !== 'vision') {
        print.warn(`⚠️ Estrategia inesperada para Base64: ${result.strategy} (Esperado: gemini)`);
     }
   }
