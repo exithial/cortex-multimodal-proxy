@@ -74,6 +74,7 @@ export interface ChatCompletionRequest {
   user?: string;
   tools?: any[];
   tool_choice?: any;
+  response_format?: any;
 }
 
 export interface ChatCompletionResponse {
