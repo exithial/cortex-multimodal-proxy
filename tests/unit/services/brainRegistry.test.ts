@@ -46,10 +46,10 @@ describe("brainRegistry", () => {
       expect(BRAIN_MODELS["proxy/glm-5.2"].endpoint).toBe("openai");
     });
 
-    it("should include proxy/qwen3.7-max with anthropic endpoint", () => {
+    it("should include proxy/qwen3.7-max with openai endpoint (verified empirically)", () => {
       expect(BRAIN_MODELS["proxy/qwen3.7-max"]).toBeDefined();
       expect(BRAIN_MODELS["proxy/qwen3.7-max"].upstream).toBe("qwen3.7-max");
-      expect(BRAIN_MODELS["proxy/qwen3.7-max"].endpoint).toBe("anthropic");
+      expect(BRAIN_MODELS["proxy/qwen3.7-max"].endpoint).toBe("openai");
     });
 
     it("should include proxy/deepseek-v4-pro with openai endpoint", () => {

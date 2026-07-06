@@ -27,7 +27,7 @@ export const BRAIN_MODELS: Record<string, BrainModelEntry> = {
     thinking: true,
     inputPrice: 2.5,
     outputPrice: 7.5,
-    endpoint: "anthropic",
+    endpoint: "openai",
     multimodal: false,
   },
   "proxy/deepseek-v4-pro": {
