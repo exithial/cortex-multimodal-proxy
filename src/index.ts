@@ -81,8 +81,31 @@ function stableStringify(value: any): string {
   return `{${entries.join(",")}}`;
 }
 
-function getModelRoutingStrategy(model: string): "vision-direct" | "deepseek-routing" {
-  return model === "haiku" ? "vision-direct" : "deepseek-routing";
+function getClaudeModelMapping(model: string): {
+  internalModel: string;
+  strategy: "passthrough" | "proxy-brain";
+} {
+  const haikuModel = process.env.CLAUDE_HAIKU_MODEL || "mimo-v2.5";
+  const sonnetModel = process.env.CLAUDE_SONNET_MODEL || "proxy/kimi-k2.6";
+  const opusModel = process.env.CLAUDE_OPUS_MODEL || "proxy/glm-5.2";
+
+  let internalModel: string;
+  switch (model) {
+    case "haiku":
+      internalModel = haikuModel;
+      break;
+    case "sonnet":
+      internalModel = sonnetModel;
+      break;
+    case "opus":
+      internalModel = opusModel;
+      break;
+    default:
+      internalModel = model;
+  }
+
+  const strategy = isPassthrough(internalModel) ? "passthrough" : "proxy-brain";
+  return { internalModel, strategy };
 }
 
 function getAnthropicRequestKey(request: AnthropicRequest): string {
@@ -533,36 +556,36 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
     const openaiRequest = anthropicAdapter.anthropicToInternal(anthropicRequest);
     const internalModel = openaiRequest.model;
 
-    const modelRoutingStrategy = getModelRoutingStrategy(originalModel);
+    const { internalModel: mappedModel, strategy: claudeStrategy } =
+      getClaudeModelMapping(originalModel);
+    openaiRequest.model = mappedModel;
     logger.info(
-      `Routing por modelo: ${originalModel} → ${modelRoutingStrategy}`,
+      `Mapping Claude ${originalModel} → ${mappedModel} (${claudeStrategy})`,
     );
 
-    let processedMessages = openaiRequest.messages;
-    let strategy: "vision-direct" | "direct" | "vision" | "vision-mimo" | "mixed" | "local" = "direct";
-    let useDeepseekDirectly = true;
+    const brainEntry = resolveBrainServiceEntry(mappedModel);
+    if (!brainEntry) {
+      throw new Error(`Modelo interno invalido: ${mappedModel}`);
+    }
 
-    if (modelRoutingStrategy === "vision-direct") {
-      strategy = "vision-direct";
-      const geminiResponse = await geminiService.generateDirectResponse(openaiRequest.messages);
-      processedMessages = [
-        {
-          role: "assistant",
-          content: geminiResponse,
-        },
-      ];
-      useDeepseekDirectly = false;
+    let processedMessages = openaiRequest.messages;
+    let strategy:
+      | "vision-direct"
+      | "direct"
+      | "vision"
+      | "vision-mimo"
+      | "mixed"
+      | "local" = "direct";
+
+    if (claudeStrategy === "passthrough") {
+      strategy = "direct";
       logger.info(
-        `Haiku: Todo va a Gemini-direct | request_id: ${requestId}`,
+        `${originalModel}: Passthrough a ${mappedModel} (nativamente multimodal)`,
       );
     } else {
-      const { processedMessages: pm, useDeepseekDirectly: useDS, strategy: st } =
-        await processMultimodalContent(
-          openaiRequest.messages,
-          openaiRequest.model,
-        );
+      const { processedMessages: pm, strategy: st } =
+        await processMultimodalContent(openaiRequest.messages, mappedModel);
       processedMessages = pm;
-      useDeepseekDirectly = useDS;
       strategy = st;
       logger.info(
         `${originalModel}: Routing interno (${strategy}) | request_id: ${requestId}`,
@@ -633,9 +656,10 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
         const completionPromise = new Promise<void>((resolve) => {
           resolvePromise = resolve;
         });
-        
-        await deepseekService.chatCompletionStream(
+
+        await opencodeGoService.chatCompletionStream(
           processedRequest,
+          brainEntry!,
           (chunk) => {
             chunks.push(chunk);
           },
@@ -646,20 +670,20 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
             resolvePromise();
           },
         );
-        
+
         await completionPromise;
-        
+
         let buffer = "";
         for (const chunk of chunks) {
           buffer += chunk;
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
-          
+
           for (const line of lines) {
             if (line.trim()) yield line;
           }
         }
-        
+
         if (buffer.trim()) yield buffer;
       }
 
@@ -721,8 +745,9 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
       return;
     }
 
-    const openaiResponse = await deepseekService.createChatCompletion(
+    const openaiResponse = await opencodeGoService.createChatCompletion(
       processedRequest,
+      brainEntry!,
     );
 
     const anthropicResponse = anthropicAdapter.internalToAnthropic(
