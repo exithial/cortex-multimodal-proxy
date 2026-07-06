@@ -3,6 +3,7 @@ import { logger } from "../utils/logger";
 import type {
   ChatCompletionRequest,
   ChatCompletionResponse,
+  ChatMessage,
 } from "../types/openai";
 import type { BrainModelEntry } from "./brainRegistry";
 import {
@@ -19,6 +20,90 @@ const OPENCODE_GO_TIMEOUT_MS = parseInt(
 
 if (!OPENCODE_GO_API_KEY) {
   throw new Error("OPENCODE_GO_API_KEY no configurado en .env");
+}
+
+function openAIToAnthropicPayload(
+  request: ChatCompletionRequest,
+  upstreamModel: string,
+  validMessages: any[],
+  stream: boolean,
+): any {
+  const systemMsg = validMessages.find((m) => m.role === "system");
+  const nonSystemMessages = validMessages.filter((m) => m.role !== "system");
+
+  const anthropicMessages = nonSystemMessages.map((m: any) => {
+    if (m.role === "tool") {
+      return {
+        role: "user",
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: m.tool_call_id,
+            content:
+              typeof m.content === "string"
+                ? m.content
+                : JSON.stringify(m.content),
+          },
+        ],
+      };
+    }
+    if (m.role === "assistant" && m.tool_calls?.length) {
+      const blocks: any[] = [];
+      if (m.content) {
+        blocks.push({ type: "text", text: m.content });
+      }
+      for (const tc of m.tool_calls) {
+        let input: any = {};
+        try {
+          input = tc.function.arguments ? JSON.parse(tc.function.arguments) : {};
+        } catch {
+          input = { _raw: tc.function.arguments };
+        }
+        blocks.push({
+          type: "tool_use",
+          id: tc.id,
+          name: tc.function.name,
+          input,
+        });
+      }
+      return { role: "assistant", content: blocks };
+    }
+    return {
+      role: m.role === "assistant" ? "assistant" : "user",
+      content: m.content,
+    };
+  });
+
+  const payload: any = {
+    model: upstreamModel,
+    messages: anthropicMessages,
+    max_tokens: request.max_tokens || 4096,
+    stream,
+  };
+
+  if (systemMsg) {
+    payload.system =
+      typeof systemMsg.content === "string"
+        ? systemMsg.content
+        : JSON.stringify(systemMsg.content);
+  }
+  if (request.temperature !== undefined) {
+    payload.temperature = request.temperature;
+  }
+  if (request.tools) {
+    payload.tools = request.tools.map((tool: any) => {
+      if (tool.type === "function") {
+        return {
+          name: tool.function.name,
+          description: tool.function.description,
+          input_schema: tool.function.parameters,
+        };
+      }
+      return tool;
+    });
+  }
+
+  return payload;
 }
 
 class OpenCodeGoService {
@@ -44,9 +129,19 @@ class OpenCodeGoService {
     upstreamModel: string,
     thinking: boolean,
     maxContextTokens: number,
+    endpoint: "openai" | "anthropic",
   ): any {
     const validMessages = prepareMessages(request.messages, thinking);
     const truncatedMessages = truncateMessages(validMessages, maxContextTokens);
+
+    if (endpoint === "anthropic") {
+      return openAIToAnthropicPayload(
+        request,
+        upstreamModel,
+        truncatedMessages,
+        request.stream || false,
+      );
+    }
 
     const payload: any = {
       model: upstreamModel,
@@ -82,6 +177,7 @@ class OpenCodeGoService {
       brainEntry.upstream,
       brainEntry.thinking,
       brainEntry.context,
+      brainEntry.endpoint,
     );
     const url = this.resolveEndpointUrl(brainEntry.endpoint);
 
@@ -112,6 +208,7 @@ class OpenCodeGoService {
       brainEntry.upstream,
       brainEntry.thinking,
       brainEntry.context,
+      brainEntry.endpoint,
     );
     payload.stream = true;
     const url = this.resolveEndpointUrl(brainEntry.endpoint);
@@ -119,6 +216,15 @@ class OpenCodeGoService {
     logger.info(
       `OpenCode Go (stream): POST ${url} | model: ${brainEntry.upstream}`,
     );
+
+    let buffer = "";
+    let ended = false;
+
+    const safeEnd = () => {
+      if (ended) return;
+      ended = true;
+      onComplete();
+    };
 
     try {
       const response = await axios.post(url, payload, {
@@ -132,46 +238,44 @@ class OpenCodeGoService {
 
       const stream = response.data;
 
-      let buffer = "";
-      let streamEnded = false;
-      const safeEnd = () => {
-        if (!streamEnded) {
-          streamEnded = true;
-          onComplete();
-        }
-      };
-
       stream.on("data", (chunk: Buffer) => {
         buffer += chunk.toString();
-
         const lines = buffer.split("\n");
         buffer = lines.pop() || "";
 
         for (const line of lines) {
-          if (line.trim() === "") continue;
-
+          if (!line.trim()) continue;
           if (line.startsWith("data: ")) {
-            const data = line.substring(6);
-            if (data === "[DONE]") {
+            const payload = line.slice(6).trim();
+            if (payload === "[DONE]") {
               safeEnd();
               return;
             }
-
             try {
-              JSON.parse(data);
-              onChunk(`data: ${data}\n\n`);
-            } catch (error) {
-              logger.warn(
-                `JSON parsing error, skipping incomplete chunk: ${data.substring(0, 100)}...`,
-              );
+              JSON.parse(payload);
+              onChunk(`data: ${payload}\n\n`);
+            } catch {
+              continue;
             }
+          } else {
+            onChunk(`${line}\n`);
           }
         }
       });
 
-      stream.on("end", () => safeEnd());
-      stream.on("error", (error: unknown) => onError(error));
+      stream.on("end", () => {
+        if (buffer.trim()) {
+          onChunk(`${buffer}\n`);
+        }
+        safeEnd();
+      });
+
+      stream.on("error", (error: unknown) => {
+        safeEnd();
+        onError(error);
+      });
     } catch (error: unknown) {
+      safeEnd();
       onError(error);
     }
   }

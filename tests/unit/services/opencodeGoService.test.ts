@@ -43,10 +43,116 @@ describe("OpenCodeGoService", () => {
         "deepseek-v4-flash",
         true,
         1048576,
+        "openai",
       );
       expect(payload.model).toBe("deepseek-v4-flash");
       expect(payload.messages).toHaveLength(1);
       expect(payload.stream).toBe(false);
+      vi.unstubAllEnvs();
+    });
+
+    it("should translate payload to Anthropic format for anthropic endpoint brain", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const request = {
+        model: "proxy/qwen3.7-max",
+        messages: [
+          { role: "system" as const, content: "You are helpful." },
+          { role: "user" as const, content: "hello" },
+        ],
+        stream: false,
+      };
+
+      const payload = opencodeGoService.buildPayload(
+        request,
+        "qwen3.7-max",
+        true,
+        1048576,
+        "anthropic",
+      );
+      expect(payload.model).toBe("qwen3.7-max");
+      expect(payload.system).toBe("You are helpful.");
+      expect(payload.messages).toHaveLength(1);
+      expect(payload.messages[0].role).toBe("user");
+      expect(payload.max_tokens).toBeGreaterThan(0);
+      vi.unstubAllEnvs();
+    });
+
+    it("should convert OpenAI tools to Anthropic tools", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const request = {
+        model: "proxy/qwen3.7-max",
+        messages: [{ role: "user" as const, content: "hello" }],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "get_weather",
+              description: "Get weather",
+              parameters: { type: "object", properties: { city: { type: "string" } } },
+            },
+          },
+        ],
+        stream: false,
+      };
+
+      const payload = opencodeGoService.buildPayload(
+        request,
+        "qwen3.7-max",
+        false,
+        1048576,
+        "anthropic",
+      );
+      expect(payload.tools).toHaveLength(1);
+      expect(payload.tools[0].name).toBe("get_weather");
+      expect(payload.tools[0].input_schema).toBeDefined();
+      vi.unstubAllEnvs();
+    });
+
+    it("should convert tool_calls in assistant messages to Anthropic tool_use blocks", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const request = {
+        model: "proxy/qwen3.7-max",
+        messages: [
+          {
+            role: "assistant" as const,
+            content: "",
+            tool_calls: [
+              {
+                id: "call_123",
+                type: "function",
+                function: { name: "get_weather", arguments: JSON.stringify({ city: "Madrid" }) },
+              },
+            ],
+          },
+        ],
+        stream: false,
+      };
+
+      const payload = opencodeGoService.buildPayload(
+        request,
+        "qwen3.7-max",
+        false,
+        1048576,
+        "anthropic",
+      );
+      const assistantMsg = payload.messages[0];
+      const toolUse = assistantMsg.content.find((b: any) => b.type === "tool_use");
+      expect(toolUse).toBeDefined();
+      expect(toolUse.id).toBe("call_123");
+      expect(toolUse.name).toBe("get_weather");
+      expect(toolUse.input).toEqual({ city: "Madrid" });
       vi.unstubAllEnvs();
     });
 
@@ -72,6 +178,7 @@ describe("OpenCodeGoService", () => {
         "kimi-k2.7-code",
         false,
         1000,
+        "openai",
       );
 
       expect(payload.messages.length).toBeLessThan(messages.length);

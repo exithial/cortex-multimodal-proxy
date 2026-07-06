@@ -1,16 +1,16 @@
 # Graph Report - deepseek-multimodal-proxy  (2026-07-06)
 
 ## Corpus Check
-- 69 files · ~53,929 words
+- 67 files · ~52,435 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 716 nodes · 933 edges · 85 communities (65 shown, 20 thin omitted)
+- 702 nodes · 895 edges · 84 communities (63 shown, 21 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 5 edges (avg confidence: 0.81)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `77a5cba5`
+- Built from commit: `967f1b25`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -45,8 +45,8 @@
 - [[_COMMUNITY_Community 27|Community 27]]
 - [[_COMMUNITY_Community 28|Community 28]]
 - [[_COMMUNITY_Community 29|Community 29]]
+- [[_COMMUNITY_Community 30|Community 30]]
 - [[_COMMUNITY_Community 31|Community 31]]
-- [[_COMMUNITY_Community 32|Community 32]]
 - [[_COMMUNITY_Community 33|Community 33]]
 - [[_COMMUNITY_Community 34|Community 34]]
 - [[_COMMUNITY_Community 35|Community 35]]
@@ -90,7 +90,6 @@
 - [[_COMMUNITY_Community 73|Community 73]]
 - [[_COMMUNITY_Community 74|Community 74]]
 - [[_COMMUNITY_Community 75|Community 75]]
-- [[_COMMUNITY_Community 83|Community 83]]
 - [[_COMMUNITY_Community 84|Community 84]]
 - [[_COMMUNITY_Community 85|Community 85]]
 
@@ -125,7 +124,7 @@
 - **Sensory Cortex v2 Pattern Components** — claude_sensory_cortex_v2, claude_deepseek_v4_flash, claude_gemini_2_5_flash, services_readme_deepseek_service, services_readme_gemini_service [INFERRED 0.85]
 - **Multimodal Request Pipeline** — middleware_readme_multimodal_detector, middleware_readme_multimodal_processor, services_readme_gemini_service, services_readme_deepseek_service, readme_hybrid_pdf_processing [EXTRACTED 1.00]
 
-## Communities (85 total, 20 thin omitted)
+## Communities (84 total, 21 thin omitted)
 
 ### Community 0 - "Model Strategy & Caching"
 Cohesion: 0.20
@@ -160,8 +159,8 @@ Cohesion: 0.67
 Nodes (3): No Dead Code Rule, Clean Architecture Standard for Contributions, Zod Schema Validation
 
 ### Community 17 - "Community 17"
-Cohesion: 0.10
-Nodes (13): CacheData, CacheEntry, CacheService, CacheStats, Downloader, getErrorMessage(), CustomError, ProcessedImage (+5 more)
+Cohesion: 0.09
+Nodes (29): ContentAnalysis, DetectedContent, detectFileType(), detectMultimodalContent(), extractUserContext(), getDeepseekSupportedContent(), getLocalProcessingContent(), getVisionRequiredContent() (+21 more)
 
 ### Community 18 - "Community 18"
 Cohesion: 0.07
@@ -200,12 +199,8 @@ Cohesion: 0.17
 Nodes (11): 🧪 Available Unit Tests, ✅ Claude Code Suite (Optional), 📊 Execution Summary (v2.0.0), 🧪 Integration Test Details, Integration Tests (Master Suite), 🧪 Run All, ⚙️ Test Environment, Test Report - DeepSeek Multimodal Proxy (+3 more)
 
 ### Community 31 - "Community 31"
-Cohesion: 0.07
-Nodes (29): AnthropicAdapter, BRAIN_MODELS, BrainModelEntry, getBrainEntry(), isKnownModel(), isPassthrough(), parseProxyModelId(), PASSTHROUGH_MODELS (+21 more)
-
-### Community 32 - "Community 32"
-Cohesion: 0.14
-Nodes (8): DeepSeekService, importService(), prepareMessages(), truncateMessages(), OPENCODE_GO_TIMEOUT_MS, OpenCodeGoService, ChatCompletionRequest, ChatCompletionResponse
+Cohesion: 0.06
+Nodes (39): AnthropicAdapter, BRAIN_MODELS, BrainModelEntry, getBrainEntry(), isKnownModel(), isPassthrough(), parseProxyModelId(), PASSTHROUGH_MODELS (+31 more)
 
 ### Community 33 - "Community 33"
 Cohesion: 0.20
@@ -351,10 +346,6 @@ Nodes (3): [1.3.1] - 2026-02-10, Added, Fixed
 Cohesion: 0.67
 Nodes (3): 7.1 Modify src/index.ts - Add Anthropic Endpoints, 7.2 Modify processMultimodalContent to Support gemini-direct, 7. Endpoints and Handlers
 
-### Community 83 - "Community 83"
-Cohesion: 0.18
-Nodes (21): ContentAnalysis, DetectedContent, detectFileType(), detectMultimodalContent(), extractUserContext(), getDeepseekSupportedContent(), getLocalProcessingContent(), getVisionRequiredContent() (+13 more)
-
 ### Community 85 - "Community 85"
 Cohesion: 0.13
 Nodes (14): Cortex Sensorial v3 — Implementation Plan, Task 10: Rename Project, Task 11: Update Documentation, Task 12: Update Integration Tests, Task 13: Final Verification, Task 1: Brain Registry, Task 2: MiMo Senses Service, Task 3: OpenCode Go Service (+6 more)
@@ -362,14 +353,14 @@ Nodes (14): Cortex Sensorial v3 — Implementation Plan, Task 10: Rename Project
 ## Knowledge Gaps
 - **376 isolated node(s):** `app`, `PORT`, `DEDUPE_TTL_MS`, `HAIKU_DEFER_MS`, `inFlightAnthropic` (+371 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **20 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **21 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `scripts` connect `Claude Code Integration` to `Community 25`?**
-  _High betweenness centrality (0.024) - this node is a cross-community bridge._
-- **Why does `getErrorMessage()` connect `Community 17` to `Community 56`, `Community 83`, `Community 31`?**
+  _High betweenness centrality (0.023) - this node is a cross-community bridge._
+- **Why does `getErrorMessage()` connect `Community 17` to `Community 56`, `Community 30`, `Community 31`?**
   _High betweenness centrality (0.011) - this node is a cross-community bridge._
 - **What connects `app`, `PORT`, `DEDUPE_TTL_MS` to the rest of the system?**
   _383 weakly-connected nodes found - possible documentation gaps or missing edges._
@@ -378,6 +369,6 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `Claude Code Integration` be split into smaller, more focused modules?**
   _Cohesion score 0.07142857142857142 - nodes in this community are weakly interconnected._
 - **Should `Community 17` be split into smaller, more focused modules?**
-  _Cohesion score 0.09639953542392567 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09125188536953242 - nodes in this community are weakly interconnected._
 - **Should `Community 18` be split into smaller, more focused modules?**
   _Cohesion score 0.07142857142857142 - nodes in this community are weakly interconnected._

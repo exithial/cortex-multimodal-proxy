@@ -50,7 +50,7 @@
       "label": "app",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L37",
+      "source_location": "L36",
       "_origin": "ast",
       "id": "src_index_app",
       "community": 31,
@@ -60,7 +60,7 @@
       "label": "PORT",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L38",
+      "source_location": "L37",
       "_origin": "ast",
       "id": "src_index_port",
       "community": 31,
@@ -70,7 +70,7 @@
       "label": "DEDUPE_TTL_MS",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L39",
+      "source_location": "L38",
       "_origin": "ast",
       "id": "src_index_dedupe_ttl_ms",
       "community": 31,
@@ -80,7 +80,7 @@
       "label": "HAIKU_DEFER_MS",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L40",
+      "source_location": "L39",
       "_origin": "ast",
       "id": "src_index_haiku_defer_ms",
       "community": 31,
@@ -90,7 +90,7 @@
       "label": "inFlightAnthropic",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L44",
+      "source_location": "L43",
       "_origin": "ast",
       "id": "src_index_inflightanthropic",
       "community": 31,
@@ -100,7 +100,7 @@
       "label": "inFlightAnthropicByContent",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L45",
+      "source_location": "L44",
       "_origin": "ast",
       "id": "src_index_inflightanthropicbycontent",
       "community": 31,
@@ -110,7 +110,7 @@
       "label": "recentAnthropicResponses",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L49",
+      "source_location": "L48",
       "_origin": "ast",
       "id": "src_index_recentanthropicresponses",
       "community": 31,
@@ -120,7 +120,7 @@
       "label": "Deferred",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L54",
+      "source_location": "L53",
       "_origin": "ast",
       "id": "src_index_deferred",
       "community": 31,
@@ -130,7 +130,7 @@
       "label": "createDeferred()",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L60",
+      "source_location": "L59",
       "_origin": "ast",
       "id": "src_index_createdeferred",
       "community": 31,
@@ -140,7 +140,7 @@
       "label": "stableStringify()",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L70",
+      "source_location": "L69",
       "_origin": "ast",
       "id": "src_index_stablestringify",
       "community": 31,
@@ -150,7 +150,7 @@
       "label": "getClaudeModelMapping()",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L84",
+      "source_location": "L83",
       "_origin": "ast",
       "id": "src_index_getclaudemodelmapping",
       "community": 31,
@@ -160,7 +160,7 @@
       "label": "getAnthropicRequestKey()",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L111",
+      "source_location": "L110",
       "_origin": "ast",
       "id": "src_index_getanthropicrequestkey",
       "community": 31,
@@ -170,7 +170,7 @@
       "label": "getAnthropicContentKey()",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L116",
+      "source_location": "L115",
       "_origin": "ast",
       "id": "src_index_getanthropiccontentkey",
       "community": 31,
@@ -180,7 +180,7 @@
       "label": "getCachedAnthropicResponse()",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L121",
+      "source_location": "L120",
       "_origin": "ast",
       "id": "src_index_getcachedanthropicresponse",
       "community": 31,
@@ -190,7 +190,7 @@
       "label": "cacheAnthropicResponse()",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L133",
+      "source_location": "L132",
       "_origin": "ast",
       "id": "src_index_cacheanthropicresponse",
       "community": 31,
@@ -200,7 +200,7 @@
       "label": "createOpenAIResponseFromText()",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L155",
+      "source_location": "L154",
       "_origin": "ast",
       "id": "src_index_createopenairesponsefromtext",
       "community": 31,
@@ -210,7 +210,7 @@
       "label": "extractAssistantContent()",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L219",
+      "source_location": "L218",
       "_origin": "ast",
       "id": "src_index_extractassistantcontent",
       "community": 31,
@@ -220,7 +220,7 @@
       "label": "resolveBrainServiceEntry()",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L268",
+      "source_location": "L267",
       "_origin": "ast",
       "id": "src_index_resolvebrainserviceentry",
       "community": 31,
@@ -230,7 +230,7 @@
       "label": "init()",
       "file_type": "code",
       "source_file": "src/index.ts",
-      "source_location": "L814",
+      "source_location": "L813",
       "_origin": "ast",
       "id": "src_index_init",
       "community": 31,
@@ -612,7 +612,7 @@
       "source_file": "src/middleware/multimodalProcessor.ts",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "multimodalprocessor.ts",
       "id": "middleware_multimodalprocessor"
     },
@@ -622,7 +622,7 @@
       "source_file": "src/middleware/multimodalProcessor.ts",
       "source_location": "L16",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "processmultimodalcontent()",
       "id": "middleware_multimodalprocessor_processmultimodalcontent"
     },
@@ -632,7 +632,7 @@
       "source_file": "src/middleware/multimodalProcessor.ts",
       "source_location": "L245",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "candeepseekhandledirectly()",
       "id": "middleware_multimodalprocessor_candeepseekhandledirectly"
     },
@@ -642,7 +642,7 @@
       "source_file": "tests/unit/middleware/multimodalProcessor.test.ts",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "multimodalprocessor.test.ts",
       "id": "middleware_multimodalprocessor_test"
     },
@@ -652,7 +652,7 @@
       "source_file": "tests/unit/middleware/multimodalProcessor.test.ts",
       "source_location": "L8",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "mockanalyzecontent",
       "id": "middleware_multimodalprocessor_test_mockanalyzecontent"
     },
@@ -662,7 +662,7 @@
       "source_file": "tests/unit/middleware/multimodalProcessor.test.ts",
       "source_location": "L9",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "mockgeneratedirectresponse",
       "id": "middleware_multimodalprocessor_test_mockgeneratedirectresponse"
     },
@@ -672,7 +672,7 @@
       "source_file": "tests/unit/middleware/multimodalProcessor.test.ts",
       "source_location": "L18",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "mockdescribeimage",
       "id": "middleware_multimodalprocessor_test_mockdescribeimage"
     },
@@ -682,7 +682,7 @@
       "source_file": "tests/unit/middleware/multimodalProcessor.test.ts",
       "source_location": "L27",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "mockanalyzepdf",
       "id": "middleware_multimodalprocessor_test_mockanalyzepdf"
     },
@@ -692,7 +692,7 @@
       "source_file": "tests/unit/middleware/multimodalProcessor.test.ts",
       "source_location": "L35",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "mockvalidatefile",
       "id": "middleware_multimodalprocessor_test_mockvalidatefile"
     },
@@ -702,119 +702,9 @@
       "source_file": "tests/unit/middleware/multimodalProcessor.test.ts",
       "source_location": "L36",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "mockdownloadfile",
       "id": "middleware_multimodalprocessor_test_mockdownloadfile"
-    },
-    {
-      "label": "deepseekService.ts",
-      "file_type": "code",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L1",
-      "_origin": "ast",
-      "community": 32,
-      "norm_label": "deepseekservice.ts",
-      "id": "services_deepseekservice"
-    },
-    {
-      "label": "DeepSeekService",
-      "file_type": "code",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L14",
-      "_origin": "ast",
-      "community": 32,
-      "norm_label": "deepseekservice",
-      "id": "services_deepseekservice_deepseekservice"
-    },
-    {
-      "label": ".constructor()",
-      "file_type": "code",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L23",
-      "_origin": "ast",
-      "community": 32,
-      "norm_label": ".constructor()",
-      "id": "services_deepseekservice_deepseekservice_constructor"
-    },
-    {
-      "label": ".mapModel()",
-      "file_type": "code",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L49",
-      "_origin": "ast",
-      "community": 32,
-      "norm_label": ".mapmodel()",
-      "id": "services_deepseekservice_deepseekservice_mapmodel"
-    },
-    {
-      "label": ".truncateMessages()",
-      "file_type": "code",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L65",
-      "_origin": "ast",
-      "community": 32,
-      "norm_label": ".truncatemessages()",
-      "id": "services_deepseekservice_deepseekservice_truncatemessages"
-    },
-    {
-      "label": ".prepareMessages()",
-      "file_type": "code",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L77",
-      "_origin": "ast",
-      "community": 32,
-      "norm_label": ".preparemessages()",
-      "id": "services_deepseekservice_deepseekservice_preparemessages"
-    },
-    {
-      "label": ".buildPayload()",
-      "file_type": "code",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L89",
-      "_origin": "ast",
-      "community": 32,
-      "norm_label": ".buildpayload()",
-      "id": "services_deepseekservice_deepseekservice_buildpayload"
-    },
-    {
-      "label": ".createChatCompletion()",
-      "file_type": "code",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L122",
-      "_origin": "ast",
-      "community": 32,
-      "norm_label": ".createchatcompletion()",
-      "id": "services_deepseekservice_deepseekservice_createchatcompletion"
-    },
-    {
-      "label": ".chatCompletionStream()",
-      "file_type": "code",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L150",
-      "_origin": "ast",
-      "community": 32,
-      "norm_label": ".chatcompletionstream()",
-      "id": "services_deepseekservice_deepseekservice_chatcompletionstream"
-    },
-    {
-      "label": ".handleError()",
-      "file_type": "code",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L221",
-      "_origin": "ast",
-      "community": 32,
-      "norm_label": ".handleerror()",
-      "id": "services_deepseekservice_deepseekservice_handleerror"
-    },
-    {
-      "label": ".handleStreamError()",
-      "file_type": "code",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L235",
-      "_origin": "ast",
-      "community": 32,
-      "norm_label": ".handlestreamerror()",
-      "id": "services_deepseekservice_deepseekservice_handlestreamerror"
     },
     {
       "label": "messageTransforms.ts",
@@ -822,7 +712,7 @@
       "source_file": "src/services/messageTransforms.ts",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 32,
+      "community": 31,
       "norm_label": "messagetransforms.ts",
       "id": "services_messagetransforms"
     },
@@ -832,7 +722,7 @@
       "source_file": "src/services/messageTransforms.ts",
       "source_location": "L3",
       "_origin": "ast",
-      "community": 32,
+      "community": 31,
       "norm_label": "truncatemessages()",
       "id": "services_messagetransforms_truncatemessages"
     },
@@ -842,7 +732,7 @@
       "source_file": "src/services/messageTransforms.ts",
       "source_location": "L53",
       "_origin": "ast",
-      "community": 32,
+      "community": 31,
       "norm_label": "preparemessages()",
       "id": "services_messagetransforms_preparemessages"
     },
@@ -852,7 +742,7 @@
       "source_file": "src/services/opencodeGoService.ts",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 32,
+      "community": 31,
       "norm_label": "opencodegoservice.ts",
       "id": "services_opencodegoservice"
     },
@@ -862,7 +752,7 @@
       "source_file": "src/services/opencodeGoService.ts",
       "source_location": "L16",
       "_origin": "ast",
-      "community": 32,
+      "community": 31,
       "norm_label": "opencode_go_timeout_ms",
       "id": "services_opencodegoservice_opencode_go_timeout_ms"
     },
@@ -872,7 +762,7 @@
       "source_file": "src/services/opencodeGoService.ts",
       "source_location": "L24",
       "_origin": "ast",
-      "community": 32,
+      "community": 31,
       "norm_label": "opencodegoservice",
       "id": "services_opencodegoservice_opencodegoservice"
     },
@@ -882,7 +772,7 @@
       "source_file": "src/services/opencodeGoService.ts",
       "source_location": "L29",
       "_origin": "ast",
-      "community": 32,
+      "community": 31,
       "norm_label": ".constructor()",
       "id": "services_opencodegoservice_opencodegoservice_constructor"
     },
@@ -892,7 +782,7 @@
       "source_file": "src/services/opencodeGoService.ts",
       "source_location": "L35",
       "_origin": "ast",
-      "community": 32,
+      "community": 31,
       "norm_label": ".resolveendpointurl()",
       "id": "services_opencodegoservice_opencodegoservice_resolveendpointurl"
     },
@@ -902,7 +792,7 @@
       "source_file": "src/services/opencodeGoService.ts",
       "source_location": "L42",
       "_origin": "ast",
-      "community": 32,
+      "community": 31,
       "norm_label": ".buildpayload()",
       "id": "services_opencodegoservice_opencodegoservice_buildpayload"
     },
@@ -912,7 +802,7 @@
       "source_file": "src/services/opencodeGoService.ts",
       "source_location": "L76",
       "_origin": "ast",
-      "community": 32,
+      "community": 31,
       "norm_label": ".createchatcompletion()",
       "id": "services_opencodegoservice_opencodegoservice_createchatcompletion"
     },
@@ -922,7 +812,7 @@
       "source_file": "src/services/opencodeGoService.ts",
       "source_location": "L103",
       "_origin": "ast",
-      "community": 32,
+      "community": 31,
       "norm_label": ".chatcompletionstream()",
       "id": "services_opencodegoservice_opencodegoservice_chatcompletionstream"
     },
@@ -2182,7 +2072,7 @@
       "source_file": "src/middleware/multimodalDetector.ts",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "multimodaldetector.ts",
       "id": "middleware_multimodaldetector"
     },
@@ -2192,7 +2082,7 @@
       "source_file": "src/middleware/multimodalDetector.ts",
       "source_location": "L4",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "detectedcontent",
       "id": "middleware_multimodaldetector_detectedcontent"
     },
@@ -2202,7 +2092,7 @@
       "source_file": "src/middleware/multimodalDetector.ts",
       "source_location": "L28",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "contentanalysis",
       "id": "middleware_multimodaldetector_contentanalysis"
     },
@@ -2212,7 +2102,7 @@
       "source_file": "src/middleware/multimodalDetector.ts",
       "source_location": "L40",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "detectfiletype()",
       "id": "middleware_multimodaldetector_detectfiletype"
     },
@@ -2222,7 +2112,7 @@
       "source_file": "src/middleware/multimodalDetector.ts",
       "source_location": "L286",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "detectmultimodalcontent()",
       "id": "middleware_multimodaldetector_detectmultimodalcontent"
     },
@@ -2232,7 +2122,7 @@
       "source_file": "src/middleware/multimodalDetector.ts",
       "source_location": "L543",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "extractusercontext()",
       "id": "middleware_multimodaldetector_extractusercontext"
     },
@@ -2242,7 +2132,7 @@
       "source_file": "src/middleware/multimodalDetector.ts",
       "source_location": "L567",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "getdeepseeksupportedcontent()",
       "id": "middleware_multimodaldetector_getdeepseeksupportedcontent"
     },
@@ -2252,7 +2142,7 @@
       "source_file": "src/middleware/multimodalDetector.ts",
       "source_location": "L605",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "getvisionrequiredcontent()",
       "id": "middleware_multimodaldetector_getvisionrequiredcontent"
     },
@@ -2262,7 +2152,7 @@
       "source_file": "src/middleware/multimodalDetector.ts",
       "source_location": "L660",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "getlocalprocessingcontent()",
       "id": "middleware_multimodaldetector_getlocalprocessingcontent"
     },
@@ -2412,7 +2302,7 @@
       "source_file": "src/services/cacheService.ts",
       "source_location": "L30",
       "_origin": "ast",
-      "community": 17,
+      "community": 30,
       "norm_label": "cacheservice",
       "id": "services_cacheservice_cacheservice"
     },
@@ -2422,7 +2312,7 @@
       "source_file": "src/services/cacheService.ts",
       "source_location": "L38",
       "_origin": "ast",
-      "community": 17,
+      "community": 30,
       "norm_label": ".constructor()",
       "id": "services_cacheservice_cacheservice_constructor"
     },
@@ -2432,7 +2322,7 @@
       "source_file": "src/services/cacheService.ts",
       "source_location": "L46",
       "_origin": "ast",
-      "community": 17,
+      "community": 30,
       "norm_label": ".init()",
       "id": "services_cacheservice_cacheservice_init"
     },
@@ -2442,7 +2332,7 @@
       "source_file": "src/services/cacheService.ts",
       "source_location": "L80",
       "_origin": "ast",
-      "community": 17,
+      "community": 30,
       "norm_label": ".isenoenterror()",
       "id": "services_cacheservice_cacheservice_isenoenterror"
     },
@@ -2452,7 +2342,7 @@
       "source_file": "src/services/cacheService.ts",
       "source_location": "L89",
       "_origin": "ast",
-      "community": 17,
+      "community": 30,
       "norm_label": ".get()",
       "id": "services_cacheservice_cacheservice_get"
     },
@@ -2462,7 +2352,7 @@
       "source_file": "src/services/cacheService.ts",
       "source_location": "L109",
       "_origin": "ast",
-      "community": 17,
+      "community": 30,
       "norm_label": ".set()",
       "id": "services_cacheservice_cacheservice_set"
     },
@@ -2472,7 +2362,7 @@
       "source_file": "src/services/cacheService.ts",
       "source_location": "L128",
       "_origin": "ast",
-      "community": 17,
+      "community": 30,
       "norm_label": ".incrementhits()",
       "id": "services_cacheservice_cacheservice_incrementhits"
     },
@@ -2482,7 +2372,7 @@
       "source_file": "src/services/cacheService.ts",
       "source_location": "L135",
       "_origin": "ast",
-      "community": 17,
+      "community": 30,
       "norm_label": ".getstats()",
       "id": "services_cacheservice_cacheservice_getstats"
     },
@@ -2492,7 +2382,7 @@
       "source_file": "src/services/cacheService.ts",
       "source_location": "L176",
       "_origin": "ast",
-      "community": 17,
+      "community": 30,
       "norm_label": ".cleanexpired()",
       "id": "services_cacheservice_cacheservice_cleanexpired"
     },
@@ -2502,7 +2392,7 @@
       "source_file": "src/services/cacheService.ts",
       "source_location": "L194",
       "_origin": "ast",
-      "community": 17,
+      "community": 30,
       "norm_label": ".evictoldest()",
       "id": "services_cacheservice_cacheservice_evictoldest"
     },
@@ -2512,7 +2402,7 @@
       "source_file": "src/services/cacheService.ts",
       "source_location": "L214",
       "_origin": "ast",
-      "community": 17,
+      "community": 30,
       "norm_label": ".save()",
       "id": "services_cacheservice_cacheservice_save"
     },
@@ -2732,7 +2622,7 @@
       "source_file": "src/types/openai.ts",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 83,
+      "community": 31,
       "norm_label": "openai.ts",
       "id": "types_openai"
     },
@@ -2742,7 +2632,7 @@
       "source_file": "src/types/openai.ts",
       "source_location": "L5",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "chatmessage",
       "id": "types_openai_chatmessage"
     },
@@ -2752,7 +2642,7 @@
       "source_file": "src/types/openai.ts",
       "source_location": "L14",
       "_origin": "ast",
-      "community": 83,
+      "community": 31,
       "norm_label": "toolcall",
       "id": "types_openai_toolcall"
     },
@@ -2772,7 +2662,7 @@
       "source_file": "src/types/openai.ts",
       "source_location": "L62",
       "_origin": "ast",
-      "community": 32,
+      "community": 31,
       "norm_label": "chatcompletionrequest",
       "id": "types_openai_chatcompletionrequest"
     },
@@ -2782,7 +2672,7 @@
       "source_file": "src/types/openai.ts",
       "source_location": "L79",
       "_origin": "ast",
-      "community": 32,
+      "community": 31,
       "norm_label": "chatcompletionresponse",
       "id": "types_openai_chatcompletionresponse"
     },
@@ -2792,7 +2682,7 @@
       "source_file": "src/types/openai.ts",
       "source_location": "L92",
       "_origin": "ast",
-      "community": 83,
+      "community": 31,
       "norm_label": "chatcompletionchoice",
       "id": "types_openai_chatcompletionchoice"
     },
@@ -2812,7 +2702,7 @@
       "source_file": "src/types/openai.ts",
       "source_location": "L107",
       "_origin": "ast",
-      "community": 83,
+      "community": 31,
       "norm_label": "chatcompletionchunkchoice",
       "id": "types_openai_chatcompletionchunkchoice"
     },
@@ -2822,7 +2712,7 @@
       "source_file": "src/types/openai.ts",
       "source_location": "L118",
       "_origin": "ast",
-      "community": 83,
+      "community": 31,
       "norm_label": "errorresponse",
       "id": "types_openai_errorresponse"
     },
@@ -3602,7 +3492,7 @@
       "source_file": "tests/unit/middleware/multimodalDetector.test.ts",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 83,
+      "community": 17,
       "norm_label": "multimodaldetector.test.ts",
       "id": "middleware_multimodaldetector_test"
     },
@@ -3695,36 +3585,6 @@
       "community": 38,
       "norm_label": ".getstats()",
       "id": "services_cacheservice_test_testcacheservice_getstats"
-    },
-    {
-      "label": "deepseekService.test.ts",
-      "file_type": "code",
-      "source_file": "tests/unit/services/deepseekService.test.ts",
-      "source_location": "L1",
-      "_origin": "ast",
-      "community": 32,
-      "norm_label": "deepseekservice.test.ts",
-      "id": "services_deepseekservice_test"
-    },
-    {
-      "label": "importService()",
-      "file_type": "code",
-      "source_file": "tests/unit/services/deepseekService.test.ts",
-      "source_location": "L12",
-      "_origin": "ast",
-      "community": 32,
-      "norm_label": "importservice()",
-      "id": "services_deepseekservice_test_importservice"
-    },
-    {
-      "label": "setApiKey()",
-      "file_type": "code",
-      "source_file": "tests/unit/services/deepseekService.test.ts",
-      "source_location": "L18",
-      "_origin": "ast",
-      "community": 32,
-      "norm_label": "setapikey()",
-      "id": "services_deepseekservice_test_setapikey"
     },
     {
       "label": "downloader.test.ts",
@@ -7566,28 +7426,6 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/index.ts",
-      "source_location": "L5",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "src_index",
-      "target": "services_deepseekservice"
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/index.ts",
-      "source_location": "L5",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "src_index",
-      "target": "services_deepseekservice_deepseekservice"
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/index.ts",
       "source_location": "L6",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -7722,9 +7560,9 @@
       "source_file": "src/index.ts",
       "source_location": "L84",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_index",
-      "target": "src_index_getclaudemodelmapping",
-      "confidence_score": 1.0
+      "target": "src_index_getclaudemodelmapping"
     },
     {
       "relation": "contains",
@@ -8752,370 +8590,6 @@
       "confidence_score": 1.0,
       "source": "middleware_multimodalprocessor_test",
       "target": "types_openai_chatmessage"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L321",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice",
-      "target": "services_deepseekservice_deepseekservice"
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L9",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice",
-      "target": "services_messagetransforms"
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L9",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice",
-      "target": "services_messagetransforms_preparemessages"
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L9",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice",
-      "target": "services_messagetransforms_truncatemessages"
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L4",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice",
-      "target": "types_openai"
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L4",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice",
-      "target": "types_openai_chatcompletionrequest"
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L4",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice",
-      "target": "types_openai_chatcompletionresponse"
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L4",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice",
-      "target": "types_openai_chatmessage"
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L2",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice",
-      "target": "utils_logger"
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L2",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice",
-      "target": "utils_logger_logger"
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "tests/unit/services/deepseekService.test.ts",
-      "source_location": "L14",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_test_importservice",
-      "target": "services_deepseekservice"
-    },
-    {
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L148",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice",
-      "target": "services_deepseekservice_deepseekservice_buildpayload"
-    },
-    {
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L209",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice",
-      "target": "services_deepseekservice_deepseekservice_chatcompletionstream"
-    },
-    {
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L19",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice",
-      "target": "services_deepseekservice_deepseekservice_constructor"
-    },
-    {
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L181",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice",
-      "target": "services_deepseekservice_deepseekservice_createchatcompletion"
-    },
-    {
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L280",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice",
-      "target": "services_deepseekservice_deepseekservice_handleerror"
-    },
-    {
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L294",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice",
-      "target": "services_deepseekservice_deepseekservice_handlestreamerror"
-    },
-    {
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L45",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice",
-      "target": "services_deepseekservice_deepseekservice_mapmodel"
-    },
-    {
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L116",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice",
-      "target": "services_deepseekservice_deepseekservice_preparemessages"
-    },
-    {
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L61",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice",
-      "target": "services_deepseekservice_deepseekservice_truncatemessages"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L215",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice_chatcompletionstream",
-      "target": "services_deepseekservice_deepseekservice_mapmodel"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L184",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice_createchatcompletion",
-      "target": "services_deepseekservice_deepseekservice_mapmodel"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L153",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice_buildpayload",
-      "target": "services_deepseekservice_deepseekservice_truncatemessages"
-    },
-    {
-      "relation": "references",
-      "context": "return_type",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L61",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice_truncatemessages",
-      "target": "types_openai_chatmessage"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L152",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice_buildpayload",
-      "target": "services_deepseekservice_deepseekservice_preparemessages"
-    },
-    {
-      "relation": "references",
-      "context": "parameter_type",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L116",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice_preparemessages",
-      "target": "types_openai_chatmessage"
-    },
-    {
-      "relation": "references",
-      "context": "parameter_type",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L148",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice_buildpayload",
-      "target": "types_openai_chatcompletionrequest"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L221",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice_chatcompletionstream",
-      "target": "services_deepseekservice_deepseekservice_buildpayload"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L185",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice_createchatcompletion",
-      "target": "services_deepseekservice_deepseekservice_buildpayload"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L202",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice_createchatcompletion",
-      "target": "services_deepseekservice_deepseekservice_handleerror"
-    },
-    {
-      "relation": "references",
-      "context": "parameter_type",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L181",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice_createchatcompletion",
-      "target": "types_openai_chatcompletionrequest"
-    },
-    {
-      "relation": "references",
-      "context": "generic_arg",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L181",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice_createchatcompletion",
-      "target": "types_openai_chatcompletionresponse"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L276",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice_chatcompletionstream",
-      "target": "services_deepseekservice_deepseekservice_handlestreamerror"
-    },
-    {
-      "relation": "references",
-      "context": "parameter_type",
-      "confidence": "EXTRACTED",
-      "source_file": "src/services/deepseekService.ts",
-      "source_location": "L209",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_deepseekservice_chatcompletionstream",
-      "target": "types_openai_chatcompletionrequest"
     },
     {
       "relation": "contains",
@@ -13911,26 +13385,6 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "tests/unit/services/deepseekService.test.ts",
-      "source_location": "L12",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_test",
-      "target": "services_deepseekservice_test_importservice"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "tests/unit/services/deepseekService.test.ts",
-      "source_location": "L18",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "services_deepseekservice_test",
-      "target": "services_deepseekservice_test_setapikey"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
       "source_file": "tests/unit/utils/error.test.ts",
       "source_location": "L46",
       "weight": 1.0,
@@ -17071,5 +16525,5 @@
       "source_file": "src/middleware/README.md"
     }
   ],
-  "built_at_commit": "77a5cba53f17591d5fde77a85fd5b1a2f7f98784"
+  "built_at_commit": "967f1b25fee36f12a05c03e64f7bb26b54cdf766"
 }
