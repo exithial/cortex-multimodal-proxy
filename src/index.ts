@@ -2,7 +2,6 @@ import "dotenv/config";
 import express, { Request, Response } from "express";
 import { logger } from "./utils/logger";
 import { cacheService } from "./services/cacheService";
-import { deepseekService } from "./services/deepseekService";
 import { opencodeGoService } from "./services/opencodeGoService";
 import { geminiService } from "./services/geminiService";
 import { processMultimodalContent } from "./middleware/multimodalProcessor";
