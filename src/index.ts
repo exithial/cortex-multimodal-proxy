@@ -3,9 +3,22 @@ import express, { Request, Response } from "express";
 import { logger } from "./utils/logger";
 import { cacheService } from "./services/cacheService";
 import { deepseekService } from "./services/deepseekService";
+import { opencodeGoService } from "./services/opencodeGoService";
 import { geminiService } from "./services/geminiService";
 import { processMultimodalContent } from "./middleware/multimodalProcessor";
 import { anthropicAdapter } from "./services/anthropicAdapter";
+import {
+  getOpenCodeModelsList,
+  getClaudeCodeModelsList,
+} from "./utils/opencodeGoModels";
+import {
+  getBrainEntry,
+  isPassthrough,
+  isKnownModel,
+  BRAIN_MODELS,
+  PASSTHROUGH_MODELS,
+} from "./services/brainRegistry";
+import type { BrainModelEntry } from "./services/brainRegistry";
 import type {
   ChatCompletionRequest,
   ChatCompletionResponse,
@@ -217,26 +230,7 @@ app.get("/v1/models", (req: Request, res: Response) => {
     logger.info("GET /v1/models (cliente: Claude Code)");
     res.json({
       object: "list",
-      data: [
-        {
-          id: "haiku",
-          object: "model",
-          created: 1706745600,
-          owned_by: "anthropic",
-        },
-        {
-          id: "sonnet",
-          object: "model",
-          created: 1706745600,
-          owned_by: "anthropic",
-        },
-        {
-          id: "opus",
-          object: "model",
-          created: 1706745600,
-          owned_by: "anthropic",
-        },
-      ],
+      data: getClaudeCodeModelsList(),
     });
     return;
   }
@@ -244,53 +238,7 @@ app.get("/v1/models", (req: Request, res: Response) => {
   logger.info("GET /v1/models (cliente: OpenCode)");
   res.json({
     object: "list",
-    data: [
-      {
-        id: "deepseek-multimodal-flash",
-        object: "model",
-        created: 1706745600,
-        owned_by: "deepseek-proxy",
-        permission: [],
-        root: "deepseek-v4-flash",
-        parent: null,
-      },
-      {
-        id: "deepseek-multimodal-pro",
-        object: "model",
-        created: 1706745600,
-        owned_by: "deepseek-proxy",
-        permission: [],
-        root: "deepseek-v4-pro (max thinking)",
-        parent: null,
-      },
-      {
-        id: "deepseek-multimodal-pro-nothink",
-        object: "model",
-        created: 1706745600,
-        owned_by: "deepseek-proxy",
-        permission: [],
-        root: "deepseek-v4-pro (no thinking)",
-        parent: null,
-      },
-      {
-        id: "deepseek-multimodal-flash-nothink",
-        object: "model",
-        created: 1706745600,
-        owned_by: "deepseek-proxy",
-        permission: [],
-        root: "deepseek-v4-flash (no thinking)",
-        parent: null,
-      },
-      {
-        id: "vision-direct",
-        object: "model",
-        created: 1706745600,
-        owned_by: "gemini-proxy",
-        permission: [],
-        root: process.env.GEMINI_MODEL || "gemini-2.5-flash",
-        parent: null,
-      },
-    ],
+    data: getOpenCodeModelsList(),
   });
 });
 
