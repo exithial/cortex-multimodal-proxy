@@ -5,18 +5,18 @@
 ![Node.js](https://img.shields.io/badge/node.js->=20.x-green?style=flat-square&logo=node.js)
 ![CI](https://github.com/exithial/cortex-multimodal-proxy/workflows/CI%2FCD%20Pipeline/badge.svg)
 
-OpenAI/Anthropic-compatible HTTP proxy with **"Cortex Sensorial v3"** architecture: 9 text-only brains via OpenCode Go subscription, MiMo V2.5 as multimodal senses for images, Gemini fallback for audio/video/PDF.
+OpenAI/Anthropic-compatible HTTP proxy with **"Cortex Sensorial v3"** architecture: 3 brains via OpenCode Go subscription, MiMo V2.5 as multimodal senses for images, Gemini fallback for audio/video/PDF.
 
 ## "Cortex Sensorial v3" Architecture
 
-- **9 Brains (text-only)**: Kimi K2.7 Code, Kimi K2.6, GLM-5.2, GLM-5.1, Qwen3.7 Max, Qwen3.7 Plus, Qwen3.6 Plus, DeepSeek V4 Flash, DeepSeek V4 Pro
+- **3 Brains (text-only, max thinking)**: GLM-5.2, Qwen3.7 Max, DeepSeek V4 Pro
 - **MiMo V2.5 = Senses**: Cheap multimodal ($0.14/$0.28 per 1M tokens) for image description
-- **Gemini 2.5 Flash = Fallback**: Audio, video, large PDFs (only when MiMo V2.5 is insufficient)
-- **Proxy = Cortex**: Intelligent routing per brain + content type, single Bearer token
+- **Gemini 2.5 Flash = Fallback**: Audio, video, large PDFs (optional, only when needed)
+- **Proxy = Cortex**: Intelligent routing per brain + content type, single Bearer token, retry with backoff
 
 ### Key Features
 
-- **9 Brains via OpenCode Go**: One subscription ($10/month), single API key, all models
+- **3 Brains via OpenCode Go**: One subscription ($10/month), single API key, curated models
 - **Multimodal Layer**: MiMo V2.5 describes images; brain receives text descriptions
 - **Per-Brain Selection**: `proxy/<brain-id>` in `/v1/chat/completions` — choose brain per request
 - **Claude Code Compatible**: `haiku`/`sonnet`/`opus` aliases mapped via env to brain models
@@ -86,10 +86,16 @@ Add to `~/.config/opencode/opencode.json`:
         "apiKey": "not-needed"
       },
       "models": {
-        "proxy/kimi-k2.6": {
-          "name": "Kimi K2.6 (via proxy)",
-          "cost": { "input": 1.09, "output": 4.00 },
-          "limit": { "context": 262144, "output": 65536 },
+        "proxy/glm-5.2": {
+          "name": "GLM-5.2 (via proxy)",
+          "cost": { "input": 1.54, "output": 4.40 },
+          "limit": { "context": 1048576, "output": 131072 },
+          "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
+        },
+        "proxy/qwen3.7-max": {
+          "name": "Qwen3.7 Max (via proxy)",
+          "cost": { "input": 2.64, "output": 7.50 },
+          "limit": { "context": 1048576, "output": 65536 },
           "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
         },
         "proxy/deepseek-v4-pro": {
@@ -131,7 +137,7 @@ Or in `.claude/settings.json`:
 
 Default Claude Code mappings (configurable via env vars):
 - `haiku` → `mimo-v2.5` (passthrough, multimodal native, no senses layer)
-- `sonnet` → `proxy/kimi-k2.6` (text brain, image routing via MiMo V2.5)
+- `sonnet` → `proxy/deepseek-v4-pro` (fastest brain, max thinking)
 - `opus` → `proxy/glm-5.2` (strongest text brain)
 
 ## "Cortex Sensorial v3" Workflow
@@ -149,8 +155,8 @@ Default Claude Code mappings (configurable via env vars):
 
 ### Brain selection by client
 
-- **OpenCode**: `model: "proxy/kimi-k2.6"` (or any `proxy/<brain-id>`) in `/v1/chat/completions`
-- **Claude Code**: `model: "sonnet"` (mapped to `proxy/kimi-k2.6` by default)
+- **OpenCode**: `model: "proxy/deepseek-v4-pro"` (or any `proxy/<brain-id>`) in `/v1/chat/completions`
+- **Claude Code**: `model: "sonnet"` (mapped to `proxy/deepseek-v4-pro` by default)
 - **Natively multimodal models** (`mimo-v2.5`, etc.) bypass the proxy entirely when configured in OpenCode directly
 
 ## Endpoints and Metrics
@@ -159,7 +165,7 @@ Default Claude Code mappings (configurable via env vars):
 |----------|--------|-------------|
 | `/v1/chat/completions` | POST | Multimodal chat (OpenAI) |
 | `/v1/messages` | POST | Anthropic Messages API (Claude Code) |
-| `/v1/models` | GET | Model list (9 proxy brains + 4 passthrough) |
+| `/v1/models` | GET | Model list (3 proxy brains + 4 passthrough) |
 | `/v1/cache/stats` | GET | Contextual cache statistics |
 | `/health` | GET | Service status + version |
 
@@ -203,7 +209,7 @@ SENSES_TIMEOUT_MS=120000
 
 # Claude Code mappings
 CLAUDE_HAIKU_MODEL=mimo-v2.5
-CLAUDE_SONNET_MODEL=proxy/kimi-k2.6
+CLAUDE_SONNET_MODEL=proxy/deepseek-v4-pro
 CLAUDE_OPUS_MODEL=proxy/glm-5.2
 
 # Gemini fallback (optional, audio/video/PDF only)
@@ -227,11 +233,12 @@ PDF_LOCAL_MAX_SIZE_MB=1
 ## Current Status - Version 3.0.0
 
 - **"Cortex Sensorial v3" architecture** complete
-- **9 brains** via OpenCode Go: Kimi K2.7 Code, Kimi K2.6, GLM-5.2, GLM-5.1, Qwen3.7 Max/Plus, Qwen3.6 Plus, DeepSeek V4 Flash/Pro
-- **MiMo V2.5** as multimodal senses for images
-- **Gemini 2.5 Flash** fallback for audio/video/PDFs
+- **3 brains** via OpenCode Go: GLM-5.2, Qwen3.7 Max, DeepSeek V4 Pro (all max thinking)
+- **MiMo V2.5** as multimodal senses for images (replaces Gemini for vision)
+- **Gemini 2.5 Flash** fallback for audio/video/PDFs (optional)
 - **4 passthrough models** for natively multimodal: mimo-v2.5, mimo-v2.5-pro, minimax-m3, minimax-m2.7
-- **Single Bearer token** replaces DEEPSEEK + GEMINI keys
+- **Retry with exponential backoff** (3 attempts, 2s/4s delays) for upstream503/502/429
+- **Single Bearer token** via OpenCode Go subscription ($10/month)
 
 ## License
 

@@ -7,10 +7,12 @@
 - **Docs (README, MODELS.md, all documentation)**: English
 
 ## Architecture
-- Pattern: "Cortex Sensorial v3" — 9 brains via OpenCode Go + MiMo V2.5 senses + Gemini fallback
-- Text/code -> proxy/<brain> direct; media -> MiMo V2.5 (images) or Gemini (audio/video/PDF) -> brain
+- Pattern: "Cortex Sensorial v3" — 3 brains via OpenCode Go + MiMo V2.5 senses + Gemini fallback
+- Text/code -> proxy/<brain> direct; images -> MiMo V2.5 -> brain; audio/video/PDF -> Gemini -> brain
 - Brain selection: `proxy/<model-id>` for text-only models, passthrough for natively multimodal
 - Natively multimodal models (mimo-v2.5, mimo-v2.5-pro, minimax-m3, minimax-m2.7) bypass the senses layer
+- All brains use max thinking (`thinking: { type: "enabled" }`)
+- Retry with exponential backoff (3 attempts, 2s/4s delays) on503/502/429
 
 ## Compatibility
 - **Primary clients**: OpenCode (OpenAI-compatible `/v1/chat/completions`) and Claude Code (Anthropic-compatible `/v1/messages`)
@@ -21,24 +23,25 @@
 - The proxy exists solely to serve these two clients — compatibility is non-negotiable
 
 ## Models
-- Brain options (text-only via `proxy/` prefix): `proxy/kimi-k2.7-code`, `proxy/kimi-k2.6`, `proxy/glm-5.2`, `proxy/glm-5.1`, `proxy/qwen3.7-plus`, `proxy/qwen3.7-max`, `proxy/qwen3.6-plus`, `proxy/deepseek-v4-flash`, `proxy/deepseek-v4-pro`
+- Brain options (text-only via `proxy/` prefix): `proxy/glm-5.2`, `proxy/qwen3.7-max`, `proxy/deepseek-v4-pro`
+- All brains: thinking enabled, context1M, all use OpenAI-format endpoint at OpenCode Go
 - Passthrough (natively multimodal): `mimo-v2.5`, `mimo-v2.5-pro`, `minimax-m3`, `minimax-m2.7`
-- Legacy (deprecated): `vision-direct` (uses Gemini direct)
-- Claude Code aliases: `haiku` → `mimo-v2.5` (passthrough), `sonnet` → `proxy/kimi-k2.6` (default), `opus` → `proxy/glm-5.2` (default)
+- Claude Code aliases: `haiku` → `mimo-v2.5` (passthrough), `sonnet` → `proxy/deepseek-v4-pro` (default), `opus` → `proxy/glm-5.2` (default)
 - Senses: MiMo V2.5 for images (mimo-v2.5 multimodal native), Gemini for audio/video/PDFs
-- Anthropic-format models (Qwen) use `/messages` endpoint at OpenCode Go; OpenAI-format (GLM, Kimi, DeepSeek, MiMo) use `/chat/completions`
+- All brain models use `/chat/completions` endpoint (OpenAI-format) — verified empirically that Qwen also works in this format
 
 ## Token Limits
-- Per brain — see `src/services/brainRegistry.ts`. Note: proxy exposes smaller than native context to leave headroom for headers and proxy work.
-- Qwen3.7 Max/Plus, Qwen3.6 Plus, GLM-5.2, DeepSeek V4: 1M ctx
-- GLM-5.1: 202K ctx
-- Kimi K2.7 Code/K2.6: 262K ctx
+- Per brain — see `src/services/brainRegistry.ts`
+- GLM-5.2: 1M ctx, 131K output
+- Qwen3.7 Max: 1M ctx, 65K output
+- DeepSeek V4 Pro: 1M ctx, 384K output
 
 ## Pricing
-- Always calculate combined worst-case (vision model + brain) and present in README
-- Verify against official API pricing pages before committing numbers
-- MiMo V2.5 senses: $0.14 in / $0.28 out per 1M
-- Brain prices vary — see brainRegistry
+- Always calculate combined worst-case (MiMo senses + brain) and present in README
+- MiMo V2.5 senses: $0.14 in / $0.28 out per 1M tokens
+- GLM-5.2: $1.40 in / $4.40 out per 1M
+- Qwen3.7 Max: $2.50 in / $7.50 out per 1M
+- DeepSeek V4 Pro: $1.74 in / $3.48 out per 1M
 
 ## Code Quality
 - Build must pass (`npm run build`)
@@ -65,10 +68,10 @@
 - Delete local + remote branch after merge
 
 ## Services
-- `src/services/opencodeGoService.ts`: Generic OpenCode Go caller for all 9 brain models + passthrough
+- `src/services/opencodeGoService.ts`: Generic OpenCode Go caller with retry logic for all3 brain models + passthrough
 - `src/services/mimoSensesService.ts`: MiMo V2.5 image description
 - `src/services/geminiService.ts`: Gemini fallback for audio/video/PDF (still required for non-image media)
-- `src/services/brainRegistry.ts`: 9 brain entries + 4 passthrough models + helpers (getBrainEntry, isPassthrough, parseProxyModelId, isKnownModel)
+- `src/services/brainRegistry.ts`: 3 brain entries + 4 passthrough models + helpers (getBrainEntry, isPassthrough, parseProxyModelId, isKnownModel)
 - `src/services/messageTransforms.ts`: Shared truncateMessages and prepareMessages helpers
 - `src/services/anthropicAdapter.ts`: Claude Code ↔ OpenAI translation
 - `src/middleware/multimodalDetector.ts`: Content type detection

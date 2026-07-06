@@ -85,7 +85,7 @@ function getClaudeModelMapping(model: string): {
   strategy: "passthrough" | "proxy-brain";
 } {
   const haikuModel = process.env.CLAUDE_HAIKU_MODEL || "mimo-v2.5";
-  const sonnetModel = process.env.CLAUDE_SONNET_MODEL || "proxy/kimi-k2.6";
+  const sonnetModel = process.env.CLAUDE_SONNET_MODEL || "proxy/deepseek-v4-pro";
   const opusModel = process.env.CLAUDE_OPUS_MODEL || "proxy/glm-5.2";
 
   let internalModel: string;
