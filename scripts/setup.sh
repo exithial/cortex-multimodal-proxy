@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script para configurar e iniciar DeepSeek Multimodal Proxy con inicio automático
+# Script para configurar e iniciar Cortex Multimodal Proxy con inicio automático
 
 set -e  # Detener en caso de error
 
@@ -25,13 +25,13 @@ log_error() {
 # Configuración básica
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-SERVICE_NAME="deepseek-proxy"
+SERVICE_NAME="cortex-multimodal-proxy"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 PORT="7777"
 USER="$(whoami)"
 
 # Obtener rutas reales (evitando wrappers temporales de yarn/npm)
-log_info "=== Configuración de DeepSeek Multimodal Proxy ==="
+log_info "=== Configuración de Cortex Multimodal Proxy ==="
 log_info "1. Detectando rutas reales de ejecución..."
 NODE_PATH=$(node -e 'console.log(process.execPath)' 2>/dev/null || which node)
 NPM_PATH="$(dirname "$NODE_PATH")/npm"
@@ -136,7 +136,7 @@ fi
 log_info "7. Creando/actualizando servicio systemd..."
 sudo tee "$SERVICE_FILE" > /dev/null << EOF
 [Unit]
-Description=DeepSeek Multimodal Proxy
+Description=Cortex Multimodal Proxy
 After=network.target
 Requires=network.target
 

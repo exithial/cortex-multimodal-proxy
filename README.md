@@ -1,35 +1,35 @@
-# DeepSeek Multimodal Proxy (Gemini Edition)
+# Cortex Multimodal Proxy (OpenCode Go Edition)
 
-![License](https://img.shields.io/github/license/exithial/deepseek-multimodal-proxy?style=flat-square)
-![Version](https://img.shields.io/github/package-json/v/exithial/deepseek-multimodal-proxy?style=flat-square)
+![License](https://img.shields.io/github/license/exithial/cortex-multimodal-proxy?style=flat-square)
+![Version](https://img.shields.io/github/package-json/v/exithial/cortex-multimodal-proxy?style=flat-square)
 ![Node.js](https://img.shields.io/badge/node.js->=20.x-green?style=flat-square&logo=node.js)
-![CI](https://github.com/exithial/deepseek-multimodal-proxy/workflows/CI%2FCD%20Pipeline/badge.svg)
+![CI](https://github.com/exithial/cortex-multimodal-proxy/workflows/CI%2FCD%20Pipeline/badge.svg)
 
-OpenAI-compatible HTTP proxy with **"Sensory Cortex v2"** architecture: DeepSeek V4 as the brain and Gemini 2.5 Flash as the multimodal perception system.
+OpenAI/Anthropic-compatible HTTP proxy with **"Cortex Sensorial v3"** architecture: 9 text-only brains via OpenCode Go subscription, MiMo V2.5 as multimodal senses for images, Gemini fallback for audio/video/PDF.
 
-## "Sensory Cortex v2" Architecture
+## "Cortex Sensorial v3" Architecture
 
-- **DeepSeek V4 = Brain**: Logic, code, pure reasoning (Flash + Pro with Max thinking)
-- **Gemini 2.5 Flash = Senses**: Complete multimodal perception (image, audio, video, documents, PDFs)
-- **Proxy = Cortex**: Intelligent routing by cognitive specialty
+- **9 Brains (text-only)**: Kimi K2.7 Code, Kimi K2.6, GLM-5.2, GLM-5.1, Qwen3.7 Max, Qwen3.7 Plus, Qwen3.6 Plus, DeepSeek V4 Flash, DeepSeek V4 Pro
+- **MiMo V2.5 = Senses**: Cheap multimodal ($0.14/$0.28 per 1M tokens) for image description
+- **Gemini 2.5 Flash = Fallback**: Audio, video, large PDFs (only when MiMo V2.5 is insufficient)
+- **Proxy = Cortex**: Intelligent routing per brain + content type, single Bearer token
 
 ### Key Features
 
-- **Automatic Intelligent Routing**: Detects 8 content types and decides optimal routing
-- **Full Multimodality**: Images, audio, video, PDFs, documents, code, text
-- **Direct Mode**: Use `vision-direct` to bypass DeepSeek with direct Gemini responses
-- **Hybrid PDF Processing**: Local (<1MB) for speed or Gemini (>1MB) for quality/OCR
-- **Automatic Download with Validation**: URLs with real Content-Type validation and 50MB limit
-- **SHA-256 Contextual Cache**: Unique hash per content + question (avoids reprocessing)
-- **SSE Streaming**: Native support for real-time responses
-- **Optimized for OpenCode**: Transparent mapping of `text`, `image`, `audio`, `video`, `pdf` modalities
-- **DeepSeek V4 Max Thinking**: Both Flash and Pro with `reasoning_effort: "max"` for maximum quality
+- **9 Brains via OpenCode Go**: One subscription ($10/month), single API key, all models
+- **Multimodal Layer**: MiMo V2.5 describes images; brain receives text descriptions
+- **Per-Brain Selection**: `proxy/<brain-id>` in `/v1/chat/completions` — choose brain per request
+- **Claude Code Compatible**: `haiku`/`sonnet`/`opus` aliases mapped via env to brain models
+- **OpenCode Compatible**: All proxy brains in `/v1/models`
+- **Full Multimodality**: Images (MiMo), audio/video/PDFs (Gemini fallback)
+- **SSE Streaming**: Native support for real-time responses on both formats
+- **Intelligent Routing**: 8 content types, per-brain context limits, truncate messages
 
 ## Requirements
 
 - **Node.js** >= 20.x (LTS)
-- **DeepSeek API Key** (for reasoning/text)
-- **Google Gemini API Key** (for multimodal perception)
+- **OpenCode Go API Key** (from https://opencode.ai/auth, $10/month subscription)
+- **Google Gemini API Key** (optional, only for audio/video/PDF fallback)
 - **Windows PowerShell 5.1+** or **bash** if using management scripts
 
 ## Platform Compatibility
@@ -44,8 +44,8 @@ OpenAI-compatible HTTP proxy with **"Sensory Cortex v2"** architecture: DeepSeek
 ### Option 1: Automatic Script (Recommended)
 
 ```bash
-git clone https://github.com/exithial/deepseek-multimodal-proxy.git
-cd deepseek-multimodal-proxy
+git clone https://github.com/exithial/cortex-multimodal-proxy.git
+cd cortex-multimodal-proxy
 npm install
 npm run setup
 ```
@@ -58,7 +58,7 @@ This configures everything automatically: compiles TypeScript, installs the `sys
 npm install
 npm run build
 cp .env.example .env
-# Edit .env with your API keys
+# Edit .env with your API keys (OPENCODE_GO_API_KEY required)
 npm run proxy:start
 ```
 
@@ -78,40 +78,25 @@ Add to `~/.config/opencode/opencode.json`:
 ```json
 {
   "provider": {
-    "deepseek-multimodal": {
-      "name": "DeepSeek Multimodal (Proxy v2)",
+    "cortex-multimodal": {
+      "name": "Cortex Multimodal (Proxy v3)",
       "npm": "@ai-sdk/openai-compatible",
       "options": {
         "baseURL": "http://localhost:7777/v1",
         "apiKey": "not-needed"
       },
       "models": {
-        "deepseek-multimodal-flash": {
-          "name": "deepseek-multimodal-flash",
-          "cost": { "input": 0.44, "output": 2.78 },
-          "limit": { "context": 872000, "output": 384000 },
-          "modalities": {
-            "input": ["text", "image", "audio", "video", "pdf"],
-            "output": ["text"]
-          }
+        "proxy/kimi-k2.6": {
+          "name": "Kimi K2.6 (via proxy)",
+          "cost": { "input": 1.09, "output": 4.00 },
+          "limit": { "context": 262144, "output": 65536 },
+          "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
         },
-        "deepseek-multimodal-pro": {
-          "name": "deepseek-multimodal-pro",
-          "cost": { "input": 0.74, "output": 3.37 },
-          "limit": { "context": 872000, "output": 384000 },
-          "modalities": {
-            "input": ["text", "image", "audio", "video", "pdf"],
-            "output": ["text"]
-          }
-        },
-        "vision-direct": {
-          "name": "vision-direct",
-          "cost": { "input": 0.30, "output": 2.50 },
-          "limit": { "context": 1000000, "output": 65536 },
-          "modalities": {
-            "input": ["text", "image", "audio", "video", "pdf"],
-            "output": ["text"]
-          }
+        "proxy/deepseek-v4-pro": {
+          "name": "DeepSeek V4 Pro (via proxy)",
+          "cost": { "input": 1.88, "output": 3.48 },
+          "limit": { "context": 1048576, "output": 384000 },
+          "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
         }
       }
     }
@@ -144,55 +129,37 @@ Or in `.claude/settings.json`:
 }
 ```
 
-Models for Claude Code:
+Default Claude Code mappings (configurable via env vars):
+- `haiku` → `mimo-v2.5` (passthrough, multimodal native, no senses layer)
+- `sonnet` → `proxy/kimi-k2.6` (text brain, image routing via MiMo V2.5)
+- `opus` → `proxy/glm-5.2` (strongest text brain)
 
-| Claude | Internal | Routing |
-|--------|---------|---------|
-| `haiku` | `vision-direct` | Direct Gemini |
-| `sonnet` | `deepseek-multimodal-flash` | Intelligent by content |
-| `opus` | `deepseek-multimodal-pro` | Intelligent by content |
-
-## "Sensory Cortex v2" Workflow
+## "Cortex Sensorial v3" Workflow
 
 ### Routing Matrix
 
-| Content | Examples | Routing | Reason |
-|-----------|----------|---------|-------|
-| Text / Code | `.js`, `.py`, `.md` | DeepSeek direct | Maximum logical precision |
-| Images | `.jpg`, `.png`, Base64 | Gemini -> DeepSeek | OCR + visual description |
-| Audio | `.mp3`, `.wav`, `.m4a` | Gemini -> DeepSeek | Transcription + tone analysis |
-| Video | `.mp4`, `.mov`, `.webm` | Gemini -> DeepSeek | Temporal frame and audio analysis |
-| PDF (< 1MB) | `invoice.pdf` | Local -> DeepSeek | Privacy and speed (pdf-parse) |
-| PDF (> 1MB) | `manual.pdf` | Gemini -> DeepSeek | Better context and table handling |
-| Docs | `.docx`, `.xlsx`, `.pptx` | Gemini -> DeepSeek | Complex structural extraction |
+| Content | Brain model | Senses layer | Example |
+|---------|------------|--------------|---------|
+| Text / Code | Direct to brain | None | `.js`, `.py`, `.md` |
+| Image | Brain processes MiMo description | MiMo V2.5 | `.png`, `.jpg`, Base64 |
+| Audio | Brain processes Gemini description | Gemini 2.5 Flash | `.mp3`, `.wav`, `.m4a` |
+| Video | Brain processes Gemini description | Gemini 2.5 Flash | `.mp4`, `.mov`, `.webm` |
+| PDF (< 1MB) | Local parser → Brain | pdf-parse | small PDF |
+| PDF (> 1MB) | Brain processes Gemini description | Gemini 2.5 Flash | manual PDF |
 
-### Detailed Process
+### Brain selection by client
 
-1. **Reception**: Request on port 7777 (OpenAI-compatible)
-2. **Detection**: Analyzes content by extension/MIME type
-3. **Intelligent Routing**: Decides based on the above matrix
-4. **Processing**:
-   - **PDFs**: Size-based routing. Local (<1MB) uses pdf2json + pdf-parse. Gemini (>1MB) for quality/OCR. Automatic fallback.
-   - **Other formats**: Download with validation, SHA-256 contextual hash, cache, specialized analysis with type-specific prompts
-5. **Response**: DeepSeek generates the final response (streaming or batch)
-
-### PDF Configuration
-
-```bash
-PDF_LOCAL_PROCESSING=true     # Local processing for small PDFs
-PDF_LOCAL_MAX_SIZE_MB=1       # Max size for local (1MB)
-```
-
-**Local (<1MB)**: No Gemini API cost, faster, privacy.
-**Gemini (>1MB)**: Better quality, built-in OCR, multilingual.
+- **OpenCode**: `model: "proxy/kimi-k2.6"` (or any `proxy/<brain-id>`) in `/v1/chat/completions`
+- **Claude Code**: `model: "sonnet"` (mapped to `proxy/kimi-k2.6` by default)
+- **Natively multimodal models** (`mimo-v2.5`, etc.) bypass the proxy entirely when configured in OpenCode directly
 
 ## Endpoints and Metrics
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/v1/chat/completions` | POST | Multimodal chat (OpenAI) |
-| `/v1/messages` | POST | Anthropic Messages API |
-| `/v1/models` | GET | Model list |
+| `/v1/messages` | POST | Anthropic Messages API (Claude Code) |
+| `/v1/models` | GET | Model list (9 proxy brains + 4 passthrough) |
 | `/v1/cache/stats` | GET | Contextual cache statistics |
 | `/health` | GET | Service status + version |
 
@@ -214,7 +181,7 @@ npm run proxy:start      # Start service in background
 npm run proxy:stop       # Stop service
 npm run proxy:logs       # View logs
 npm run proxy:uninstall  # Remove service
-npm run test:unit        # Unit tests (88 tests)
+npm run test:unit        # Unit tests
 npm run test:coverage    # Test coverage
 npm run lint             # ESLint
 npm run docker:up        # Start with Docker
@@ -225,22 +192,28 @@ npm run docker:logs      # Docker logs
 ## Environment Variables (.env)
 
 ```bash
-# DeepSeek V4
-DEEPSEEK_API_KEY=sk-xxx
-DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
-DEEPSEEK_CONTEXT_WINDOW=872000       # 1M native - 128K headroom
-DEEPSEEK_MAX_OUTPUT=384000
-DEEPSEEK_THINKING_EFFORT=max         # high | max
+# OpenCode Go (required)
+OPENCODE_GO_API_KEY=sk-your-opencode-go-key
+OPENCODE_GO_BASE_URL=https://opencode.ai/zen/go/v1
+OPENCODE_GO_TIMEOUT_MS=120000
 
-# Gemini 2.5 Flash (Google AI)
-GEMINI_API_KEY=your_api_key
+# Senses - MiMo V2.5 for images
+SENSES_MODEL=mimo-v2.5
+SENSES_TIMEOUT_MS=120000
+
+# Claude Code mappings
+CLAUDE_HAIKU_MODEL=mimo-v2.5
+CLAUDE_SONNET_MODEL=proxy/kimi-k2.6
+CLAUDE_OPUS_MODEL=proxy/glm-5.2
+
+# Gemini fallback (optional, audio/video/PDF only)
+GEMINI_API_KEY=your-gemini-key
 GEMINI_MODEL=gemini-2.5-flash
 
 # Cache
 CACHE_ENABLED=true
 CACHE_DIR=./cache
 CACHE_TTL_DAYS=7
-CACHE_MAX_ENTRIES=1000
 
 # Limits
 MAX_FILE_SIZE_MB=50
@@ -251,24 +224,15 @@ PDF_LOCAL_PROCESSING=true
 PDF_LOCAL_MAX_SIZE_MB=1
 ```
 
-## Current Status - Version 2.0.0
+## Current Status - Version 3.0.0
 
-- **"Sensory Cortex v2" architecture** complete
-- **DeepSeek V4 Flash + Pro** with Max Thinking (`reasoning_effort: "max"`)
-- **Gemini 2.5 Flash** for multimodal perception (image, audio, video)
-- **ESLint** configured
-- **88 Unit Tests** with Vitest
-- **CI/CD Pipeline** with GitHub Actions
-- **Full Claude Code support** with extended content types
-- **Efficient SHA-256 contextual cache**
-- **Hybrid PDFs** local + Gemini with automatic fallback
-
-## Support
-
-If you find this proxy useful, you can support the development:
-
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-orange?style=for-the-badge&logo=buy-me-a-coffee)](https://buymeacoffee.com/exithial)
+- **"Cortex Sensorial v3" architecture** complete
+- **9 brains** via OpenCode Go: Kimi K2.7 Code, Kimi K2.6, GLM-5.2, GLM-5.1, Qwen3.7 Max/Plus, Qwen3.6 Plus, DeepSeek V4 Flash/Pro
+- **MiMo V2.5** as multimodal senses for images
+- **Gemini 2.5 Flash** fallback for audio/video/PDFs
+- **4 passthrough models** for natively multimodal: mimo-v2.5, mimo-v2.5-pro, minimax-m3, minimax-m2.7
+- **Single Bearer token** replaces DEEPSEEK + GEMINI keys
 
 ## License
 
-MIT
+MIT License - see LICENSE for details.

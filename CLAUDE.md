@@ -1,4 +1,4 @@
-# CLAUDE.md — DeepSeek Multimodal Proxy
+# CLAUDE.md — Cortex Multimodal Proxy
 
 ## Language
 - **Chat**: Spanish
@@ -7,9 +7,10 @@
 - **Docs (README, MODELS.md, all documentation)**: English
 
 ## Architecture
-- Pattern: "Cortex Sensorial v2" — DeepSeek = brain, Gemini 2.5 Flash = senses, proxy = router
-- Text/code -> DeepSeek direct; media -> Gemini description -> DeepSeek
-- No third-party vision alternatives without explicit approval (Qwen, MiniMax were evaluated and reverted)
+- Pattern: "Cortex Sensorial v3" — 9 brains via OpenCode Go + MiMo V2.5 senses + Gemini fallback
+- Text/code -> proxy/<brain> direct; media -> MiMo V2.5 (images) or Gemini (audio/video/PDF) -> brain
+- Brain selection: `proxy/<model-id>` for text-only models, passthrough for natively multimodal
+- Natively multimodal models (mimo-v2.5, mimo-v2.5-pro, minimax-m3, minimax-m2.7) bypass the senses layer
 
 ## Compatibility
 - **Primary clients**: OpenCode (OpenAI-compatible `/v1/chat/completions`) and Claude Code (Anthropic-compatible `/v1/messages`)
@@ -20,35 +21,41 @@
 - The proxy exists solely to serve these two clients — compatibility is non-negotiable
 
 ## Models
-- Brain: `deepseek-v4-flash` (fast) and `deepseek-v4-pro` (strong)
-- Senses: `gemini-2.5-flash` (cheapest that covers image + audio + video)
-- Both DeepSeek models use `reasoning_effort: "max"` by default
-- Proxy model IDs: `deepseek-multimodal-flash`, `deepseek-multimodal-pro`, `vision-direct`
+- Brain options (text-only via `proxy/` prefix): `proxy/kimi-k2.7-code`, `proxy/kimi-k2.6`, `proxy/glm-5.2`, `proxy/glm-5.1`, `proxy/qwen3.7-plus`, `proxy/qwen3.7-max`, `proxy/qwen3.6-plus`, `proxy/deepseek-v4-flash`, `proxy/deepseek-v4-pro`
+- Passthrough (natively multimodal): `mimo-v2.5`, `mimo-v2.5-pro`, `minimax-m3`, `minimax-m2.7`
+- Legacy (deprecated): `vision-direct` (uses Gemini direct)
+- Claude Code aliases: `haiku` → `mimo-v2.5` (passthrough), `sonnet` → `proxy/kimi-k2.6` (default), `opus` → `proxy/glm-5.2` (default)
+- Senses: MiMo V2.5 for images (mimo-v2.5 multimodal native), Gemini for audio/video/PDFs
+- Anthropic-format models (Qwen) use `/messages` endpoint at OpenCode Go; OpenAI-format (GLM, Kimi, DeepSeek, MiMo) use `/chat/completions`
 
 ## Token Limits
-- DeepSeek context: 1M nativo, proxy expone 872K (128K slack para headers de OpenCode/Claude Code y margen de trabajo del proxy)
-- DeepSeek output: 384K (V4 max)
-- Siempre dejar headroom para que OpenCode/Claude Code inyecte sus headers sin exceder el limite real
+- Per brain — see `src/services/brainRegistry.ts`. Note: proxy exposes smaller than native context to leave headroom for headers and proxy work.
+- Qwen3.7 Max/Plus, Qwen3.6 Plus, GLM-5.2, DeepSeek V4: 1M ctx
+- GLM-5.1: 202K ctx
+- Kimi K2.7 Code/K2.6: 262K ctx
 
 ## Pricing
-- Always calculate combined worst-case (vision model + DeepSeek) and present in README
+- Always calculate combined worst-case (vision model + brain) and present in README
 - Verify against official API pricing pages before committing numbers
-- Current: Flash $0.44/$2.78, Pro $0.74/$3.37, vision-direct $0.30/$2.50 per 1M (Gemini 2.5 Flash + DeepSeek V4 combined)
+- MiMo V2.5 senses: $0.14 in / $0.28 out per 1M
+- Brain prices vary — see brainRegistry
 
 ## Code Quality
 - Build must pass (`npm run build`)
 - All unit tests must pass (`npm run test:unit`)
 - Lint clean (`npm run lint`)
-- No dead code (imageDetector was deleted for this reason)
-- DRY: extract repeated logic into helpers (buildPayload, extractAssistantContent)
-- Validate env vars in constructor (reasoning_effort only "high" or "max")
+- No dead code
+- DRY: extract repeated logic into helpers (buildPayload, truncateMessages, prepareMessages in `src/services/messageTransforms.ts`)
+- Validate env vars in constructor (opencodeGoService throws if OPENCODE_GO_API_KEY missing)
 - Use exact string matches for model routing, not includes/prototype checks
+- Use `Object.hasOwn()` for registry checks (prototype safety)
 
 ## Environment
 - Windows primary dev environment (PowerShell 7+)
 - Node.js >= 20.x
 - API keys in `.env` (never committed, in .gitignore)
-- Required: `DEEPSEEK_API_KEY`, `GEMINI_API_KEY`
+- Required: `OPENCODE_GO_API_KEY`
+- Optional: `GEMINI_API_KEY` (only for audio/video/PDF fallback)
 - Docker: `restart: always`, compose reads `.env`
 
 ## Git
@@ -58,11 +65,14 @@
 - Delete local + remote branch after merge
 
 ## Services
-- `src/services/deepseekService.ts`: DeepSeek V4 API (OpenAI-compatible)
-- `src/services/geminiService.ts`: Gemini API via @google/generative-ai SDK
-- `src/services/anthropicAdapter.ts`: Claude Code <-> OpenAI translation
-- `src/middleware/multimodalDetector.ts`: Content type detection + routing
-- `src/middleware/multimodalProcessor.ts`: Orchestrates vision + text pipeline
+- `src/services/opencodeGoService.ts`: Generic OpenCode Go caller for all 9 brain models + passthrough
+- `src/services/mimoSensesService.ts`: MiMo V2.5 image description
+- `src/services/geminiService.ts`: Gemini fallback for audio/video/PDF (still required for non-image media)
+- `src/services/brainRegistry.ts`: 9 brain entries + 4 passthrough models + helpers (getBrainEntry, isPassthrough, parseProxyModelId, isKnownModel)
+- `src/services/messageTransforms.ts`: Shared truncateMessages and prepareMessages helpers
+- `src/services/anthropicAdapter.ts`: Claude Code ↔ OpenAI translation
+- `src/middleware/multimodalDetector.ts`: Content type detection
+- `src/middleware/multimodalProcessor.ts`: Orchestrates vision-mimo + Gemini fallback + local PDF routing
 
 ## Testing
 - Unit tests: Vitest, fast, no API keys needed

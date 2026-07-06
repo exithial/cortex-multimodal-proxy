@@ -1,7 +1,7 @@
 #!/bin/bash
-# Script unificado para gestionar DeepSeek Multimodal Proxy
+# Script unificado para gestionar Cortex Multimodal Proxy
 
-SERVICE_NAME="deepseek-proxy"
+SERVICE_NAME="cortex-multimodal-proxy"
 PORT="7777"
 
 # Colores

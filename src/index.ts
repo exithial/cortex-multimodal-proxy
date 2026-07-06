@@ -143,7 +143,7 @@ app.use(express.json({ limit: "50mb" }));
 app.get("/health", (req: Request, res: Response) => {
   res.json({
     status: "ok",
-    service: "deepseek-multimodal-proxy",
+    service: "cortex-multimodal-proxy",
     version: packageJson.version,
     uptime: process.uptime(),
     capabilities: ["text", "image", "audio", "video", "pdf"],
@@ -812,9 +812,9 @@ app.use((req: Request, res: Response) => {
 // Inicialización del proxy multimodal
 async function init() {
   try {
-    logger.info("Iniciando DeepSeek Multimodal Proxy v2...");
+    logger.info("Iniciando Cortex Multimodal Proxy v3...");
     logger.info(
-      "Arquitectura 'Cortex Sensorial v2': DeepSeek V4 = Cerebro, Gemini 2.5 Flash = Sentidos",
+      "Arquitectura 'Cortex Sensorial v3': 9 brains via OpenCode Go + MiMo V2.5 senses",
     );
     await cacheService.init();
 
