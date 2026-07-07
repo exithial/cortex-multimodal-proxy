@@ -316,6 +316,9 @@ class OpenCodeGoService {
       const stream = response.data;
 
       stream.on("data", (chunk: Buffer) => {
+        if (ended) {
+          return;
+        }
         buffer += chunk.toString();
         const lines = buffer.split("\n");
         buffer = lines.pop() || "";
@@ -341,6 +344,9 @@ class OpenCodeGoService {
       });
 
       stream.on("end", () => {
+        if (ended) {
+          return;
+        }
         if (buffer.trim()) {
           onChunk(`${buffer}\n`);
         }
@@ -348,7 +354,10 @@ class OpenCodeGoService {
       });
 
       stream.on("error", (error: unknown) => {
-        safeEnd();
+        if (ended) {
+          return;
+        }
+        ended = true;
         onError(error);
       });
     } catch (error: unknown) {
