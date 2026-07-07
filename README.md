@@ -1,6 +1,6 @@
 # Cortex Multimodal Proxy (OpenCode Go Edition)
 
-![License](https://img.shields.io/github/license/exithial/cortex-multimodal-proxy?style=flat-square)
+![License](https://img.shields.io/github/license/exithial/cortex-multimodal-proxy?style=flat-square&v=2)
 ![Version](https://img.shields.io/github/package-json/v/exithial/cortex-multimodal-proxy?style=flat-square)
 ![Node.js](https://img.shields.io/badge/node.js->=20.x-green?style=flat-square&logo=node.js)
 ![CI](https://github.com/exithial/cortex-multimodal-proxy/workflows/CI%2FCD%20Pipeline/badge.svg)
