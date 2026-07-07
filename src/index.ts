@@ -344,13 +344,14 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
       res.setHeader("Connection", "keep-alive");
 
       let clientClosed = false;
+      const abortController = new AbortController();
       const safeWrite = (chunk: string): void => {
         if (clientClosed || res.writableEnded || res.destroyed) return;
         try {
           res.write(chunk);
         } catch (err) {
           logger.warn(
-            `Stream write failed (cliente probablemente desconectado): ${getErrorMessage(err)}`,
+            `Stream write failed (client likely disconnected): ${getErrorMessage(err)}`,
           );
           clientClosed = true;
         }
@@ -360,20 +361,18 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
         try {
           res.end();
         } catch (err) {
-          logger.warn(
-            `Stream end failed: ${getErrorMessage(err)}`,
-          );
+          logger.warn(`Stream end failed: ${getErrorMessage(err)}`);
           clientClosed = true;
         }
       };
 
       res.on("close", () => {
-        if (!clientClosed) {
-          clientClosed = true;
-          logger.warn(
-            `Cliente desconectado durante stream | ${brainEntry.upstream}`,
-          );
-        }
+        if (clientClosed) return;
+        clientClosed = true;
+        abortController.abort();
+        logger.warn(
+          `Client disconnected mid-stream | ${brainEntry.upstream}`,
+        );
       });
 
       await opencodeGoService.chatCompletionStream(
@@ -400,6 +399,7 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
             `✓ Request stream completado (${elapsed}s) | ${brainEntry.upstream}`,
           );
         },
+        abortController.signal,
       );
     } else {
       const response = await opencodeGoService.createChatCompletion(

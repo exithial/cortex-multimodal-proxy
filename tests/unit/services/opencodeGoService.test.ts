@@ -546,5 +546,92 @@ describe("OpenCodeGoService", () => {
       expect(reconstructed).toContain('"content":"final"');
       vi.unstubAllEnvs();
     });
+
+    it("should forward AbortSignal to axios on stream requests", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const stream = new PassThrough();
+      mockedAxios.post.mockResolvedValueOnce({ data: stream });
+
+      const controller = new AbortController();
+      stream.end();
+
+      await opencodeGoService.chatCompletionStream(
+        {
+          model: "proxy/kimi-k2.7-code",
+          messages: [{ role: "user", content: "hi" }],
+          stream: true,
+        },
+        {
+          upstream: "glm-5.2",
+          context: 262144,
+          maxOutput: 262144,
+          thinking: false,
+          inputPrice: 0,
+          outputPrice: 0,
+          endpoint: "openai",
+        },
+        () => {},
+        () => {},
+        () => {},
+        controller.signal,
+      );
+
+      const call = mockedAxios.post.mock.calls[0];
+      expect(call[2]?.signal).toBe(controller.signal);
+      vi.unstubAllEnvs();
+    });
+
+    it("should not call onError when AbortSignal is aborted mid-stream", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const stream = new PassThrough();
+      mockedAxios.post.mockResolvedValueOnce({ data: stream });
+
+      const controller = new AbortController();
+      const errors: unknown[] = [];
+      let completeCount = 0;
+
+      const promise = opencodeGoService.chatCompletionStream(
+        {
+          model: "proxy/kimi-k2.7-code",
+          messages: [{ role: "user", content: "hi" }],
+          stream: true,
+        },
+        {
+          upstream: "glm-5.2",
+          context: 262144,
+          maxOutput: 262144,
+          thinking: false,
+          inputPrice: 0,
+          outputPrice: 0,
+          endpoint: "openai",
+        },
+        () => {},
+        (error) => errors.push(error),
+        () => {
+          completeCount += 1;
+        },
+        controller.signal,
+      );
+
+      stream.write('data: {"choices":[{"delta":{"content":"hi"}}]}\n\n');
+      await new Promise((resolve) => setImmediate(resolve));
+      controller.abort();
+      stream.destroy(new Error("canceled"));
+
+      await expect(promise).resolves.toBeUndefined();
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(errors).toHaveLength(0);
+      expect(completeCount).toBe(0);
+      vi.unstubAllEnvs();
+    });
   });
 });
