@@ -1,4 +1,4 @@
-# 🧪 Test Suite - DeepSeek Multimodal Proxy
+# 🧪 Test Suite - Cortex Multimodal Proxy
 
 This folder contains the consolidated test suite to verify multimodal functionality and the proxy's intelligent routing.
 
@@ -8,7 +8,7 @@ The only tool you need is the **Master Suite**:
 
 ```bash
 # Start the proxy (if not running)
-sudo systemctl start deepseek-proxy
+sudo systemctl start cortex-multimodal-proxy
 
 # Run all tests
 node test/test-master.js

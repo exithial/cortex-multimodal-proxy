@@ -1,6 +1,6 @@
 # Scripts de Gestión Unificados
 
-Este directorio contiene los scripts para la instalación, gestión y ejecución de **DeepSeek Multimodal Proxy**. Se ha simplificado la estructura para ofrecer una experiencia más profesional y directa.
+Este directorio contiene los scripts para la instalación, gestión y ejecución de **Cortex Multimodal Proxy**. Se ha simplificado la estructura para ofrecer una experiencia más profesional y directa.
 
 ## 📋 Scripts Principales
 
@@ -10,7 +10,7 @@ Este directorio contiene los scripts para la instalación, gestión y ejecución
 
 - **Detección Inteligente:** Localiza el binario real de Node.js (incluso bajo NVM/Yarn) para asegurar la persistencia del servicio systemd.
 - **Compilación Transparente:** Ejecuta `npm run build` y verifica la generación de archivos en `dist/`.
-- **Linux:** Crea y habilita el servicio `deepseek-proxy.service` con reinicio automático.
+- **Linux:** Crea y habilita el servicio `cortex-multimodal-proxy.service` con reinicio automático.
 - **Windows:** Compila, crea `.env` si falta y arranca el proxy en segundo plano.
 - **Salida Informativa:** Reporta cada paso y verifica la salud de la API al finalizar.
 

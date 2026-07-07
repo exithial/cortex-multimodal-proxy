@@ -1,6 +1,6 @@
 # Contribution Guide
 
-Thank you for your interest in contributing to **DeepSeek Multimodal Proxy**! This project implements the "Sensory Cortex" architecture and your help is essential to improve the multimodal perception of LLMs.
+Thank you for your interest in contributing to **Cortex Multimodal Proxy**! This project implements the "Cortex Sensorial v3" architecture and your help is essential to improve the multimodal perception of LLMs.
 
 ## 🌟 How you can help
 

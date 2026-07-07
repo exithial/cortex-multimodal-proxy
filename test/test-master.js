@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * 🧪 MASTER TEST SUITE - DeepSeek Multimodal Proxy
+ * 🧪 MASTER TEST SUITE - Cortex Multimodal Proxy
  * 
  * Valida todas las funcionalidades del proxy en una sola ejecución:
  * 1. Health check y disponibilidad de modelos
@@ -153,7 +153,7 @@ class MasterTestSuite {
     } catch (error) {
       if (error.code === 'ECONNREFUSED') {
         print.error(`ERROR DE CONEXIÓN: El proxy no parece estar corriendo en ${PROXY_URL}`);
-        print.error(`Asegúrate de iniciar el proxy con: sudo systemctl start deepseek-proxy`);
+        print.error(`Asegúrate de iniciar el proxy con: sudo systemctl start cortex-multimodal-proxy`);
       } else {
         print.error(`ERROR: ${error.message}`);
       }
