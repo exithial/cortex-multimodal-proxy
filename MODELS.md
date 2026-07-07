@@ -1,59 +1,92 @@
-# Model Configuration
+# MODELS.md — Cortex Multimodal Proxy v3.0.0
 
-## OpenCode Models (OpenAI API)
+## Brain Models (Text-Only, via `proxy/` prefix)
 
-### DeepSeek V4 Flash - Chat (Max Thinking)
+| Model ID | Upstream | Endpoint | Thinking | Context | Max Output | Input/Output per 1M | Combined with MiMo senses |
+|----------|----------|----------|----------|---------|------------|---------------------|---------------------------|
+| `proxy/glm-5.2` | `glm-5.2` | OpenAI | ✅ Always-on | 800K | 131K | $1.40 / $4.40 | $1.54 / $4.40 |
+| `proxy/deepseek-v4-pro` | `deepseek-v4-pro` | OpenAI | ✅ Always-on | 800K | 384K | $1.74 / $3.48 | $1.88 / $3.48 |
 
-- **Context max**: 872,000 tokens (1M native, 128K slack for headers)
-- **Output max**: 384,000 tokens
-- **API params**: `thinking: { type: "enabled" }` + `reasoning_effort: "max"`
-- **Model**: `deepseek-v4-flash`
+All brains are text-only. Images go through MiMo V2.5 senses layer first (adds $0.14/$0.28 per 1M).
+All brains use `thinking: { type: "enabled" }` for max reasoning.
+All brains use OpenAI-format endpoint at `https://opencode.ai/zen/go/v1/chat/completions`.
 
-### DeepSeek V4 Pro - Reasoner (Max Thinking)
+## Passthrough Models (Natively Multimodal, no proxy prefix)
 
-- **Context max**: 872,000 tokens (1M native, 128K slack)
-- **Output max**: 384,000 tokens
-- **API params**: `thinking: { type: "enabled" }` + `reasoning_effort: "max"`
-- **Model**: `deepseek-v4-pro`
+| Model ID | Endpoint | Thinking | Context | Max Output | Input/Output per 1M |
+|----------|----------|----------|---------|------------|---------------------|
+| `mimo-v2.5` | OpenAI | ✅ | 1M | 128K | $0.14 / $0.28 |
 
-### Vision with Gemini 2.5 Flash
+Passthrough models handle images natively — no MiMo V2.5 senses layer needed.
+Available in `/v1/models` but not proxied (configured directly in OpenCode).
 
-All models use **Gemini 2.5 Flash** for multimodal perception:
+## Senses Layer
 
-- **Image analysis**: OCR and visual description
-- **Audio analysis**: Transcription and contextual description
-- **Video analysis**: Frame-by-frame description with audio sync
-- **PDF support**: Hybrid system (local for <1MB, Gemini for quality/OCR)
-- **Contextual cache**: SHA-256(content + question) hash
-- **File limit**: 50MB
+| Service | Model | Purpose | Input/Output per 1M |
+|---------|-------|---------|---------------------|
+| MiMo V2.5 Senses | `mimo-v2.5` | Image description for text-only brains | $0.14 / $0.28 |
+| Gemini 2.5 Flash | `gemini-2.5-flash` | Audio/video/PDF fallback (optional) | ~$0.075 / $0.30 |
 
-### Intelligent Routing
+## Claude Code Mappings
 
-```
-"deepseek-multimodal-flash" -> DeepSeek V4 Flash (max thinking) + Gemini Vision
-"deepseek-multimodal-pro"   -> DeepSeek V4 Pro (max thinking) + Gemini Vision
-```
+| Claude Code | Default Model | Env Var Override | Strategy |
+|-------------|---------------|------------------|----------|
+| `haiku` | `proxy/glm-5.2` | `CLAUDE_HAIKU_MODEL` | Proxy brain + MiMo senses for images |
+| `sonnet` | `proxy/deepseek-v4-pro` | `CLAUDE_SONNET_MODEL` | Proxy brain + MiMo senses for images |
+| `opus` | `proxy/glm-5.2` | `CLAUDE_OPUS_MODEL` | Proxy brain + MiMo senses for images |
 
-### Available Proxy Models
+## Thinking Configuration
 
-| Proxy Model                | Backend Model       | Input  | Output | Modalities                       |
-| :------------------------- | :------------------ | :----- | :----- | :------------------------------- |
-| `deepseek-multimodal-flash`| `deepseek-v4-flash` | 872K   | 384K   | Text, Image, Audio, Video, PDF   |
-| `deepseek-multimodal-pro`  | `deepseek-v4-pro`   | 872K   | 384K   | Text, Image, Audio, Video, PDF   |
-| `vision-direct`            | `gemini-2.5-flash`  | 1M     | 64K    | Full Multimodal (Direct)         |
+All 2 brains use max thinking via `thinking: { type: "enabled" }` parameter.
 
-### Pricing (per 1M tokens, worst case combined)
+| Model | Thinking Behavior | Notes |
+|-------|-------------------|-------|
+| GLM-5.2 | Always-on | Responds via `reasoning_content` field |
+| DeepSeek V4 Pro | Always-on | Responds via `reasoning_content` field |
 
-| Model                      | Input  | Output |
-| :------------------------- | :----- | :----- |
-| `deepseek-multimodal-flash`| $0.44  | $2.78  |
-| `deepseek-multimodal-pro`  | $0.74  | $3.37  |
-| `vision-direct`            | $0.30  | $2.50  |
+## Retry Policy
 
-## Claude Code Models (Anthropic)
+The proxy retries failed requests to OpenCode Go with exponential backoff:
+- **Max retries**:3
+- **Base delay**:2 seconds
+- **Backoff**:2s →4s →8s
+- **Retryable errors**:503 (Service Unavailable),502 (Bad Gateway),429 (Rate Limited)
+- **Non-retryable**:400,401,404 (immediate failure)
 
-| Claude | Internal Model             | Routing                                                   |
-| :----- | :------------------------- | :--------------------------------------------------------- |
-| `haiku`| `vision-direct`            | Gemini 2.5 Flash direct                                    |
-| `sonnet`| `deepseek-multimodal-flash`| Intelligent: Text -> DeepSeek, Multimodal -> Gemini        |
-| `opus` | `deepseek-multimodal-pro`  | Intelligent: Text -> DeepSeek, Multimodal -> Gemini        |
+## Model Verification (Empirical)
+
+Verified empirically via direct API calls to `https://opencode.ai/zen/go/v1/chat/completions`:
+
+| Model | Direct API | Via Proxy | Notes |
+|-------|-----------|-----------|-------|
+| GLM-5.2 | ✅ | ✅ | Always thinking, responds in reasoning_content |
+| DeepSeek V4 Pro | ✅ | ✅ | Always thinking, responds in reasoning_content |
+| MiMo V2.5 | ✅ | ✅ | Passthrough, no senses layer |
+
+## OpenCode Go Endpoint
+
+- **Base URL**: `https://opencode.ai/zen/go/v1`
+- **Auth**: `Authorization: Bearer <OPENCODE_GO_API_KEY>`
+- **OpenAI-format**: `/chat/completions` (both brain models + passthrough model)
+- **Anthropic-format**: `/messages` (unused — all models verified to work with OpenAI-format)
+- **Model list**: `GET /v1/models`
+
+## Legacy Models (Removed)
+
+These models were in the brain catalog but removed in v3.0.0:
+
+| Old Model ID | Reason for Removal |
+|--------------|-------------------|
+| `deepseek-multimodal-flash` | Replaced by `proxy/deepseek-v4-pro` (same provider, stronger model) |
+| `deepseek-multimodal-pro` | Replaced by `proxy/deepseek-v4-pro` |
+| `vision-direct` | No longer needed — MiMo V2.5 senses handles images |
+| `proxy/kimi-k2.7-code` | Removed — consolidated to2 brains |
+| `proxy/kimi-k2.6` | Removed — consolidated to2 brains |
+| `proxy/glm-5.1` | Removed — consolidated to2 brains |
+| `proxy/qwen3.7-plus` | Removed — consolidated to2 brains |
+| `proxy/qwen3.6-plus` | Removed — consolidated to2 brains |
+| `proxy/qwen3.7-max` | Removed — upstream availability unreliable |
+| `proxy/deepseek-v4-flash` | Removed — consolidated to2 brains |
+| `mimo-v2.5-pro` (passthrough) | Removed — only mimo-v2.5 kept as passthrough |
+| `minimax-m3` (passthrough) | Removed — only mimo-v2.5 kept as passthrough |
+| `minimax-m2.7` (passthrough) | Removed — only mimo-v2.5 kept as passthrough |

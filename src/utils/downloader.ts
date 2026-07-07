@@ -15,7 +15,7 @@ export class Downloader {
       timeout: 120000, // 120 segundos para archivos grandes
       maxContentLength: maxFileSizeMB * 1024 * 1024, // Configurable (50MB por defecto)
       headers: {
-        "User-Agent": "deepseek-multimodal-proxy/2.0.0",
+        "User-Agent": "cortex-multimodal-proxy/3.0.0",
       },
     });
   }

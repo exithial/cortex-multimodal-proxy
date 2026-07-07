@@ -1,8 +1,14 @@
 import type { ChatMessage, MessageContent } from "../types/openai";
 import { logger } from "../utils/logger";
 import { geminiService } from "../services/geminiService";
+import { mimoSensesService } from "../services/mimoSensesService";
 import { pdfProcessor } from "../utils/pdfProcessor";
 import { getErrorMessage } from "../utils/error";
+import {
+  isPassthrough,
+  getBrainEntry,
+  type BrainModelEntry,
+} from "../services/brainRegistry";
 import {
   detectMultimodalContent,
   extractUserContext,
@@ -14,29 +20,30 @@ import {
 export async function processMultimodalContent(
   messages: ChatMessage[],
   modelName?: string,
+  brainEntry?: BrainModelEntry,
 ): Promise<{
   processedMessages: ChatMessage[];
   useDeepseekDirectly: boolean;
-  strategy: "direct" | "vision" | "local" | "mixed" | "vision-direct";
+  strategy: "direct" | "vision" | "vision-mimo" | "local" | "mixed";
 }> {
-  if (modelName === "vision-direct") {
+  if (modelName && isPassthrough(modelName)) {
     logger.info(
-      "Modelo vision-direct detectado - Usando Gemini para respuesta completa",
+      `Modelo passthrough ${modelName} - sin procesamiento multimodal`,
     );
-
-    const geminiResponse = await geminiService.generateDirectResponse(messages);
-
     return {
-      processedMessages: [
-        {
-          role: "assistant",
-          content: geminiResponse,
-        },
-      ],
-      useDeepseekDirectly: false,
-      strategy: "vision-direct",
+      processedMessages: messages,
+      useDeepseekDirectly: true,
+      strategy: "direct",
     };
   }
+
+  const resolvedBrain = brainEntry ?? (modelName ? getBrainEntry(modelName) : undefined);
+  const isMultimodalNative = resolvedBrain?.multimodal === true;
+  const useMimoForImages =
+    !isMultimodalNative &&
+    !!modelName &&
+    modelName.startsWith("proxy/") &&
+    mimoSensesService.isAvailable();
   // 1. Detectar contenido
   const analysis = await detectMultimodalContent(messages);
 
@@ -83,6 +90,23 @@ export async function processMultimodalContent(
     };
   }
 
+  // 3b. Brain multimodal nativo: filtrar visionContent para solo imagenes;
+  //     audio/video/PDF siguen requiriendo Gemini.
+  if (isMultimodalNative && visionContent.length > 0) {
+    const imageContent = visionContent.filter((c) => c.type === "image");
+    const nonImageContent = visionContent.filter((c) => c.type !== "image");
+    if (imageContent.length > 0 && nonImageContent.length === 0 && localContent.length === 0) {
+      logger.info(
+        `Brain multimodal nativo: ${imageContent.length} imagen(es) pasa(n) directo al brain, sin MiMo senses`,
+      );
+      return {
+        processedMessages: messages,
+        useDeepseekDirectly: true,
+        strategy: "direct",
+      };
+    }
+  }
+
   const userContext = extractUserContext(messages);
   logger.debug(`Contexto del usuario: "${userContext.substring(0, 100)}..."`);
 
@@ -90,12 +114,26 @@ export async function processMultimodalContent(
 
   const visionDescriptions = await Promise.all(
     visionContent.map(async (content, index) => {
+      const useMimo = useMimoForImages && content.type === "image";
+      const processor = useMimo ? "MiMo V2.5" : "Gemini";
       logger.info(
-        `Procesando ${content.type} ${index + 1}/${visionContent.length} con Gemini...`,
+        `Procesando ${content.type} ${index + 1}/${visionContent.length} con ${processor}...`,
       );
       try {
+        if (useMimo) {
+          return await mimoSensesService.describeImage(
+            content.source,
+            userContext,
+          );
+        }
         return await geminiService.analyzeContent(content, userContext);
       } catch (error: unknown) {
+        if (useMimo) {
+          logger.warn(
+            `MiMo V2.5 fallo para ${content.type} ${index + 1}: ${getErrorMessage(error)}. Fallback a Gemini...`,
+          );
+          return await geminiService.analyzeContent(content, userContext);
+        }
         logger.error(
           `Error procesando ${content.type} ${index + 1} con Gemini: ${getErrorMessage(error)}`,
         );
@@ -192,11 +230,17 @@ export async function processMultimodalContent(
   // 6. Si hay contenido que DeepSeek puede manejar directamente, mantenerlo
   // (ya está en los mensajes originales)
 
-  // Determine strategy
-  let strategy: "direct" | "vision" | "local" | "mixed" | "vision-direct" =
-    "mixed";
+  const usedMimo = visionContent.some(
+    (c) => c.type === "image" && useMimoForImages,
+  );
+  let strategy:
+    | "direct"
+    | "vision"
+    | "vision-mimo"
+    | "local"
+    | "mixed" = "mixed";
   if (visionContent.length > 0 && localContent.length === 0)
-    strategy = "vision";
+    strategy = usedMimo ? "vision-mimo" : "vision";
   else if (visionContent.length === 0 && localContent.length > 0)
     strategy = "local";
 

@@ -35,7 +35,7 @@ async function testAnthropicModels() {
 }
 
 async function testHaikuTextOnly() {
-  console.log("\nTest 2: Haiku (gemini-direct) - Solo texto");
+  console.log("\nTest 2: Haiku (mimo-v2.5 passthrough) - Solo texto");
 
   const res = await axios.post(
     `${BASE_URL}/v1/messages`,
@@ -58,7 +58,7 @@ async function testHaikuTextOnly() {
 
   const pass =
     res.data.type === "message" &&
-    res.headers["x-multimodal-strategy"] === "gemini-direct";
+    res.headers["x-multimodal-strategy"] === "direct";
   console.log(pass ? "  PASS" : "  FAIL");
   return pass;
 }
@@ -107,7 +107,9 @@ async function testSonnetWithImage() {
 
     const pass =
       res.data.type === "message" &&
-      ["gemini", "mixed"].includes(res.headers["x-multimodal-strategy"]);
+      ["vision", "vision-mimo", "mixed"].includes(
+        res.headers["x-multimodal-strategy"],
+      );
     console.log(pass ? "  PASS" : "  FAIL");
     return pass;
   } catch (error) {

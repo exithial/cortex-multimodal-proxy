@@ -2,10 +2,22 @@ import "dotenv/config";
 import express, { Request, Response } from "express";
 import { logger } from "./utils/logger";
 import { cacheService } from "./services/cacheService";
-import { deepseekService } from "./services/deepseekService";
+import { opencodeGoService } from "./services/opencodeGoService";
 import { geminiService } from "./services/geminiService";
 import { processMultimodalContent } from "./middleware/multimodalProcessor";
 import { anthropicAdapter } from "./services/anthropicAdapter";
+import {
+  getOpenCodeModelsList,
+  getClaudeCodeModelsList,
+} from "./utils/opencodeGoModels";
+import {
+  getBrainEntry,
+  isPassthrough,
+  isKnownModel,
+  BRAIN_MODELS,
+  PASSTHROUGH_MODELS,
+} from "./services/brainRegistry";
+import type { BrainModelEntry } from "./services/brainRegistry";
 import type {
   ChatCompletionRequest,
   ChatCompletionResponse,
@@ -68,8 +80,31 @@ function stableStringify(value: any): string {
   return `{${entries.join(",")}}`;
 }
 
-function getModelRoutingStrategy(model: string): "vision-direct" | "deepseek-routing" {
-  return model === "haiku" ? "vision-direct" : "deepseek-routing";
+function getClaudeModelMapping(model: string): {
+internalModel: string;
+  strategy: "passthrough" | "proxy-brain";
+} {
+  const haikuModel = process.env.CLAUDE_HAIKU_MODEL || "mimo-v2.5";
+  const sonnetModel = process.env.CLAUDE_SONNET_MODEL || "proxy/deepseek-v4-pro";
+  const opusModel = process.env.CLAUDE_OPUS_MODEL || "proxy/glm-5.2";
+
+  let internalModel: string;
+  switch (model) {
+    case "haiku":
+      internalModel = haikuModel;
+      break;
+    case "sonnet":
+      internalModel = sonnetModel;
+      break;
+    case "opus":
+      internalModel = opusModel;
+      break;
+    default:
+      internalModel = model;
+  }
+
+  const strategy = isPassthrough(internalModel) ? "passthrough" : "proxy-brain";
+  return { internalModel, strategy };
 }
 
 function getAnthropicRequestKey(request: AnthropicRequest): string {
@@ -108,7 +143,7 @@ app.use(express.json({ limit: "50mb" }));
 app.get("/health", (req: Request, res: Response) => {
   res.json({
     status: "ok",
-    service: "deepseek-multimodal-proxy",
+    service: "cortex-multimodal-proxy",
     version: packageJson.version,
     uptime: process.uptime(),
     capabilities: ["text", "image", "audio", "video", "pdf"],
@@ -217,26 +252,7 @@ app.get("/v1/models", (req: Request, res: Response) => {
     logger.info("GET /v1/models (cliente: Claude Code)");
     res.json({
       object: "list",
-      data: [
-        {
-          id: "haiku",
-          object: "model",
-          created: 1706745600,
-          owned_by: "anthropic",
-        },
-        {
-          id: "sonnet",
-          object: "model",
-          created: 1706745600,
-          owned_by: "anthropic",
-        },
-        {
-          id: "opus",
-          object: "model",
-          created: 1706745600,
-          owned_by: "anthropic",
-        },
-      ],
+      data: getClaudeCodeModelsList(),
     });
     return;
   }
@@ -244,126 +260,92 @@ app.get("/v1/models", (req: Request, res: Response) => {
   logger.info("GET /v1/models (cliente: OpenCode)");
   res.json({
     object: "list",
-    data: [
-      {
-        id: "deepseek-multimodal-flash",
-        object: "model",
-        created: 1706745600,
-        owned_by: "deepseek-proxy",
-        permission: [],
-        root: "deepseek-v4-flash",
-        parent: null,
-      },
-      {
-        id: "deepseek-multimodal-pro",
-        object: "model",
-        created: 1706745600,
-        owned_by: "deepseek-proxy",
-        permission: [],
-        root: "deepseek-v4-pro (max thinking)",
-        parent: null,
-      },
-      {
-        id: "deepseek-multimodal-pro-nothink",
-        object: "model",
-        created: 1706745600,
-        owned_by: "deepseek-proxy",
-        permission: [],
-        root: "deepseek-v4-pro (no thinking)",
-        parent: null,
-      },
-      {
-        id: "deepseek-multimodal-flash-nothink",
-        object: "model",
-        created: 1706745600,
-        owned_by: "deepseek-proxy",
-        permission: [],
-        root: "deepseek-v4-flash (no thinking)",
-        parent: null,
-      },
-      {
-        id: "vision-direct",
-        object: "model",
-        created: 1706745600,
-        owned_by: "gemini-proxy",
-        permission: [],
-        root: process.env.GEMINI_MODEL || "gemini-2.5-flash",
-        parent: null,
-      },
-    ],
+    data: getOpenCodeModelsList(),
   });
 });
 
+function resolveBrainServiceEntry(modelId: string): BrainModelEntry | null {
+  const passthroughEntry: BrainModelEntry = {
+    upstream: modelId,
+    context: 1048576,
+    maxOutput: 131072,
+    thinking: false,
+    inputPrice: 0,
+    outputPrice: 0,
+    endpoint: "openai",
+    multimodal: true,
+  };
+
+  if (isPassthrough(modelId)) return passthroughEntry;
+  return getBrainEntry(modelId) || null;
+}
+
 // Chat completions - Endpoint principal compatible OpenAI
-// Arquitectura "Cortex Sensorial v2": routing inteligente basado en tipo de contenido
+// Arquitectura "Cortex Sensorial v3": MiMo V2.5 senses + multi-brain router
 app.post("/v1/chat/completions", async (req: Request, res: Response) => {
   const startTime = Date.now();
 
   try {
     const request = req.body as ChatCompletionRequest;
+    const model = request.model;
 
     logger.info(
-      `POST /v1/chat/completions | model: ${request.model} | stream: ${request.stream || false} | tools: ${!!request.tools}`,
+      `POST /v1/chat/completions | model: ${model} | stream: ${request.stream || false} | tools: ${!!request.tools}`,
     );
 
-    const { processedMessages, useDeepseekDirectly, strategy } =
-      await processMultimodalContent(request.messages, request.model);
-
-    res.setHeader("X-Multimodal-Strategy", strategy);
-
-    if (strategy === "vision-direct") {
-      logger.info(
-        "OK Contenido procesado (vision-direct) - Respuesta Gemini directa",
-      );
-    } else if (useDeepseekDirectly) {
-      logger.info("OK Contenido soportado por DeepSeek - Passthrough directo");
-    } else {
-      logger.info(`OK Contenido procesado (${strategy}) - Enrutando a DeepSeek`);
+    if (!isKnownModel(model)) {
+      const allKnown = [
+        ...Object.keys(BRAIN_MODELS),
+        ...Array.from(PASSTHROUGH_MODELS),
+      ];
+      res.status(400).json({
+        error: {
+          message: `Modelo desconocido: ${model}. Modelos válidos: ${allKnown.join(", ")}`,
+          type: "invalid_request_error",
+        },
+      });
+      return;
     }
 
-    // Crear request procesado (preservando tools y otros campos)
+    const brainEntry = resolveBrainServiceEntry(model);
+    if (!brainEntry) {
+      res.status(400).json({
+        error: {
+          message: `No se pudo resolver brain para modelo: ${model}`,
+          type: "invalid_request_error",
+        },
+      });
+      return;
+    }
+
+    const { processedMessages, strategy } = await processMultimodalContent(
+      request.messages,
+      model,
+      brainEntry,
+    );
+    res.setHeader("X-Multimodal-Strategy", strategy);
+
+    if (isPassthrough(model)) {
+      logger.info(`Passthrough: ${model} (nativamente multimodal)`);
+    } else if (strategy === "direct") {
+      logger.info(`Brain directo: ${brainEntry.upstream}`);
+    } else {
+      logger.info(`Brain: ${brainEntry.upstream} via ${strategy}`);
+    }
+
     const processedRequest: ChatCompletionRequest = {
       ...request,
       messages: processedMessages,
     };
 
-    if (strategy === "vision-direct") {
-      const content = extractAssistantContent(processedMessages);
-
-      if (request.stream) {
-        res.setHeader("Content-Type", "text/event-stream");
-        res.setHeader("Cache-Control", "no-cache");
-        res.setHeader("Connection", "keep-alive");
-
-        const requestId = `chatcmpl-${randomUUID()}`;
-        for await (const chunk of createOpenAIStreamFromText(
-          content,
-          request.model,
-          requestId,
-        )) {
-          res.write(chunk);
-        }
-        res.end();
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        logger.info(`OK Request stream completado (${elapsed}s total)`);
-        return;
-      }
-
-      const response = createOpenAIResponseFromText(content, request.model);
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      logger.info(`OK Request completado (${elapsed}s total)`);
-      res.json(response);
-      return;
-    }
-
-    // Streaming vs non-streaming
     if (request.stream) {
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      await deepseekService.chatCompletionStream(
+      await opencodeGoService.chatCompletionStream(
         processedRequest,
+        brainEntry,
         (chunk) => {
           res.write(chunk);
         },
@@ -381,15 +363,20 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
           res.write("data: [DONE]\n\n");
           res.end();
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-          logger.info(`✓ Request stream completado (${elapsed}s total)`);
+          logger.info(
+            `✓ Request stream completado (${elapsed}s) | ${brainEntry.upstream}`,
+          );
         },
       );
     } else {
-      const response = await deepseekService.createChatCompletion(
+      const response = await opencodeGoService.createChatCompletion(
         processedRequest,
+        brainEntry,
       );
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      logger.info(`✓ Request completado (${elapsed}s total)`);
+      logger.info(
+        `✓ Request completado (${elapsed}s) | ${brainEntry.upstream}`,
+      );
       res.json(response);
     }
   } catch (error: unknown) {
@@ -541,36 +528,39 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
     const openaiRequest = anthropicAdapter.anthropicToInternal(anthropicRequest);
     const internalModel = openaiRequest.model;
 
-    const modelRoutingStrategy = getModelRoutingStrategy(originalModel);
+    const { internalModel: mappedModel, strategy: claudeStrategy } =
+      getClaudeModelMapping(originalModel);
+    openaiRequest.model = mappedModel;
     logger.info(
-      `Routing por modelo: ${originalModel} → ${modelRoutingStrategy}`,
+      `Mapping Claude ${originalModel} → ${mappedModel} (${claudeStrategy})`,
     );
 
-    let processedMessages = openaiRequest.messages;
-    let strategy: "vision-direct" | "direct" | "vision" | "mixed" | "local" = "direct";
-    let useDeepseekDirectly = true;
+    const brainEntry = resolveBrainServiceEntry(mappedModel);
+    if (!brainEntry) {
+      throw new Error(`Modelo interno invalido: ${mappedModel}`);
+    }
 
-    if (modelRoutingStrategy === "vision-direct") {
-      strategy = "vision-direct";
-      const geminiResponse = await geminiService.generateDirectResponse(openaiRequest.messages);
-      processedMessages = [
-        {
-          role: "assistant",
-          content: geminiResponse,
-        },
-      ];
-      useDeepseekDirectly = false;
+    let processedMessages = openaiRequest.messages;
+    let strategy:
+      | "direct"
+      | "vision"
+      | "vision-mimo"
+      | "mixed"
+      | "local" = "direct";
+
+    if (claudeStrategy === "passthrough") {
+      strategy = "direct";
       logger.info(
-        `Haiku: Todo va a Gemini-direct | request_id: ${requestId}`,
+        `${originalModel}: Passthrough a ${mappedModel} (nativamente multimodal)`,
       );
     } else {
-      const { processedMessages: pm, useDeepseekDirectly: useDS, strategy: st } =
+      const { processedMessages: pm, strategy: st } =
         await processMultimodalContent(
           openaiRequest.messages,
-          openaiRequest.model,
+          mappedModel,
+          brainEntry,
         );
       processedMessages = pm;
-      useDeepseekDirectly = useDS;
       strategy = st;
       logger.info(
         `${originalModel}: Routing interno (${strategy}) | request_id: ${requestId}`,
@@ -595,55 +585,16 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
 
       const requestId = randomUUID();
 
-    if (strategy === "vision-direct") {
-      const content = extractAssistantContent(processedMessages);
-
-        const openaiStream = createOpenAIStreamFromText(
-          content,
-          openaiRequest.model,
-          `chatcmpl-${requestId}`,
-        );
-        const anthropicStream = anthropicAdapter.createAnthropicStream(
-          openaiStream,
-          originalModel,
-          requestId,
-          (finalContent) => {
-            const openaiResponse = createOpenAIResponseFromText(
-              finalContent,
-              openaiRequest.model,
-            );
-            const anthropicResponse = anthropicAdapter.internalToAnthropic(
-              openaiResponse,
-              originalModel,
-            );
-            cacheAnthropicResponse(requestKey, anthropicResponse);
-            if (deferred) deferred.resolve(anthropicResponse);
-          },
-        );
-
-        for await (const event of anthropicStream) {
-          res.write(event);
-        }
-
-        res.end();
-        inFlightAnthropic.delete(requestKey);
-        inFlightAnthropicByContent.delete(contentKey);
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        logger.info(
-          `OK Request stream Anthropic completado (${elapsed}s total) | request_id: ${requestId} | internal: ${internalModel}`,
-        );
-        return;
-      }
-
       async function* openaiChunksGenerator() {
         const chunks: string[] = [];
         let resolvePromise: (value: void) => void;
         const completionPromise = new Promise<void>((resolve) => {
           resolvePromise = resolve;
         });
-        
-        await deepseekService.chatCompletionStream(
+
+        await opencodeGoService.chatCompletionStream(
           processedRequest,
+          brainEntry!,
           (chunk) => {
             chunks.push(chunk);
           },
@@ -654,20 +605,20 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
             resolvePromise();
           },
         );
-        
+
         await completionPromise;
-        
+
         let buffer = "";
         for (const chunk of chunks) {
           buffer += chunk;
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
-          
+
           for (const line of lines) {
             if (line.trim()) yield line;
           }
         }
-        
+
         if (buffer.trim()) yield buffer;
       }
 
@@ -703,34 +654,9 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
       return;
     }
 
-    if (strategy === "vision-direct") {
-      const content = extractAssistantContent(processedMessages);
-      const openaiResponse = createOpenAIResponseFromText(
-        content,
-        openaiRequest.model,
-      );
-      const anthropicResponse = anthropicAdapter.internalToAnthropic(
-        openaiResponse,
-        originalModel,
-      );
-      res.setHeader(
-        "anthropic-version",
-        req.headers["anthropic-version"] || "2023-06-01",
-      );
-      res.json(anthropicResponse);
-      cacheAnthropicResponse(requestKey, anthropicResponse);
-      if (deferred) deferred.resolve(anthropicResponse);
-      inFlightAnthropic.delete(requestKey);
-      inFlightAnthropicByContent.delete(contentKey);
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      logger.info(
-        `OK Request Anthropic completado (${elapsed}s total) | request_id: ${requestId} | internal: ${internalModel}`,
-      );
-      return;
-    }
-
-    const openaiResponse = await deepseekService.createChatCompletion(
+    const openaiResponse = await opencodeGoService.createChatCompletion(
       processedRequest,
+      brainEntry!,
     );
 
     const anthropicResponse = anthropicAdapter.internalToAnthropic(
@@ -796,9 +722,9 @@ app.use((req: Request, res: Response) => {
 // Inicialización del proxy multimodal
 async function init() {
   try {
-    logger.info("Iniciando DeepSeek Multimodal Proxy v2...");
+    logger.info("Iniciando Cortex Multimodal Proxy v3...");
     logger.info(
-      "Arquitectura 'Cortex Sensorial v2': DeepSeek V4 = Cerebro, Gemini 2.5 Flash = Sentidos",
+      "Arquitectura 'Cortex Sensorial v3': 2 brains via OpenCode Go (glm-5.2, deepseek-v4-pro) + 1 passthrough (mimo-v2.5)",
     );
     await cacheService.init();
 
@@ -809,16 +735,19 @@ async function init() {
       logger.info(`Health check: http://localhost:${PORT}/health`);
       logger.info(`Modelos: http://localhost:${PORT}/v1/models`);
       logger.info(
-        `Capacidades: texto, imagenes, audio, video, documentos, PDFs`,
+        `Capacidades: texto, imagenes (MiMo), audio/video/PDF (Gemini fallback)`,
       );
       logger.info(
         `Limite por archivo: ${process.env.MAX_FILE_SIZE_MB || "50"}MB`,
       );
       logger.info(
-        `  Modelo vision: ${process.env.GEMINI_MODEL || "gemini-2.5-flash"}`,
+        `  Brains: ${Object.keys(BRAIN_MODELS).join(", ")} (max thinking)`,
       );
       logger.info(
-        `  Modelo cerebro: deepseek-v4-pro (max thinking)`,
+        `  Passthrough: ${Array.from(PASSTHROUGH_MODELS).join(", ")} (multimodal nativo)`,
+      );
+      logger.info(
+        `  Senses: MiMo V2.5 para imagenes | Gemini fallback: ${process.env.GEMINI_MODEL || "gemini-2.5-flash"}`,
       );
     });
   } catch (error) {

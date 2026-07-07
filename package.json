@@ -1,7 +1,7 @@
 {
-  "name": "deepseek-multimodal-proxy",
-  "version": "2.0.0",
-  "description": "Proxy OpenAI-compatible que a\u00f1ade capacidades multimodales a DeepSeek V4 mediante Gemini 2.5 Flash",
+  "name": "cortex-multimodal-proxy",
+  "version": "3.0.0",
+  "description": "Cortex Multimodal Proxy: 2 brains (glm-5.2, deepseek-v4-pro) via OpenCode Go + 1 passthrough (mimo-v2.5). OpenAI/Anthropic-compatible.",
   "author": "exithial <en.solis.g@gmail.com>",
   "main": "dist/index.js",
   "scripts": {
@@ -64,10 +64,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/exithial/deepseek-multimodal-proxy.git"
+    "url": "git+https://github.com/exithial/cortex-multimodal-proxy.git"
   },
   "bugs": {
-    "url": "https://github.com/exithial/deepseek-multimodal-proxy/issues"
+    "url": "https://github.com/exithial/cortex-multimodal-proxy/issues"
   },
-  "homepage": "https://github.com/exithial/deepseek-multimodal-proxy#readme"
+  "homepage": "https://github.com/exithial/cortex-multimodal-proxy#readme"
 }
