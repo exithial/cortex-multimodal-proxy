@@ -343,44 +343,11 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      let clientClosed = false;
-      const safeWrite = (chunk: string): void => {
-        if (clientClosed || res.writableEnded || res.destroyed) return;
-        try {
-          res.write(chunk);
-        } catch (err) {
-          logger.warn(
-            `Stream write failed (cliente probablemente desconectado): ${getErrorMessage(err)}`,
-          );
-          clientClosed = true;
-        }
-      };
-      const safeEnd = (): void => {
-        if (clientClosed || res.writableEnded || res.destroyed) return;
-        try {
-          res.end();
-        } catch (err) {
-          logger.warn(
-            `Stream end failed: ${getErrorMessage(err)}`,
-          );
-          clientClosed = true;
-        }
-      };
-
-      res.on("close", () => {
-        if (!clientClosed) {
-          clientClosed = true;
-          logger.warn(
-            `Cliente desconectado durante stream | ${brainEntry.upstream}`,
-          );
-        }
-      });
-
       await opencodeGoService.chatCompletionStream(
         processedRequest,
         brainEntry,
         (chunk) => {
-          safeWrite(chunk);
+          res.write(chunk);
         },
         (error) => {
           const errorResponse: ErrorResponse = {
@@ -389,12 +356,12 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
               type: "proxy_error",
             },
           };
-          safeWrite(`data: ${JSON.stringify(errorResponse)}\n\n`);
-          safeEnd();
+          res.write(`data: ${JSON.stringify(errorResponse)}\n\n`);
+          res.end();
         },
         () => {
-          safeWrite("data: [DONE]\n\n");
-          safeEnd();
+          res.write("data: [DONE]\n\n");
+          res.end();
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
           logger.info(
             `✓ Request stream completado (${elapsed}s) | ${brainEntry.upstream}`,
