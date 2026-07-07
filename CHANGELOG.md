@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [3.0.0] - 2026-07-07
+
+### Added
+
+- **Cortex Sensorial v3 architecture**: 2 text-only brains via OpenCode Go subscription (`proxy/glm-5.2`, `proxy/deepseek-v4-pro`) plus 1 natively multimodal passthrough (`mimo-v2.5`). Single Bearer token for all upstream models.
+- **MiMo V2.5 multimodal senses**: dedicated image-description pipeline replaces Gemini 2.5 Flash for the vision flow. Significantly cheaper ($0.14 input / $0.28 output per 1M tokens) and tuned with a Spanish-language technical prompt.
+- **OpenCode Go client service**: new `opencodeGoService` supports both `/chat/completions` (OpenAI-format, Bearer auth) and `/messages` (Anthropic-format, `x-api-key` + `anthropic-version: 2023-06-01`) endpoints, with retry, exponential backoff, and SSE buffering.
+- **Brain registry**: single source of truth (`brainRegistry.ts`) for brain and passthrough entries, including per-brain `endpoint` (openai|anthropic), `context`, `maxOutput`, `thinking` flag, pricing, and `multimodal` flag. Uses `Object.hasOwn()` for prototype-safe lookups.
+- **Shared message transforms**: `prepareMessages` (filter valid roles, normalize content, preserve `tool_calls` / `reasoning_content`) and `truncateMessages` (token-aware trim to fit per-brain context) extracted into `messageTransforms.ts`.
+- **Retry with exponential backoff**: 3 attempts with 2s/4s delays on upstream 503/502/429, respecting the `Retry-After` header.
+- **SSE streaming hardening**: line-buffer + `safeEnd` guard prevents double-end stream bugs and `data: [DONE]` mishandling.
+- **Claude Code compat**: `/v1/messages` route maps `haiku` → `mimo-v2.5` (passthrough), `sonnet` → `proxy/deepseek-v4-pro`, `opus` → `proxy/glm-5.2` (configurable via `CLAUDE_HAIKU_MODEL`, `CLAUDE_SONNET_MODEL`, `CLAUDE_OPUS_MODEL`).
+- **`vision-mimo` routing strategy**: when a text-only brain receives an image, the image is described by MiMo V2.5 and the description is forwarded to the brain.
+- **OpenCode CLI compat**: `/v1/models` lists 2 brain models + 1 passthrough; usable as `provider` in `~/.config/opencode/opencode.json` for OpenCode subscribers.
+- **Unit tests**: 131 unit tests covering `opencodeGoService` (retry, SSE buffering, OpenAI/Anthropic translation, tools), `brainRegistry`, `mimoSensesService`, `multimodalProcessor` (passthrough + vision-mimo + Gemini fallback).
+- **Docs**: `CLAUDE.md`, `README.md`, `MODELS.md`, `src/services/README.md`, `src/middleware/README.md` rewritten to reflect v3 architecture and Claude Code mappings.
+
+### Changed
+
+- **Project renamed**: `deepseek-multimodal-proxy` (v2.0.0) → `cortex-multimodal-proxy` (v3.0.0). Container name, `/health` `service`, scripts, and all documentation reflect the new name.
+- **GitHub repo renamed** from `exithial/deepseek-multimodal-proxy` to `exithial/cortex-multimodal-proxy`. Origin URL, badges, clone commands, and CI workflow references all updated.
+- **Default context limit raised to 819200** (800K with 200K headroom for MiMo V2.5 image descriptions) for both brains.
+- **Max thinking always-on**: every brain request includes `thinking: { type: "enabled" }` for maximum reasoning quality.
+- **`/v1/models` is now context-aware**: returns the Claude Code aliases (`haiku`/`sonnet`/`opus`) when the Anthropic `anthropic-version` header is present, otherwise returns the proxy brains for OpenCode.
+- **Anthropic payload translation** happens in `opencodeGoService` instead of being scattered across handlers. OpenAI tools and tool_calls are translated to Anthropic `tool_use` / `tool_result` blocks when a brain's `endpoint === "anthropic"`.
+
+### Removed
+
+- **DeepSeek V4 client**: `deepseekService.ts` deleted (replaced by `opencodeGoService` + `messageTransforms`).
+- **`vision-direct` strategy**: legacy "Gemini-direct bypass" removed now that `haiku` maps to the mimo-v2.5 passthrough. `vision-direct` test cases removed from integration tests.
+- **`deepseek-v4-flash` model**: replaced by `proxy/deepseek-v4-pro`. Tests updated to the surviving brain model.
+
+### Fixed
+
+- **SSE double-end bug**: streaming responses could write `[DONE]` twice on retry/race conditions; `safeEnd` flag ensures single terminal callback.
+- **Anthropic auth header**: `x-api-key` + `anthropic-version` required (verified empirically against OpenCode Go Anthropic endpoint); Bearer auth caused silent 401s.
+- **Prototype pollution risk** in model registry lookups: switched from direct `BRAIN_MODELS[id]` to `Object.hasOwn()` for safe access on untrusted model id input.
+- **CI badge and shields.io links** pointing to the old GitHub repository name (post-rename) updated to `exithial/cortex-multimodal-proxy`.
+
 ## [1.8.0] - 2026-04-12
 
 ### Added

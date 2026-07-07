@@ -1,40 +1,30 @@
-🎯 **DeepSeek Multimodal Proxy v1.8.0**
+Cortex Multimodal Proxy v3.0.0 — "Cortex Sensorial v3"
 
-La versión `1.8.0` introduce dos mejoras operativas grandes: compatibilidad real con Windows y despliegue persistente con Docker Compose.
+The 3.0.0 release is a complete rebuild of the proxy around the OpenCode Go subscription and a new lightweight image-description pipeline powered by MiMo V 2.5. The proxy keeps full compatibility with the two clients it was built for (OpenCode CLI and Claude Code), while running leaner and cheaper on upstream API costs.
 
-## 🪟 **Soporte nativo para Windows**
+What changed for users
 
-- Scripts `setup`, `manage` y `run-local` ahora tienen implementación PowerShell
-- `package.json` usa comandos Node portables para build, lint y tests
-- El proxy se validó en Windows con compilación, tests unitarios, health check y gestión de proceso
-- CI/CD ahora cubre Windows además de Ubuntu
+- The project is now named Cortex Multimodal Proxy. The GitHub repository has been renamed to exithial/cortex-multimodal-proxy.
+- Claude Code users get the same haiku / sonnet / opus experience. Internally, haiku is now routed through the multimodal MiMo V 2.5 path (no more Gemini detour for fast or short prompts).
+- OpenCode users see a curated 3-model list instead of the previous 5-variants DeepSeek list. Pick the brain that matches the task; the proxy handles the rest.
+- Images attached to text-only requests are now described by MiMo V 2.5 instead of going through Gemini. For end users this means lower per-image cost and faster responses for everyday questions.
+- Audio, video, and large PDFs continue to use Gemini 2.5 Flash when configured. The Gemini integration is now optional and only engaged for non-image media, so you can run the proxy without a Gemini key for text, code, and image workflows.
+- All brains run with maximum-quality reasoning enabled by default. Expect deeper reasoning in long-horizon tasks.
+- A single OpenCode Go subscription replaces separate DeepSeek and Google API bills. One key, one invoice.
 
-## 🐳 **Despliegue con Docker**
+What changed for operators
 
-- Nueva imagen Docker multi-stage con runtime no root
-- Nuevo `compose.yml` con `restart: unless-stopped`
-- Volumen persistente para `cache/`
-- Healthcheck nativo sobre `/health`
-- Nuevos comandos npm para `docker:build`, `docker:up`, `docker:down`, `docker:logs` y `docker:ps`
+- The model registry is the new single source of truth. Adding or swapping a brain is a one-line change.
+- Upstream 503 / 502 / 429 responses trigger an automatic retry with exponential backoff, honoring the Retry-After header. Short blips no longer surface as user-visible failures.
+- The container image and Docker Compose service have been renamed to cortex-multimodal-proxy.
 
-## 🚀 **Impacto para usuarios**
+Upgrade notes
 
-- **Windows usable de verdad**: ya no depende de Bash/systemd para operar
-- **Autoarranque simple**: con Docker Desktop iniciando con Windows, el contenedor vuelve automáticamente
-- **Operación uniforme**: mismo flujo de despliegue en Windows y Linux
-- **Mejor mantenibilidad**: documentación y CI alineados con el soporte multiplataforma
+- The env file now expects OPENCODE_GO_API_KEY (from opencode.ai/auth). DEEPSEEK_API_KEY and DEEPSEEK_BASE_URL are no longer read.
+- GEMINI_API_KEY is optional. Leave it unset if you do not use audio, video, or large PDFs.
+- Existing Claude Code setups work unchanged; the alias mapping is now controlled via CLAUDE_HAIKU_MODEL, CLAUDE_SONNET_MODEL, and CLAUDE_OPUS_MODEL environment variables.
+- Existing OpenCode setups should update the model references to the proxy/glm-5.2 and proxy/deepseek-v4-pro identifiers (vision-direct is no longer a model entry).
 
-## 📦 **Estado validado**
+Acknowledgements
 
-- `npm run build`
-- `npm run test:unit` con 103 tests pasando
-- `docker compose build`
-- `docker compose up`
-- `GET /health`
-- `POST /v1/chat/completions`
-
----
-
-**DeepSeek Multimodal Proxy**  
-*Arquitectura "Córtex Sensorial" para IA multimodal*  
-🔗 https://github.com/exithial/deepseek-multimodal-proxy
+Thanks to the OpenCode Go team for the unified subscription and to the model providers behind GLM-5.2, DeepSeek V4 Pro, and MiMo V 2.5.

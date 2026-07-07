@@ -2,17 +2,18 @@
 
 > **Compatibility constraint**: Every feature, refactor, and dependency change MUST preserve full compatibility with OpenCode and Claude Code as clients. No breaking changes to `/v1/chat/completions` (OpenAI-compatible) or `/v1/messages` (Anthropic-compatible) without explicit opt-in via header. Rate limiting and fallback mechanisms must have localhost bypass.
 
-## Current State: v2.0.0
+## Current State: v3.0.0
 
 | Metric | Value |
 |---|---|
-| Version | 2.0.0 |
-| Tests | 88 unit (59% coverage) |
+| Version | 3.0.0 |
+| Tests | 131 unit (full coverage of services + middleware) |
 | CI | Ubuntu + Windows, automatic PR validation |
 | Docker | Compose with `restart: always`, healthcheck |
-| Brain | DeepSeek V4 Flash + Pro, `reasoning_effort: max` |
-| Senses | Gemini 2.5 Flash (image + audio + video) |
-| Context / Output | 872K / 384K (128K slack for headers) |
+| Brains | glm-5.2, deepseek-v4-pro (max thinking, OpenCode Go) |
+| Passthrough | mimo-v2.5 (natively multimodal) |
+| Senses | MiMo V2.5 (image) + Gemini fallback (audio/video/PDF, optional) |
+| Context / Output | 819200 / 384000 (200K slack for MiMo image descriptions) |
 | Cache | SHA-256 contextual, 7 days TTL |
 
 ---

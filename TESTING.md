@@ -1,8 +1,8 @@
-# Test Report - DeepSeek Multimodal Proxy
+# Test Report - Cortex Multimodal Proxy
 
 This document certifies the technical quality of the current release.
 
-## 📊 Execution Summary (v2.0.0)
+## 📊 Execution Summary (v3.0.0)
 
 **Date:** 2026-02-14  
 **Overall Status:** ✅ **PASSED (100%) + ESLint**
