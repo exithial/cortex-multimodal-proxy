@@ -254,6 +254,7 @@ class OpenCodeGoService {
     onChunk: (chunk: string) => void,
     onError: (error: unknown) => void,
     onComplete: () => void,
+    signal?: AbortSignal,
   ): Promise<void> {
     const payload = this.buildPayload(
       request,
@@ -288,9 +289,13 @@ class OpenCodeGoService {
           headers: this.buildAuthHeaders(brainEntry.endpoint),
           timeout: this.timeout,
           responseType: "stream",
+          signal,
         });
         break;
       } catch (error: unknown) {
+        if (signal?.aborted) {
+          return;
+        }
         const status = axios.isAxiosError(error) ? error.response?.status : 0;
         const isRetryable = status === 503 || status === 502 || status === 429;
 
@@ -316,6 +321,9 @@ class OpenCodeGoService {
       const stream = response.data;
 
       stream.on("data", (chunk: Buffer) => {
+        if (ended) {
+          return;
+        }
         buffer += chunk.toString();
         const lines = buffer.split("\n");
         buffer = lines.pop() || "";
@@ -341,6 +349,9 @@ class OpenCodeGoService {
       });
 
       stream.on("end", () => {
+        if (ended) {
+          return;
+        }
         if (buffer.trim()) {
           onChunk(`${buffer}\n`);
         }
@@ -348,7 +359,13 @@ class OpenCodeGoService {
       });
 
       stream.on("error", (error: unknown) => {
-        safeEnd();
+        if (ended) {
+          return;
+        }
+        ended = true;
+        if (signal?.aborted) {
+          return;
+        }
         onError(error);
       });
     } catch (error: unknown) {

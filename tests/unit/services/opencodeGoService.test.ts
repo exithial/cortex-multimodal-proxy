@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { Readable } from "node:stream";
+import { PassThrough, Readable } from "node:stream";
 import axios from "axios";
 
 vi.mock("axios");
@@ -402,6 +402,235 @@ describe("OpenCodeGoService", () => {
       const headers = call[2]?.headers as Record<string, string>;
       expect(headers.Authorization).toBe("Bearer sk-test-key");
       expect(call[2]?.responseType).toBe("stream");
+      vi.unstubAllEnvs();
+    });
+
+    it("should not call onError after clean 'end' (socket reset race)", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const stream = new PassThrough();
+      mockedAxios.post.mockResolvedValueOnce({ data: stream });
+
+      const chunks: string[] = [];
+      const errors: unknown[] = [];
+      let completeCount = 0;
+
+      const promise = opencodeGoService.chatCompletionStream(
+        {
+          model: "proxy/kimi-k2.7-code",
+          messages: [{ role: "user", content: "hi" }],
+          stream: true,
+        },
+        {
+          upstream: "glm-5.2",
+          context: 262144,
+          maxOutput: 262144,
+          thinking: false,
+          inputPrice: 0,
+          outputPrice: 0,
+          endpoint: "openai",
+        },
+        (chunk) => chunks.push(chunk),
+        (error) => errors.push(error),
+        () => {
+          completeCount += 1;
+        },
+      );
+
+      stream.write('data: {"choices":[{"delta":{"content":"hi"}}]}\n\n');
+      stream.end();
+      await new Promise((resolve) => setImmediate(resolve));
+      stream.destroy(new Error("socket hang up after end"));
+
+      await expect(promise).resolves.toBeUndefined();
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(completeCount).toBe(1);
+      expect(errors).toHaveLength(0);
+      vi.unstubAllEnvs();
+    });
+
+    it("should not throw and should call onError exactly once when upstream stream errors before end", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const stream = new PassThrough();
+      mockedAxios.post.mockResolvedValueOnce({ data: stream });
+
+      const chunks: string[] = [];
+      const errors: unknown[] = [];
+      let completeCount = 0;
+
+      const promise = opencodeGoService.chatCompletionStream(
+        {
+          model: "proxy/kimi-k2.7-code",
+          messages: [{ role: "user", content: "hi" }],
+          stream: true,
+        },
+        {
+          upstream: "glm-5.2",
+          context: 262144,
+          maxOutput: 262144,
+          thinking: false,
+          inputPrice: 0,
+          outputPrice: 0,
+          endpoint: "openai",
+        },
+        (chunk) => chunks.push(chunk),
+        (error) => errors.push(error),
+        () => {
+          completeCount += 1;
+        },
+      );
+
+      stream.write('data: {"choices":[{"delta":{"content":"hel"}}]}\n\n');
+      stream.destroy(new Error("upstream closed connection"));
+
+      await expect(promise).resolves.toBeUndefined();
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(errors.length).toBe(1);
+      expect(completeCount).toBe(0);
+      vi.unstubAllEnvs();
+    });
+
+    it("should flush pending buffer exactly once on 'end' even if 'data' and 'end' race", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const stream = new PassThrough();
+      mockedAxios.post.mockResolvedValueOnce({ data: stream });
+
+      const chunks: string[] = [];
+      const errors: unknown[] = [];
+      let completeCount = 0;
+
+      const promise = opencodeGoService.chatCompletionStream(
+        {
+          model: "proxy/kimi-k2.7-code",
+          messages: [{ role: "user", content: "hi" }],
+          stream: true,
+        },
+        {
+          upstream: "glm-5.2",
+          context: 262144,
+          maxOutput: 262144,
+          thinking: false,
+          inputPrice: 0,
+          outputPrice: 0,
+          endpoint: "openai",
+        },
+        (chunk) => chunks.push(chunk),
+        (error) => errors.push(error),
+        () => {
+          completeCount += 1;
+        },
+      );
+
+      stream.write('data: {"choices":[{"delta":{"content":"final"}}]}');
+      stream.end();
+
+      await expect(promise).resolves.toBeUndefined();
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(errors).toHaveLength(0);
+      expect(completeCount).toBe(1);
+      const reconstructed = chunks.join("");
+      expect(reconstructed).toContain('"content":"final"');
+      vi.unstubAllEnvs();
+    });
+
+    it("should forward AbortSignal to axios on stream requests", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const stream = new PassThrough();
+      mockedAxios.post.mockResolvedValueOnce({ data: stream });
+
+      const controller = new AbortController();
+      stream.end();
+
+      await opencodeGoService.chatCompletionStream(
+        {
+          model: "proxy/kimi-k2.7-code",
+          messages: [{ role: "user", content: "hi" }],
+          stream: true,
+        },
+        {
+          upstream: "glm-5.2",
+          context: 262144,
+          maxOutput: 262144,
+          thinking: false,
+          inputPrice: 0,
+          outputPrice: 0,
+          endpoint: "openai",
+        },
+        () => {},
+        () => {},
+        () => {},
+        controller.signal,
+      );
+
+      const call = mockedAxios.post.mock.calls[0];
+      expect(call[2]?.signal).toBe(controller.signal);
+      vi.unstubAllEnvs();
+    });
+
+    it("should not call onError when AbortSignal is aborted mid-stream", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const stream = new PassThrough();
+      mockedAxios.post.mockResolvedValueOnce({ data: stream });
+
+      const controller = new AbortController();
+      const errors: unknown[] = [];
+      let completeCount = 0;
+
+      const promise = opencodeGoService.chatCompletionStream(
+        {
+          model: "proxy/kimi-k2.7-code",
+          messages: [{ role: "user", content: "hi" }],
+          stream: true,
+        },
+        {
+          upstream: "glm-5.2",
+          context: 262144,
+          maxOutput: 262144,
+          thinking: false,
+          inputPrice: 0,
+          outputPrice: 0,
+          endpoint: "openai",
+        },
+        () => {},
+        (error) => errors.push(error),
+        () => {
+          completeCount += 1;
+        },
+        controller.signal,
+      );
+
+      stream.write('data: {"choices":[{"delta":{"content":"hi"}}]}\n\n');
+      await new Promise((resolve) => setImmediate(resolve));
+      controller.abort();
+      stream.destroy(new Error("canceled"));
+
+      await expect(promise).resolves.toBeUndefined();
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(errors).toHaveLength(0);
+      expect(completeCount).toBe(0);
       vi.unstubAllEnvs();
     });
   });
