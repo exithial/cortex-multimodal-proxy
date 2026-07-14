@@ -9,7 +9,7 @@ OpenAI/Anthropic-compatible HTTP proxy with **"Cortex Sensorial v3"** architectu
 
 ## "Cortex Sensorial v3" Architecture
 
-- **2 Brains (text-only, max thinking)**: GLM-5.2, DeepSeek V4 Pro
+- **4 Brains (text-only, max thinking)**: GLM-5.2, DeepSeek V4 Pro, Qwen3.7 Max, MiMo V2.5 Pro
 - **MiMo V2.5 = Senses**: Cheap multimodal ($0.14/$0.28 per 1M tokens) for image description
 - **Gemini 2.5 Flash = Fallback**: Audio, video, large PDFs (optional, only when needed)
 - **Proxy = Cortex**: Intelligent routing per brain + content type, single Bearer token, retry with backoff
@@ -97,6 +97,18 @@ Add to `~/.config/opencode/opencode.json`:
           "cost": { "input": 1.88, "output": 3.48 },
           "limit": { "context": 819200, "output": 384000 },
           "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
+        },
+        "proxy/qwen3.7-max": {
+          "name": "Qwen3.7 Max (via proxy)",
+          "cost": { "input": 2.64, "output": 7.78 },
+          "limit": { "context": 1048576, "output": 65536 },
+          "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
+        },
+        "proxy/mimo-v2.5-pro": {
+          "name": "MiMo V2.5 Pro (via proxy)",
+          "cost": { "input": 1.88, "output": 3.76 },
+          "limit": { "context": 1048576, "output": 65536 },
+          "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
         }
       }
     }
@@ -158,7 +170,7 @@ Default Claude Code mappings (configurable via env vars):
 |----------|--------|-------------|
 | `/v1/chat/completions` | POST | Multimodal chat (OpenAI) |
 | `/v1/messages` | POST | Anthropic Messages API (Claude Code) |
-| `/v1/models` | GET | Model list (2 proxy brains + 1 passthrough) |
+| `/v1/models` | GET | Model list (4 proxy brains + 1 passthrough) |
 | `/v1/cache/stats` | GET | Contextual cache statistics |
 | `/health` | GET | Service status + version |
 
@@ -223,10 +235,10 @@ PDF_LOCAL_PROCESSING=true
 PDF_LOCAL_MAX_SIZE_MB=1
 ```
 
-## Current Status - Version 3.0.0
+## Current Status - Version 3.1.0
 
 - **"Cortex Sensorial v3" architecture** complete
-- **2 brains** via OpenCode Go: GLM-5.2, DeepSeek V4 Pro (all max thinking)
+- **4 brains** via OpenCode Go: GLM-5.2, DeepSeek V4 Pro, Qwen3.7 Max, MiMo V2.5 Pro (all max thinking)
 - **1 passthrough model** for natively multimodal: mimo-v2.5
 - **MiMo V2.5** as multimodal senses for images (replaces Gemini for vision)
 - **Gemini 2.5 Flash** fallback for audio/video/PDFs (optional)
