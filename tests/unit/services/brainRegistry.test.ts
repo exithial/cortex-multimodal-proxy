@@ -7,6 +7,7 @@ import {
   parseProxyModelId,
   isKnownModel,
 } from "../../../src/services/brainRegistry";
+import { truncateMessages } from "../../../src/services/messageTransforms";
 
 describe("brainRegistry", () => {
   describe("BRAIN_MODELS", () => {
@@ -183,6 +184,69 @@ describe("brainRegistry", () => {
       expect(isKnownModel("toString")).toBe(false);
       expect(isKnownModel("constructor")).toBe(false);
       expect(isKnownModel("hasOwnProperty")).toBe(false);
+    });
+  });
+
+  describe("truncateMessages respects each brain's full upstream context", () => {
+    // Regression guard: ensure the 2026-07-14 bump to 1_048_576 for the
+    // originally-800K brains (glm-5.2, deepseek-v4-pro) is preserved and that
+    // truncateMessages does not artificially cap the proxy's output below the
+    // real upstream limit. See CLAUDE.md § Brain context window policy.
+
+    const upstreamAccepts1M = [
+      "proxy/glm-5.2",
+      "proxy/deepseek-v4-pro",
+      "proxy/qwen3.7-max",
+      "proxy/mimo-v2.5-pro",
+    ];
+
+    it.each(upstreamAccepts1M)(
+      "%s registry context is exactly 1_048_576 (1M upstream)",
+      (modelId) => {
+        const entry = BRAIN_MODELS[modelId];
+        expect(entry).toBeDefined();
+        expect(entry.context).toBe(1_048_576);
+      },
+    );
+
+    it("truncateMessages preserves a ~900K-token user message when context=1_048_576", () => {
+      // Generate a single user message whose estimated token count exceeds 800K
+      // (the legacy limit) but fits within 1M. truncateMessages must keep it.
+      const tokenEstimate = 900_000;
+      const charsPerToken = 3;
+      const bigContent = "x".repeat(tokenEstimate * charsPerToken);
+
+      const result = truncateMessages(
+        [{ role: "user", content: bigContent }],
+        1_048_576,
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0].content).toBe(bigContent);
+    });
+
+    it("truncateMessages still drops a >1M-token user message down to fit", () => {
+      // Sanity check: at the new 1M limit, a 1.2M-token message should be
+      // truncated (not the full message).
+      const bigContent = "y".repeat(1_200_000 * 3);
+
+      const result = truncateMessages(
+        [{ role: "user", content: bigContent }],
+        1_048_576,
+      );
+
+      // The single user message should be dropped entirely (its token count
+      // exceeds the available budget) OR kept but truncated; either way the
+      // returned content length must be less than the input.
+      const totalChars = result.reduce(
+        (acc, m) =>
+          acc +
+          (typeof m.content === "string"
+            ? m.content.length
+            : JSON.stringify(m.content).length),
+        0,
+      );
+      expect(totalChars).toBeLessThan(bigContent.length);
     });
   });
 });

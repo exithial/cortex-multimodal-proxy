@@ -87,25 +87,25 @@ Add to `~/.config/opencode/opencode.json`:
       },
       "models": {
         "proxy/glm-5.2": {
-          "name": "GLM-5.2 (via proxy)",
+          "name": "GLM-5.2 (Cortex Proxy)",
           "cost": { "input": 1.54, "output": 4.40 },
           "limit": { "context": 819200, "output": 131072 },
           "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
         },
         "proxy/deepseek-v4-pro": {
-          "name": "DeepSeek V4 Pro (via proxy)",
+          "name": "DeepSeek V4 Pro (Cortex Proxy)",
           "cost": { "input": 1.88, "output": 3.48 },
           "limit": { "context": 819200, "output": 384000 },
           "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
         },
         "proxy/qwen3.7-max": {
-          "name": "Qwen3.7 Max (via proxy)",
+          "name": "Qwen3.7 Max (Cortex Proxy)",
           "cost": { "input": 2.64, "output": 7.78 },
           "limit": { "context": 819200, "output": 65536 },
           "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
         },
         "proxy/mimo-v2.5-pro": {
-          "name": "MiMo V2.5 Pro (via proxy)",
+          "name": "MiMo V2.5 Pro (Cortex Proxy)",
           "cost": { "input": 1.88, "output": 3.76 },
           "limit": { "context": 819200, "output": 65536 },
           "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }

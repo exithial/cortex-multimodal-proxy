@@ -174,13 +174,50 @@ class OpenCodeGoService {
     const id =
       typeof upstreamMessageId === "string" && upstreamMessageId.length > 0
         ? upstreamMessageId
-        : `chatcmpl-${created}-${Math.random().toString(36).slice(2, 8)}`;
+        : `chatcmpl-${created}-${Math.random().toString(36).slice(2, 12)}`;
     const base = {
       id,
       object: "chat.completion.chunk",
       created,
       model: brainEntry.upstream,
     };
+
+    if (parsed.type === "content_block_start") {
+      const contentBlock = parsed.content_block;
+      if (
+        contentBlock?.type === "tool_use" &&
+        typeof contentBlock.id === "string" &&
+        typeof contentBlock.name === "string"
+      ) {
+        // Initial OpenAI tool_call chunk carrying id + type + function.name so
+        // the client can register the call before the argument deltas arrive.
+        // Without this, openai-format clients see argument fragments they
+        // cannot associate with any tool call (tool use silently broken).
+        const index = typeof parsed.index === "number" ? parsed.index : 0;
+        return {
+          ...base,
+          choices: [
+            {
+              index,
+              delta: {
+                tool_calls: [
+                  {
+                    index,
+                    id: contentBlock.id,
+                    type: "function",
+                    function: { name: contentBlock.name, arguments: "" },
+                  },
+                ],
+              },
+              finish_reason: null,
+            },
+          ],
+        };
+      }
+      // text content_block_start: no OpenAI equivalent (the first text_delta
+      // opens the choice). Skip to avoid an empty chunk.
+      return null;
+    }
 
     if (parsed.type === "content_block_delta") {
       const index = typeof parsed.index === "number" ? parsed.index : 0;
@@ -207,7 +244,9 @@ class OpenCodeGoService {
       }
       if (delta?.type === "input_json_delta" && typeof delta.partial_json === "string") {
         // Tool input streaming — emit as a tool_calls delta chunk so openai-format
-        // clients can reconstruct the tool call.
+        // clients can reconstruct the tool call. `tool_calls[].index` mirrors
+        // `parsed.index` so the client correlates deltas with the matching
+        // content_block_start chunk emitted earlier.
         return {
           ...base,
           choices: [

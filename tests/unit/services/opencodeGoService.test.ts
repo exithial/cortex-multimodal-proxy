@@ -786,6 +786,96 @@ describe("OpenCodeGoService", () => {
       vi.unstubAllEnvs();
     });
 
+    it("should convert Anthropic tool_use stream (content_block_start + input_json_delta + message_delta) to OpenAI tool_calls", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const anthropicSse = [
+        'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_tool","type":"message","role":"assistant","model":"qwen3.7-max","usage":{"input_tokens":10,"output_tokens":0}}}\n\n',
+        'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
+        'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Let me check the weather"}}\n\n',
+        'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+        'event: content_block_start\ndata: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_abc123","name":"get_weather","input":{}}}\n\n',
+        'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\\"city\\":"}}\n\n',
+        'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"\\"Madrid\\"}"}}\n\n',
+        'event: content_block_stop\ndata: {"type":"content_block_stop","index":1}\n\n',
+        'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"tool_use"}}\n\n',
+        'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+      ].join("");
+
+      const stream = Readable.from([Buffer.from(anthropicSse)]);
+      mockedAxios.post.mockResolvedValueOnce({ data: stream });
+
+      const chunks: string[] = [];
+
+      await opencodeGoService.chatCompletionStream(
+        {
+          model: "proxy/qwen3.7-max",
+          messages: [{ role: "user", content: "weather in Madrid?" }],
+          stream: true,
+        },
+        {
+          upstream: "qwen3.7-max",
+          context: 1_048_576,
+          maxOutput: 65_536,
+          thinking: true,
+          inputPrice: 2.5,
+          outputPrice: 7.5,
+          endpoint: "anthropic",
+        },
+        (chunk) => chunks.push(chunk),
+        () => {},
+        () => {},
+      );
+
+      await new Promise((resolve) => setImmediate(resolve));
+
+      const parsed = chunks
+        .filter((c) => c.startsWith("data: ") && c.includes('"choices"'))
+        .map((c) => JSON.parse(c.slice(6)));
+
+      // Initial tool_use chunk: id + name + empty arguments
+      const toolInit = parsed.find(
+        (c: any) =>
+          c.choices?.[0]?.delta?.tool_calls?.[0]?.id === "toolu_abc123",
+      );
+      expect(toolInit).toBeDefined();
+      expect(toolInit.choices[0].delta.tool_calls[0].type).toBe("function");
+      expect(toolInit.choices[0].delta.tool_calls[0].function.name).toBe(
+        "get_weather",
+      );
+      expect(toolInit.choices[0].delta.tool_calls[0].function.arguments).toBe(
+        "",
+      );
+
+      // Accumulated arguments from input_json_delta chunks
+      const toolArgChunks = parsed.filter(
+        (c: any) =>
+          c.choices?.[0]?.delta?.tool_calls?.[0]?.function?.arguments &&
+          c.choices[0].delta.tool_calls[0].function.arguments.length > 0,
+      );
+      const accumulatedArgs = toolArgChunks
+        .map((c: any) => c.choices[0].delta.tool_calls[0].function.arguments)
+        .join("");
+      expect(accumulatedArgs).toBe('{"city":"Madrid"}');
+
+      // Final finish_reason from message_delta stop_reason=tool_use
+      const finalChunk = parsed[parsed.length - 1];
+      expect(finalChunk.choices[0].finish_reason).toBe("tool_calls");
+
+      // Text content from the assistant preamble should still be present
+      const textChunks = parsed.filter(
+        (c: any) => c.choices?.[0]?.delta?.content,
+      );
+      expect(
+        textChunks.map((c: any) => c.choices[0].delta.content).join(""),
+      ).toBe("Let me check the weather");
+
+      vi.unstubAllEnvs();
+    });
+
     it("should pass through OpenAI-format chunks unchanged when endpoint is openai", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
       const { opencodeGoService } = await import(

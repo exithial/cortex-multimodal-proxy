@@ -49,6 +49,21 @@ The 200K gap between client-visible 800K and the upstream 1M is **mandatory head
 
 **When adding a new brain:** `BrainModelEntry.context` = real upstream limit (e.g., 1M for 1M models); `limit.context` in `opencode.json` and `README.md` = 800K for any brain on the MiMo senses pipeline.
 
+### Anthropic → OpenAI streaming conversion
+When a brain has `endpoint: "anthropic"` (currently `proxy/qwen3.7-max`) but the client speaks OpenAI-format (e.g. OpenCode TUI over `/v1/chat/completions`), the upstream's Anthropic SSE events are converted to OpenAI `ChatCompletionChunk` shape on the fly. Implemented in `OpenCodeGoService.convertAnthropicChunkToOpenAI`:
+
+| Anthropic event | OpenAI chunk |
+|-----------------|--------------|
+| `content_block_start` (text) | (skipped — first `text_delta` opens the choice) |
+| `content_block_start` (tool_use) | `choices[0].delta.tool_calls[0]` with `id`, `type: "function"`, `function.name` |
+| `content_block_delta.text_delta` | `choices[0].delta.content` |
+| `content_block_delta.thinking_delta` | `choices[0].delta.reasoning_content` |
+| `content_block_delta.input_json_delta` | `choices[0].delta.tool_calls[0].function.arguments` (chunk accumulates via `tool_calls[].index`) |
+| `message_delta` (stop_reason) | `choices[0].finish_reason` (`end_turn`→`stop`, `max_tokens`→`length`, `tool_use`→`tool_calls`) |
+| `message_start`, `content_block_stop`, `message_stop`, `ping` | filtered (no OpenAI equivalent) |
+
+`reasoning_content` is a DeepSeek/opencode extension to the OpenAI streaming schema, not part of standard OpenAI. Clients that strictly validate against OpenAI's ChatCompletionChunk schema may ignore it; in practice the OpenCode TUI, Claude Code, and the OpenAI Node SDK all surface it as a separate reasoning channel.
+
 ## Pricing
 - Always calculate combined worst-case (MiMo senses + brain) and present in README
 - MiMo V2.5 senses: $0.14 in / $0.28 out per 1M tokens
