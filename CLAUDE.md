@@ -23,23 +23,29 @@
 - The proxy exists solely to serve these two clients — compatibility is non-negotiable
 
 ## Models
-- Brain options (text-only via `proxy/` prefix): `proxy/glm-5.2`, `proxy/deepseek-v4-pro`
-- All brains: thinking enabled, context819200, all use OpenAI-format endpoint at OpenCode Go
+- Brain options (text-only via `proxy/` prefix): `proxy/glm-5.2`, `proxy/deepseek-v4-pro`, `proxy/qwen3.7-max`, `proxy/mimo-v2.5-pro`
+- All brains: thinking enabled
+- Endpoints: `proxy/glm-5.2`, `proxy/deepseek-v4-pro`, `proxy/mimo-v2.5-pro` use OpenAI-format (`/chat/completions`); `proxy/qwen3.7-max` uses Anthropic-format (`/messages`)
+- Context windows: GLM-5.2 and DeepSeek V4 Pro are 800K; Qwen3.7 Max and MiMo V2.5 Pro are 1M
 - Passthrough (natively multimodal): `mimo-v2.5`
 - Claude Code aliases: `haiku` → `mimo-v2.5` (passthrough), `sonnet` → `proxy/deepseek-v4-pro` (default), `opus` → `proxy/glm-5.2` (default)
 - Senses: MiMo V2.5 for images (mimo-v2.5 multimodal native), Gemini for audio/video/PDFs
-- All brain models use `/chat/completions` endpoint (OpenAI-format)
 
 ## Token Limits
 - Per brain — see `src/services/brainRegistry.ts`
 - GLM-5.2: 800K ctx (headroom for image descriptions), 131K output
 - DeepSeek V4 Pro: 800K ctx (headroom for image descriptions), 384K output
+- Qwen3.7 Max: 1M ctx, 65K output
+- MiMo V2.5 Pro: 1M ctx, 65K output
 
 ## Pricing
 - Always calculate combined worst-case (MiMo senses + brain) and present in README
 - MiMo V2.5 senses: $0.14 in / $0.28 out per 1M tokens
 - GLM-5.2: $1.40 in / $4.40 out per 1M
 - DeepSeek V4 Pro: $1.74 in / $3.48 out per 1M
+- Qwen3.7 Max: $2.50 in / $7.50 out per 1M
+- MiMo V2.5 Pro: $1.74 in / $3.48 out per 1M
+- Combined worst-case: GLM-5.2 ($1.54/$4.40), DeepSeek V4 Pro ($1.88/$3.48), Qwen3.7 Max ($2.64/$7.78), MiMo V2.5 Pro ($1.88/$3.76)
 
 ## Code Quality
 - Build must pass (`npm run build`)
