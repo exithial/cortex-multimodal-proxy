@@ -149,6 +149,95 @@ class OpenCodeGoService {
     };
   }
 
+  /**
+   * Convert an Anthropic SSE event to an OpenAI-format `ChatCompletionChunk`
+   * for clients that speak the OpenAI streaming protocol (e.g. OpenCode TUI).
+   *
+   * Returns `null` for events that have no OpenAI equivalent and should be
+   * filtered out (message_start, content_block_start, content_block_stop,
+   * message_stop, ping, error). The caller is expected to discard `null`
+   * rather than emit anything.
+   */
+  convertAnthropicChunkToOpenAI(
+    parsed: any,
+    brainEntry: BrainModelEntry,
+  ): any | null {
+    if (!parsed || typeof parsed !== "object") return null;
+
+    const created = Math.floor(Date.now() / 1000);
+    const id = `chatcmpl-${created}-${Math.random().toString(36).slice(2, 8)}`;
+    const base = {
+      id,
+      object: "chat.completion.chunk",
+      created,
+      model: brainEntry.upstream,
+    };
+
+    if (parsed.type === "content_block_delta") {
+      const index = typeof parsed.index === "number" ? parsed.index : 0;
+      const delta = parsed.delta;
+      if (delta?.type === "text_delta" && typeof delta.text === "string") {
+        return {
+          ...base,
+          choices: [
+            { index, delta: { content: delta.text }, finish_reason: null },
+          ],
+        };
+      }
+      if (delta?.type === "thinking_delta" && typeof delta.thinking === "string") {
+        return {
+          ...base,
+          choices: [
+            {
+              index,
+              delta: { reasoning_content: delta.thinking },
+              finish_reason: null,
+            },
+          ],
+        };
+      }
+      if (delta?.type === "input_json_delta" && typeof delta.partial_json === "string") {
+        // Tool input streaming — emit as a tool_calls delta chunk so openai-format
+        // clients can reconstruct the tool call.
+        return {
+          ...base,
+          choices: [
+            {
+              index,
+              delta: {
+                tool_calls: [
+                  {
+                    index,
+                    function: { arguments: delta.partial_json },
+                  },
+                ],
+              },
+              finish_reason: null,
+            },
+          ],
+        };
+      }
+    }
+
+    if (parsed.type === "message_delta" && parsed.delta?.stop_reason) {
+      const stopReason = parsed.delta.stop_reason;
+      const finishReason =
+        stopReason === "end_turn"
+          ? "stop"
+          : stopReason === "max_tokens"
+            ? "length"
+            : stopReason === "tool_use"
+              ? "tool_calls"
+              : stopReason;
+      return {
+        ...base,
+        choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
+      };
+    }
+
+    return null;
+  }
+
   buildPayload(
     request: ChatCompletionRequest,
     upstreamModel: string,
@@ -330,6 +419,11 @@ class OpenCodeGoService {
 
         for (const line of lines) {
           if (!line.trim()) continue;
+          if (line.startsWith("event: ")) {
+            // Anthropic SSE event lines (e.g. "event: ping") — OpenAI SSE has no
+            // event prefix; skip to avoid leaking Anthropic metadata to openai-format clients.
+            continue;
+          }
           if (line.startsWith("data: ")) {
             const payload = line.slice(6).trim();
             if (payload === "[DONE]") {
@@ -337,8 +431,16 @@ class OpenCodeGoService {
               return;
             }
             try {
-              JSON.parse(payload);
-              onChunk(`data: ${payload}\n\n`);
+              const parsed = JSON.parse(payload);
+              let chunkToSend: string;
+              if (brainEntry.endpoint === "anthropic") {
+                const openaiChunk = this.convertAnthropicChunkToOpenAI(parsed, brainEntry);
+                if (!openaiChunk) continue;
+                chunkToSend = JSON.stringify(openaiChunk);
+              } else {
+                chunkToSend = payload;
+              }
+              onChunk(`data: ${chunkToSend}\n\n`);
             } catch {
               continue;
             }
