@@ -4,12 +4,13 @@
 
 | Model ID | Upstream | Endpoint | Thinking | Context | Max Output | Input/Output per 1M | Combined with MiMo senses |
 |----------|----------|----------|----------|---------|------------|---------------------|---------------------------|
-| `proxy/glm-5.2` | `glm-5.2` | OpenAI | ✅ Always-on | 800K | 131K | $1.40 / $4.40 | $1.54 / $4.40 |
-| `proxy/deepseek-v4-pro` | `deepseek-v4-pro` | OpenAI | ✅ Always-on | 800K | 384K | $1.74 / $3.48 | $1.88 / $3.48 |
-| `proxy/qwen3.7-max` | `qwen3.7-max` | Anthropic | ✅ Always-on | 1M | 65K | $2.50 / $7.50 | $2.64 / $7.78 |
-| `proxy/mimo-v2.5-pro` | `mimo-v2.5-pro` | OpenAI | ✅ Always-on | 1M | 65K | $1.74 / $3.48 | $1.88 / $3.76 |
+| `proxy/glm-5.2` | `glm-5.2` | OpenAI | ✅ Always-on | 800K¹ | 131K | $1.40 / $4.40 | $1.54 / $4.40 |
+| `proxy/deepseek-v4-pro` | `deepseek-v4-pro` | OpenAI | ✅ Always-on | 800K¹ | 384K | $1.74 / $3.48 | $1.88 / $3.48 |
+| `proxy/qwen3.7-max` | `qwen3.7-max` | Anthropic | ✅ Always-on | 800K¹ | 65K | $2.50 / $7.50 | $2.64 / $7.78 |
+| `proxy/mimo-v2.5-pro` | `mimo-v2.5-pro` | OpenAI | ✅ Always-on | 800K¹ | 65K | $1.74 / $3.48 | $1.88 / $3.76 |
 
 All brains are text-only. Images go through MiMo V2.5 senses layer first (adds $0.14/$0.28 per 1M).
+¹ Context column = client-visible auto-compact target (OpenCode TUI uses this to decide when to compact its own history). All 4 brains accept **1M** upstream natively; the proxy sends up to 1M via `BrainModelEntry.context` (see `src/services/brainRegistry.ts`). The 200K gap is mandatory headroom for MiMo senses image descriptions — see CLAUDE.md § "Brain context window policy".
 All brains use `thinking: { type: "enabled" }` for max reasoning.
 All brains use OpenAI-format endpoint at `https://opencode.ai/zen/go/v1/chat/completions`.
 

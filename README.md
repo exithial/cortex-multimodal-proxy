@@ -101,13 +101,13 @@ Add to `~/.config/opencode/opencode.json`:
         "proxy/qwen3.7-max": {
           "name": "Qwen3.7 Max (via proxy)",
           "cost": { "input": 2.64, "output": 7.78 },
-          "limit": { "context": 1048576, "output": 65536 },
+          "limit": { "context": 819200, "output": 65536 },
           "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
         },
         "proxy/mimo-v2.5-pro": {
           "name": "MiMo V2.5 Pro (via proxy)",
           "cost": { "input": 1.88, "output": 3.76 },
-          "limit": { "context": 1048576, "output": 65536 },
+          "limit": { "context": 819200, "output": 65536 },
           "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
         }
       }

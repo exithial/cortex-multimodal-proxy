@@ -12,11 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Two new text-only brains via OpenCode Go**:
-  - `proxy/qwen3.7-max` — Qwen flagship, Anthropic-format (`/v1/messages`), 1M context, 65K output, $2.50 input / $7.50 output per 1M tokens. Combined with MiMo senses: **$2.64 / $7.78** per 1M.
-  - `proxy/mimo-v2.5-pro` — Xiaomi "Pro" tier, OpenAI-format (`/v1/chat/completions`), 1M context, 65K output, $1.74 input / $3.48 output per 1M tokens. Combined with MiMo senses: **$1.88 / $3.76** per 1M.
+  - `proxy/qwen3.7-max` — Qwen flagship, Anthropic-format (`/v1/messages`), 1M upstream context (clients see 800K auto-compact target — see CLAUDE.md § "Brain context window policy"), 65K output, $2.50 input / $7.50 output per 1M tokens. Combined with MiMo senses: **$2.64 / $7.78** per 1M.
+  - `proxy/mimo-v2.5-pro` — Xiaomi "Pro" tier, OpenAI-format (`/v1/chat/completions`), 1M upstream context (clients see 800K auto-compact target), 65K output, $1.74 input / $3.48 output per 1M tokens. Combined with MiMo senses: **$1.88 / $3.76** per 1M.
 - Both new brains gain image vision automatically through the existing MiMo V2.5 senses layer (no `multimodalProcessor` change needed — vision routing is keyed off the `proxy/` prefix).
 - Coexistence with the existing `mimo-v2.5` passthrough preserved (no replacement; clients choose either).
-- `opencode.json` updated with the two new brains (cost, limit, modalities) so OpenCode clients see them in `/v1/models`.
+- `opencode.json` updated with the two new brains (cost, limit, modalities) so OpenCode clients see them in `/v1/models`. `limit.context` is set to **800K** for both (the client-visible auto-compact target), even though the upstream accepts 1M — see the brain context window policy.
+
+### Changed
+
+- **All 4 brains now configured with `context: 1_048_576` (1M) in `brainRegistry.ts`** — matching the real upstream limit. GLM-5.2 and DeepSeek V4 Pro were previously at 819200 (800K) despite accepting 1M natively; updated to match Qwen3.7 Max and MiMo V2.5 Pro. The proxy now sends up to 1M to all brains via `truncateMessages`.
+- **Brain context window policy formalized in CLAUDE.md**: distinguishes `BrainModelEntry.context` (real upstream limit) from `limit.context` in `opencode.json` and docs (client-visible auto-compact target, 800K for all MiMo-senses brains). The 200K gap is mandatory headroom so the proxy can inject MiMo senses image descriptions without racing the upstream's hard cap.
 
 ## [3.0.0] - 2026-07-07
 

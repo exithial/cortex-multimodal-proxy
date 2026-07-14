@@ -26,17 +26,28 @@
 - Brain options (text-only via `proxy/` prefix): `proxy/glm-5.2`, `proxy/deepseek-v4-pro`, `proxy/qwen3.7-max`, `proxy/mimo-v2.5-pro`
 - All brains: thinking enabled
 - Endpoints: `proxy/glm-5.2`, `proxy/deepseek-v4-pro`, `proxy/mimo-v2.5-pro` use OpenAI-format (`/chat/completions`); `proxy/qwen3.7-max` uses Anthropic-format (`/messages`)
-- Context windows: GLM-5.2 and DeepSeek V4 Pro are 800K; Qwen3.7 Max and MiMo V2.5 Pro are 1M
+- Context windows: ALL brains accept **1M** upstream natively — the proxy sends up to 1M to them — but clients see **800K** in `opencode.json`/`/v1/models` so they auto-compact before reaching the limit. The 200K gap is headroom for MiMo senses image descriptions. See `Brain context window policy` below.
 - Passthrough (natively multimodal): `mimo-v2.5`
 - Claude Code aliases: `haiku` → `mimo-v2.5` (passthrough), `sonnet` → `proxy/deepseek-v4-pro` (default), `opus` → `proxy/glm-5.2` (default)
 - Senses: MiMo V2.5 for images (mimo-v2.5 multimodal native), Gemini for audio/video/PDFs
 
 ## Token Limits
 - Per brain — see `src/services/brainRegistry.ts`
-- GLM-5.2: 800K ctx (headroom for image descriptions), 131K output
-- DeepSeek V4 Pro: 800K ctx (headroom for image descriptions), 384K output
-- Qwen3.7 Max: 1M ctx, 65K output
-- MiMo V2.5 Pro: 1M ctx, 65K output
+- GLM-5.2: 1M ctx upstream; clients see 800K (auto-compact target), 131K output
+- DeepSeek V4 Pro: 1M ctx upstream; clients see 800K (auto-compact target), 384K output
+- Qwen3.7 Max: 1M ctx upstream; clients see 800K (auto-compact target), 65K output
+- MiMo V2.5 Pro: 1M ctx upstream; clients see 800K (auto-compact target), 65K output
+
+### Brain context window policy
+There are TWO context values per brain — do not confuse them:
+
+1. **`BrainModelEntry.context` in `src/services/brainRegistry.ts`** — the **real upstream limit**. The proxy truncates user history at this value before sending to the brain via `truncateMessages` (see `src/services/messageTransforms.ts`). Set this to whatever the upstream model truly accepts. **All 4 current brains accept 1M upstream**, so `BrainModelEntry.context = 1_048_576` for all of them.
+
+2. **`limit.context` in `opencode.json`** (and the `opencode.json` example in `README.md`, the Brain Models table in `MODELS.md`, and anything else shown to OpenCode clients) — the **client-visible auto-compact target**. The client reads this to decide when to compact its own history. Set this to **800K** for every brain that uses the MiMo senses pipeline, regardless of the real upstream limit.
+
+The 200K gap between client-visible 800K and the upstream 1M is **mandatory headroom for vision**: when a request contains an image, `mimoSensesService.describeImage` returns a text description that is injected into the messages before the brain call (`multimodalProcessor.ts` lines 195-228). Complex images can produce 100K+ token descriptions. If the client packs history up to the 1M upstream limit, the proxy then injects the image description and exceeds the upstream's hard cap → request fails. By telling the client "800K", the client auto-compacts first, leaving the proxy room to inject the description without a race condition.
+
+**When adding a new brain:** `BrainModelEntry.context` = real upstream limit (e.g., 1M for 1M models); `limit.context` in `opencode.json` and `README.md` = 800K for any brain on the MiMo senses pipeline.
 
 ## Pricing
 - Always calculate combined worst-case (MiMo senses + brain) and present in README
