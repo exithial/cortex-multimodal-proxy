@@ -72,10 +72,10 @@
 - Delete local + remote branch after merge
 
 ## Services
-- `src/services/opencodeGoService.ts`: Generic OpenCode Go caller with retry logic for both brain models + passthrough
+- `src/services/opencodeGoService.ts`: Generic OpenCode Go caller with retry logic for all brain models + passthrough
 - `src/services/mimoSensesService.ts`: MiMo V2.5 image description
 - `src/services/geminiService.ts`: Gemini fallback for audio/video/PDF (still required for non-image media)
-- `src/services/brainRegistry.ts`: 2 brain entries + 1 passthrough model + helpers (getBrainEntry, isPassthrough, parseProxyModelId, isKnownModel)
+- `src/services/brainRegistry.ts`: 4 brain entries + 1 passthrough model + helpers (getBrainEntry, isPassthrough, parseProxyModelId, isKnownModel)
 - `src/services/messageTransforms.ts`: Shared truncateMessages and prepareMessages helpers
 - `src/services/anthropicAdapter.ts`: Claude Code ↔ OpenAI translation
 - `src/middleware/multimodalDetector.ts`: Content type detection
