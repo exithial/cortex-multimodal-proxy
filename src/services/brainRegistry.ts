@@ -30,6 +30,26 @@ export const BRAIN_MODELS: Record<string, BrainModelEntry> = {
     endpoint: "openai",
     multimodal: false,
   },
+  "proxy/qwen3.7-max": {
+    upstream: "qwen3.7-max",
+    context: 1_048_576,
+    maxOutput: 65_536,
+    thinking: true,
+    inputPrice: 2.5,
+    outputPrice: 7.5,
+    endpoint: "anthropic",
+    multimodal: false,
+  },
+  "proxy/mimo-v2.5-pro": {
+    upstream: "mimo-v2.5-pro",
+    context: 1_048_576,
+    maxOutput: 65_536,
+    thinking: true,
+    inputPrice: 1.74,
+    outputPrice: 3.48,
+    endpoint: "openai",
+    multimodal: false,
+  },
 };
 
 export const PASSTHROUGH_MODELS = new Set([
