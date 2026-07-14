@@ -346,6 +346,46 @@ describe('multimodalProcessor', () => {
       expect(result.strategy).toBe('direct');
       expect(result.useDeepseekDirectly).toBe(true);
     });
+
+    it('debe usar MiMo V2.5 para imagenes con proxy/qwen3.7-max (brain nuevo, endpoint Anthropic)', async () => {
+      mockDescribeImage.mockResolvedValue('Descripcion Qwen');
+
+      const messages: ChatMessage[] = [
+        {
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: 'https://example.com/qwen.png' } },
+          ],
+        },
+      ];
+
+      const result = await processMultimodalContent(messages, 'proxy/qwen3.7-max');
+
+      expect(mockDescribeImage).toHaveBeenCalledWith('https://example.com/qwen.png', '');
+      expect(mockAnalyzeContent).not.toHaveBeenCalled();
+      expect(result.strategy).toBe('vision-mimo');
+      expect(result.processedMessages[0].content).toContain('Descripcion Qwen');
+    });
+
+    it('debe usar MiMo V2.5 para imagenes con proxy/mimo-v2.5-pro (brain nuevo coexistente con passthrough)', async () => {
+      mockDescribeImage.mockResolvedValue('Descripcion MiMo Pro');
+
+      const messages: ChatMessage[] = [
+        {
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: 'https://example.com/mimopro.png' } },
+          ],
+        },
+      ];
+
+      const result = await processMultimodalContent(messages, 'proxy/mimo-v2.5-pro');
+
+      expect(mockDescribeImage).toHaveBeenCalledWith('https://example.com/mimopro.png', '');
+      expect(mockAnalyzeContent).not.toHaveBeenCalled();
+      expect(result.strategy).toBe('vision-mimo');
+      expect(result.processedMessages[0].content).toContain('Descripcion MiMo Pro');
+    });
   });
 
   describe('canDeepseekHandleDirectly', () => {
