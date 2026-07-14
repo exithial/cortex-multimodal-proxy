@@ -10,6 +10,7 @@ import {
   prepareMessages,
   truncateMessages,
 } from "./messageTransforms";
+import { convertAnthropicChunkToOpenAI } from "./anthropicStreamConverter";
 
 const OPENCODE_GO_API_KEY = process.env.OPENCODE_GO_API_KEY || "";
 const OPENCODE_GO_BASE_URL =
@@ -153,137 +154,26 @@ class OpenCodeGoService {
    * Convert an Anthropic SSE event to an OpenAI-format `ChatCompletionChunk`
    * for clients that speak the OpenAI streaming protocol (e.g. OpenCode TUI).
    *
-   * Returns `null` for events that have no OpenAI equivalent and should be
-   * filtered out (message_start, content_block_start, content_block_stop,
-   * message_stop, ping, error). The caller is expected to discard `null`
-   * rather than emit anything.
+   * Thin wrapper that delegates to `anthropicStreamConverter.ts` so the
+   * per-event handlers can stay small (<30 lines each) and so the
+   * discriminated-union type lives next to its consumer.
    *
-   * `upstreamMessageId` is the id from the Anthropic message_start event; we
-   * reuse it on every emitted chunk so the OpenAI client sees a stable id
-   * in the upstream-issued format (`msg_xxx`) rather than a synthetic
-   * `chatcmpl-<timestamp>` placeholder that some SDK validators reject.
+   * Returns `null` for events that have no OpenAI equivalent
+   * (message_start, content_block_start with text, content_block_stop,
+   * message_stop, ping, error) — the caller discards `null`.
+   *
+   * `upstreamMessageId` is the id captured from the Anthropic
+   * message_start event; we reuse it on every emitted chunk so the
+   * OpenAI client sees a stable id in the upstream-issued format
+   * (`msg_xxx`) rather than a synthetic `chatcmpl-<timestamp>`
+   * placeholder that some SDK validators reject.
    */
   convertAnthropicChunkToOpenAI(
-    parsed: any,
+    parsed: unknown,
     brainEntry: BrainModelEntry,
     upstreamMessageId?: string,
-  ): any | null {
-    if (!parsed || typeof parsed !== "object") return null;
-
-    const created = Math.floor(Date.now() / 1000);
-    const id =
-      typeof upstreamMessageId === "string" && upstreamMessageId.length > 0
-        ? upstreamMessageId
-        : `chatcmpl-${created}-${Math.random().toString(36).slice(2, 12)}`;
-    const base = {
-      id,
-      object: "chat.completion.chunk",
-      created,
-      model: brainEntry.upstream,
-    };
-
-    if (parsed.type === "content_block_start") {
-      const contentBlock = parsed.content_block;
-      if (
-        contentBlock?.type === "tool_use" &&
-        typeof contentBlock.id === "string" &&
-        typeof contentBlock.name === "string"
-      ) {
-        // Initial OpenAI tool_call chunk carrying id + type + function.name so
-        // the client can register the call before the argument deltas arrive.
-        // Without this, openai-format clients see argument fragments they
-        // cannot associate with any tool call (tool use silently broken).
-        const index = typeof parsed.index === "number" ? parsed.index : 0;
-        return {
-          ...base,
-          choices: [
-            {
-              index,
-              delta: {
-                tool_calls: [
-                  {
-                    index,
-                    id: contentBlock.id,
-                    type: "function",
-                    function: { name: contentBlock.name, arguments: "" },
-                  },
-                ],
-              },
-              finish_reason: null,
-            },
-          ],
-        };
-      }
-      // text content_block_start: no OpenAI equivalent (the first text_delta
-      // opens the choice). Skip to avoid an empty chunk.
-      return null;
-    }
-
-    if (parsed.type === "content_block_delta") {
-      const index = typeof parsed.index === "number" ? parsed.index : 0;
-      const delta = parsed.delta;
-      if (delta?.type === "text_delta" && typeof delta.text === "string") {
-        return {
-          ...base,
-          choices: [
-            { index, delta: { content: delta.text }, finish_reason: null },
-          ],
-        };
-      }
-      if (delta?.type === "thinking_delta" && typeof delta.thinking === "string") {
-        return {
-          ...base,
-          choices: [
-            {
-              index,
-              delta: { reasoning_content: delta.thinking },
-              finish_reason: null,
-            },
-          ],
-        };
-      }
-      if (delta?.type === "input_json_delta" && typeof delta.partial_json === "string") {
-        // Tool input streaming — emit as a tool_calls delta chunk so openai-format
-        // clients can reconstruct the tool call. `tool_calls[].index` mirrors
-        // `parsed.index` so the client correlates deltas with the matching
-        // content_block_start chunk emitted earlier.
-        return {
-          ...base,
-          choices: [
-            {
-              index,
-              delta: {
-                tool_calls: [
-                  {
-                    index,
-                    function: { arguments: delta.partial_json },
-                  },
-                ],
-              },
-              finish_reason: null,
-            },
-          ],
-        };
-      }
-    }
-
-    if (parsed.type === "message_delta" && parsed.delta?.stop_reason) {
-      const stopReason = parsed.delta.stop_reason;
-      const finishReason =
-        stopReason === "end_turn"
-          ? "stop"
-          : stopReason === "max_tokens"
-            ? "length"
-            : stopReason === "tool_use"
-              ? "tool_calls"
-              : stopReason;
-      return {
-        ...base,
-        choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
-      };
-    }
-
-    return null;
+  ): Record<string, unknown> | null {
+    return convertAnthropicChunkToOpenAI(parsed, brainEntry, upstreamMessageId);
   }
 
   buildPayload(
