@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-07-14
+
+### Added
+
+- **Two new text-only brains via OpenCode Go**:
+  - `proxy/qwen3.7-max` — Qwen flagship, Anthropic-format (`/v1/messages`), 1M context, 65K output, $2.50 input / $7.50 output per 1M tokens. Combined with MiMo senses: **$2.64 / $7.78** per 1M.
+  - `proxy/mimo-v2.5-pro` — Xiaomi "Pro" tier, OpenAI-format (`/v1/chat/completions`), 1M context, 65K output, $1.74 input / $3.48 output per 1M tokens. Combined with MiMo senses: **$1.88 / $3.76** per 1M.
+- Both new brains gain image vision automatically through the existing MiMo V2.5 senses layer (no `multimodalProcessor` change needed — vision routing is keyed off the `proxy/` prefix).
+- Coexistence with the existing `mimo-v2.5` passthrough preserved (no replacement; clients choose either).
+- `opencode.json` updated with the two new brains (cost, limit, modalities) so OpenCode clients see them in `/v1/models`.
+
 ## [3.0.0] - 2026-07-07
 
 ### Added
