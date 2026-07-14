@@ -10,6 +10,7 @@ import {
   prepareMessages,
   truncateMessages,
 } from "./messageTransforms";
+import { convertAnthropicChunkToOpenAI } from "./anthropicStreamConverter";
 
 const OPENCODE_GO_API_KEY = process.env.OPENCODE_GO_API_KEY || "";
 const OPENCODE_GO_BASE_URL =
@@ -149,6 +150,32 @@ class OpenCodeGoService {
     };
   }
 
+  /**
+   * Convert an Anthropic SSE event to an OpenAI-format `ChatCompletionChunk`
+   * for clients that speak the OpenAI streaming protocol (e.g. OpenCode TUI).
+   *
+   * Thin wrapper that delegates to `anthropicStreamConverter.ts` so the
+   * per-event handlers can stay small (<30 lines each) and so the
+   * discriminated-union type lives next to its consumer.
+   *
+   * Returns `null` for events that have no OpenAI equivalent
+   * (message_start, content_block_start with text, content_block_stop,
+   * message_stop, ping, error) — the caller discards `null`.
+   *
+   * `upstreamMessageId` is the id captured from the Anthropic
+   * message_start event; we reuse it on every emitted chunk so the
+   * OpenAI client sees a stable id in the upstream-issued format
+   * (`msg_xxx`) rather than a synthetic `chatcmpl-<timestamp>`
+   * placeholder that some SDK validators reject.
+   */
+  convertAnthropicChunkToOpenAI(
+    parsed: unknown,
+    brainEntry: BrainModelEntry,
+    upstreamMessageId?: string,
+  ): Record<string, unknown> | null {
+    return convertAnthropicChunkToOpenAI(parsed, brainEntry, upstreamMessageId);
+  }
+
   buildPayload(
     request: ChatCompletionRequest,
     upstreamModel: string,
@@ -272,6 +299,9 @@ class OpenCodeGoService {
 
     let buffer = "";
     let ended = false;
+    // Captured from the upstream Anthropic message_start event so every
+    // emitted OpenAI chunk can carry the same id (format `msg_xxx`).
+    let upstreamMessageId: string | undefined;
 
     const safeEnd = () => {
       if (ended) return;
@@ -330,6 +360,11 @@ class OpenCodeGoService {
 
         for (const line of lines) {
           if (!line.trim()) continue;
+          if (line.startsWith("event: ")) {
+            // Anthropic SSE event lines (e.g. "event: ping") — OpenAI SSE has no
+            // event prefix; skip to avoid leaking Anthropic metadata to openai-format clients.
+            continue;
+          }
           if (line.startsWith("data: ")) {
             const payload = line.slice(6).trim();
             if (payload === "[DONE]") {
@@ -337,8 +372,30 @@ class OpenCodeGoService {
               return;
             }
             try {
-              JSON.parse(payload);
-              onChunk(`data: ${payload}\n\n`);
+              const parsed = JSON.parse(payload);
+              // Capture the upstream message id from Anthropic message_start
+              // so every emitted chunk can carry a stable, upstream-issued id.
+              if (
+                brainEntry.endpoint === "anthropic" &&
+                parsed.type === "message_start" &&
+                parsed.message?.id &&
+                typeof parsed.message.id === "string"
+              ) {
+                upstreamMessageId = parsed.message.id;
+              }
+              let chunkToSend: string;
+              if (brainEntry.endpoint === "anthropic") {
+                const openaiChunk = this.convertAnthropicChunkToOpenAI(
+                  parsed,
+                  brainEntry,
+                  upstreamMessageId,
+                );
+                if (!openaiChunk) continue;
+                chunkToSend = JSON.stringify(openaiChunk);
+              } else {
+                chunkToSend = payload;
+              }
+              onChunk(`data: ${chunkToSend}\n\n`);
             } catch {
               continue;
             }

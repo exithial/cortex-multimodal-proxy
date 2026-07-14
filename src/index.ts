@@ -757,7 +757,7 @@ async function init() {
   try {
     logger.info("Iniciando Cortex Multimodal Proxy v3...");
     logger.info(
-      "Arquitectura 'Cortex Sensorial v3': 2 brains via OpenCode Go (glm-5.2, deepseek-v4-pro) + 1 passthrough (mimo-v2.5)",
+      "Arquitectura 'Cortex Sensorial v3': 4 brains via OpenCode Go (glm-5.2, deepseek-v4-pro, qwen3.7-max, mimo-v2.5-pro) + 1 passthrough (mimo-v2.5)",
     );
     await cacheService.init();
 

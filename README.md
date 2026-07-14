@@ -5,18 +5,18 @@
 ![Node.js](https://img.shields.io/badge/node.js->=20.x-green?style=flat-square&logo=node.js)
 ![CI](https://github.com/exithial/cortex-multimodal-proxy/workflows/CI%2FCD%20Pipeline/badge.svg)
 
-OpenAI/Anthropic-compatible HTTP proxy with **"Cortex Sensorial v3"** architecture: 2 brains via OpenCode Go subscription, MiMo V2.5 as multimodal senses for images, Gemini fallback for audio/video/PDF.
+OpenAI/Anthropic-compatible HTTP proxy with **"Cortex Sensorial v3"** architecture: 4 brains via OpenCode Go subscription, MiMo V2.5 as multimodal senses for images, Gemini fallback for audio/video/PDF.
 
 ## "Cortex Sensorial v3" Architecture
 
-- **2 Brains (text-only, max thinking)**: GLM-5.2, DeepSeek V4 Pro
+- **4 Brains (text-only, max thinking)**: GLM-5.2, DeepSeek V4 Pro, Qwen3.7 Max, MiMo V2.5 Pro
 - **MiMo V2.5 = Senses**: Cheap multimodal ($0.14/$0.28 per 1M tokens) for image description
 - **Gemini 2.5 Flash = Fallback**: Audio, video, large PDFs (optional, only when needed)
 - **Proxy = Cortex**: Intelligent routing per brain + content type, single Bearer token, retry with backoff
 
 ### Key Features
 
-- **2 Brains via OpenCode Go**: One subscription ($10/month), single API key, curated models
+- **4 Brains via OpenCode Go**: One subscription ($10/month), single API key, curated models
 - **Multimodal Layer**: MiMo V2.5 describes images; brain receives text descriptions
 - **Per-Brain Selection**: `proxy/<brain-id>` in `/v1/chat/completions` — choose brain per request
 - **Claude Code Compatible**: `haiku`/`sonnet`/`opus` aliases mapped via env to brain models
@@ -87,15 +87,27 @@ Add to `~/.config/opencode/opencode.json`:
       },
       "models": {
         "proxy/glm-5.2": {
-          "name": "GLM-5.2 (via proxy)",
+          "name": "GLM-5.2 (Cortex Proxy)",
           "cost": { "input": 1.54, "output": 4.40 },
           "limit": { "context": 819200, "output": 131072 },
           "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
         },
         "proxy/deepseek-v4-pro": {
-          "name": "DeepSeek V4 Pro (via proxy)",
+          "name": "DeepSeek V4 Pro (Cortex Proxy)",
           "cost": { "input": 1.88, "output": 3.48 },
           "limit": { "context": 819200, "output": 384000 },
+          "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
+        },
+        "proxy/qwen3.7-max": {
+          "name": "Qwen3.7 Max (Cortex Proxy)",
+          "cost": { "input": 2.64, "output": 7.78 },
+          "limit": { "context": 819200, "output": 65536 },
+          "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
+        },
+        "proxy/mimo-v2.5-pro": {
+          "name": "MiMo V2.5 Pro (Cortex Proxy)",
+          "cost": { "input": 1.88, "output": 3.76 },
+          "limit": { "context": 819200, "output": 65536 },
           "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
         }
       }
@@ -158,7 +170,7 @@ Default Claude Code mappings (configurable via env vars):
 |----------|--------|-------------|
 | `/v1/chat/completions` | POST | Multimodal chat (OpenAI) |
 | `/v1/messages` | POST | Anthropic Messages API (Claude Code) |
-| `/v1/models` | GET | Model list (2 proxy brains + 1 passthrough) |
+| `/v1/models` | GET | Model list (4 proxy brains + 1 passthrough) |
 | `/v1/cache/stats` | GET | Contextual cache statistics |
 | `/health` | GET | Service status + version |
 
@@ -223,10 +235,10 @@ PDF_LOCAL_PROCESSING=true
 PDF_LOCAL_MAX_SIZE_MB=1
 ```
 
-## Current Status - Version 3.0.0
+## Current Status - Version 3.1.0
 
 - **"Cortex Sensorial v3" architecture** complete
-- **2 brains** via OpenCode Go: GLM-5.2, DeepSeek V4 Pro (all max thinking)
+- **4 brains** via OpenCode Go: GLM-5.2, DeepSeek V4 Pro, Qwen3.7 Max, MiMo V2.5 Pro (all max thinking)
 - **1 passthrough model** for natively multimodal: mimo-v2.5
 - **MiMo V2.5** as multimodal senses for images (replaces Gemini for vision)
 - **Gemini 2.5 Flash** fallback for audio/video/PDFs (optional)

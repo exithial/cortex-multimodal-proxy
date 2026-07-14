@@ -633,5 +633,297 @@ describe("OpenCodeGoService", () => {
       expect(completeCount).toBe(0);
       vi.unstubAllEnvs();
     });
+
+    it("should convert Anthropic SSE events (text_delta, message_delta, ping) to OpenAI chunks for openai-format clients", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const anthropicSse = [
+        'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_abc-123","type":"message","role":"assistant","model":"qwen3.7-max","usage":{"input_tokens":10,"output_tokens":0}}}\n\n',
+        'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
+        'event: ping\ndata: {"type":"ping"}\n\n',
+        'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}\n\n',
+        'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":" world"}}\n\n',
+        'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+        'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":2}}\n\n',
+        'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+      ].join("");
+
+      const stream = Readable.from([Buffer.from(anthropicSse)]);
+      mockedAxios.post.mockResolvedValueOnce({ data: stream });
+
+      const chunks: string[] = [];
+      const errors: unknown[] = [];
+      let completed = false;
+
+      await opencodeGoService.chatCompletionStream(
+        {
+          model: "proxy/qwen3.7-max",
+          messages: [{ role: "user", content: "hi" }],
+          stream: true,
+        },
+        {
+          upstream: "qwen3.7-max",
+          context: 1_048_576,
+          maxOutput: 65_536,
+          thinking: true,
+          inputPrice: 2.5,
+          outputPrice: 7.5,
+          endpoint: "anthropic",
+        },
+        (chunk) => chunks.push(chunk),
+        (error) => errors.push(error),
+        () => {
+          completed = true;
+        },
+      );
+
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(errors).toHaveLength(0);
+      expect(completed).toBe(true);
+
+      const reconstructed = chunks.join("");
+
+      // Anthropic event: lines must be filtered (openai SSE has no event: prefix)
+      expect(reconstructed).not.toMatch(/^event: /m);
+      expect(reconstructed).not.toContain('"type":"ping"');
+      expect(reconstructed).not.toContain('"type":"message_start"');
+      expect(reconstructed).not.toContain('"type":"content_block_start"');
+      expect(reconstructed).not.toContain('"type":"content_block_stop"');
+      expect(reconstructed).not.toContain('"type":"message_stop"');
+
+      // text_delta events should be converted to OpenAI chunks with content
+      const textChunks = reconstructed
+        .split("\n\n")
+        .filter((c) => c.startsWith("data: ") && c.includes('"choices"'))
+        .map((c) => JSON.parse(c.slice(6)));
+
+      expect(textChunks.length).toBeGreaterThanOrEqual(3);
+
+      // text_delta "Hello" + " world" combined should yield content "Hello world"
+      const concatenatedContent = textChunks
+        .map((c: any) => c.choices?.[0]?.delta?.content || "")
+        .join("");
+      expect(concatenatedContent).toBe("Hello world");
+
+      // Last chunk with finish_reason should be "stop" (from end_turn)
+      const finalChunk = textChunks[textChunks.length - 1];
+      expect(finalChunk.choices[0].finish_reason).toBe("stop");
+
+      // Each emitted chunk must have the OpenAI ChatCompletionChunk shape
+      for (const chunk of textChunks) {
+        expect(chunk.object).toBe("chat.completion.chunk");
+        expect(Array.isArray(chunk.choices)).toBe(true);
+        // id must be a string in the upstream Anthropic format ("msg_xxx"),
+        // captured from message_start — not a synthetic placeholder.
+        expect(typeof chunk.id).toBe("string");
+        expect(chunk.id).toBe("msg_abc-123");
+      }
+
+      vi.unstubAllEnvs();
+    });
+
+    it("should map Anthropic thinking_delta to OpenAI reasoning_content for openai-format clients", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const anthropicSse = [
+        'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"Let me think..."}}\n\n',
+        'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" about this"}}\n\n',
+        'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"answer"}}\n\n',
+        'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn"}}\n\n',
+        'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+      ].join("");
+
+      const stream = Readable.from([Buffer.from(anthropicSse)]);
+      mockedAxios.post.mockResolvedValueOnce({ data: stream });
+
+      const chunks: string[] = [];
+
+      await opencodeGoService.chatCompletionStream(
+        {
+          model: "proxy/qwen3.7-max",
+          messages: [{ role: "user", content: "hi" }],
+          stream: true,
+        },
+        {
+          upstream: "qwen3.7-max",
+          context: 1_048_576,
+          maxOutput: 65_536,
+          thinking: true,
+          inputPrice: 2.5,
+          outputPrice: 7.5,
+          endpoint: "anthropic",
+        },
+        (chunk) => chunks.push(chunk),
+        () => {},
+        () => {},
+      );
+
+      await new Promise((resolve) => setImmediate(resolve));
+
+      const parsed = chunks
+        .filter((c) => c.startsWith("data: ") && c.includes('"choices"'))
+        .map((c) => JSON.parse(c.slice(6)));
+
+      const reasoning = parsed
+        .map((c: any) => c.choices?.[0]?.delta?.reasoning_content || "")
+        .filter((s: string) => s.length > 0)
+        .join("");
+      expect(reasoning).toBe("Let me think... about this");
+
+      const content = parsed
+        .map((c: any) => c.choices?.[0]?.delta?.content || "")
+        .filter((s: string) => s.length > 0)
+        .join("");
+      expect(content).toBe("answer");
+
+      vi.unstubAllEnvs();
+    });
+
+    it("should convert Anthropic tool_use stream (content_block_start + input_json_delta + message_delta) to OpenAI tool_calls", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const anthropicSse = [
+        'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_tool","type":"message","role":"assistant","model":"qwen3.7-max","usage":{"input_tokens":10,"output_tokens":0}}}\n\n',
+        'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
+        'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Let me check the weather"}}\n\n',
+        'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+        'event: content_block_start\ndata: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_abc123","name":"get_weather","input":{}}}\n\n',
+        'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\\"city\\":"}}\n\n',
+        'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"\\"Madrid\\"}"}}\n\n',
+        'event: content_block_stop\ndata: {"type":"content_block_stop","index":1}\n\n',
+        'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"tool_use"}}\n\n',
+        'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+      ].join("");
+
+      const stream = Readable.from([Buffer.from(anthropicSse)]);
+      mockedAxios.post.mockResolvedValueOnce({ data: stream });
+
+      const chunks: string[] = [];
+
+      await opencodeGoService.chatCompletionStream(
+        {
+          model: "proxy/qwen3.7-max",
+          messages: [{ role: "user", content: "weather in Madrid?" }],
+          stream: true,
+        },
+        {
+          upstream: "qwen3.7-max",
+          context: 1_048_576,
+          maxOutput: 65_536,
+          thinking: true,
+          inputPrice: 2.5,
+          outputPrice: 7.5,
+          endpoint: "anthropic",
+        },
+        (chunk) => chunks.push(chunk),
+        () => {},
+        () => {},
+      );
+
+      await new Promise((resolve) => setImmediate(resolve));
+
+      const parsed = chunks
+        .filter((c) => c.startsWith("data: ") && c.includes('"choices"'))
+        .map((c) => JSON.parse(c.slice(6)));
+
+      // Initial tool_use chunk: id + name + empty arguments
+      const toolInit = parsed.find(
+        (c: any) =>
+          c.choices?.[0]?.delta?.tool_calls?.[0]?.id === "toolu_abc123",
+      );
+      expect(toolInit).toBeDefined();
+      expect(toolInit.choices[0].delta.tool_calls[0].type).toBe("function");
+      expect(toolInit.choices[0].delta.tool_calls[0].function.name).toBe(
+        "get_weather",
+      );
+      expect(toolInit.choices[0].delta.tool_calls[0].function.arguments).toBe(
+        "",
+      );
+
+      // Accumulated arguments from input_json_delta chunks
+      const toolArgChunks = parsed.filter(
+        (c: any) =>
+          c.choices?.[0]?.delta?.tool_calls?.[0]?.function?.arguments &&
+          c.choices[0].delta.tool_calls[0].function.arguments.length > 0,
+      );
+      const accumulatedArgs = toolArgChunks
+        .map((c: any) => c.choices[0].delta.tool_calls[0].function.arguments)
+        .join("");
+      expect(accumulatedArgs).toBe('{"city":"Madrid"}');
+
+      // Final finish_reason from message_delta stop_reason=tool_use
+      const finalChunk = parsed[parsed.length - 1];
+      expect(finalChunk.choices[0].finish_reason).toBe("tool_calls");
+
+      // Text content from the assistant preamble should still be present
+      const textChunks = parsed.filter(
+        (c: any) => c.choices?.[0]?.delta?.content,
+      );
+      expect(
+        textChunks.map((c: any) => c.choices[0].delta.content).join(""),
+      ).toBe("Let me check the weather");
+
+      vi.unstubAllEnvs();
+    });
+
+    it("should pass through OpenAI-format chunks unchanged when endpoint is openai", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const openaiChunk = JSON.stringify({
+        id: "x",
+        object: "chat.completion.chunk",
+        created: 1,
+        model: "deepseek-v4-pro",
+        choices: [{ index: 0, delta: { content: "ok" }, finish_reason: null }],
+      });
+
+      const stream = Readable.from([
+        Buffer.from(`data: ${openaiChunk}\n\ndata: [DONE]\n\n`),
+      ]);
+      mockedAxios.post.mockResolvedValueOnce({ data: stream });
+
+      const chunks: string[] = [];
+
+      await opencodeGoService.chatCompletionStream(
+        {
+          model: "proxy/deepseek-v4-pro",
+          messages: [{ role: "user", content: "hi" }],
+          stream: true,
+        },
+        {
+          upstream: "deepseek-v4-pro",
+          context: 1_048_576,
+          maxOutput: 384000,
+          thinking: true,
+          inputPrice: 1.74,
+          outputPrice: 3.48,
+          endpoint: "openai",
+        },
+        (chunk) => chunks.push(chunk),
+        () => {},
+        () => {},
+      );
+
+      await new Promise((resolve) => setImmediate(resolve));
+
+      const reconstructed = chunks.join("");
+      expect(reconstructed).toContain(openaiChunk);
+      expect(reconstructed).not.toContain("[DONE]");
+
+      vi.unstubAllEnvs();
+    });
   });
 });

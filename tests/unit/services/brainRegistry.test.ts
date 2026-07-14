@@ -7,11 +7,12 @@ import {
   parseProxyModelId,
   isKnownModel,
 } from "../../../src/services/brainRegistry";
+import { truncateMessages } from "../../../src/services/messageTransforms";
 
 describe("brainRegistry", () => {
   describe("BRAIN_MODELS", () => {
-    it("should contain 2 brain entries (glm-5.2, deepseek-v4-pro)", () => {
-      expect(Object.keys(BRAIN_MODELS)).toHaveLength(2);
+    it("should contain 4 brain entries (glm-5.2, deepseek-v4-pro, qwen3.7-max, mimo-v2.5-pro)", () => {
+      expect(Object.keys(BRAIN_MODELS)).toHaveLength(4);
     });
 
     it("each entry should have required fields", () => {
@@ -40,16 +41,44 @@ describe("brainRegistry", () => {
       }
     });
 
-    it("should include proxy/glm-5.2 with openai endpoint", () => {
+    it("should include proxy/glm-5.2 with openai endpoint and 1M context", () => {
       expect(BRAIN_MODELS["proxy/glm-5.2"]).toBeDefined();
       expect(BRAIN_MODELS["proxy/glm-5.2"].upstream).toBe("glm-5.2");
       expect(BRAIN_MODELS["proxy/glm-5.2"].endpoint).toBe("openai");
+      expect(BRAIN_MODELS["proxy/glm-5.2"].context).toBe(1_048_576);
     });
 
-    it("should include proxy/deepseek-v4-pro with openai endpoint", () => {
+    it("should include proxy/deepseek-v4-pro with openai endpoint and 1M context", () => {
       expect(BRAIN_MODELS["proxy/deepseek-v4-pro"]).toBeDefined();
       expect(BRAIN_MODELS["proxy/deepseek-v4-pro"].upstream).toBe("deepseek-v4-pro");
       expect(BRAIN_MODELS["proxy/deepseek-v4-pro"].endpoint).toBe("openai");
+      expect(BRAIN_MODELS["proxy/deepseek-v4-pro"].context).toBe(1_048_576);
+    });
+
+    it("should include proxy/qwen3.7-max with anthropic endpoint and 1M context", () => {
+      const entry = BRAIN_MODELS["proxy/qwen3.7-max"];
+      expect(entry).toBeDefined();
+      expect(entry.upstream).toBe("qwen3.7-max");
+      expect(entry.endpoint).toBe("anthropic");
+      expect(entry.context).toBe(1_048_576);
+      expect(entry.maxOutput).toBe(65_536);
+      expect(entry.thinking).toBe(true);
+      expect(entry.multimodal).toBe(false);
+      expect(entry.inputPrice).toBe(2.50);
+      expect(entry.outputPrice).toBe(7.50);
+    });
+
+    it("should include proxy/mimo-v2.5-pro with openai endpoint and 1M context", () => {
+      const entry = BRAIN_MODELS["proxy/mimo-v2.5-pro"];
+      expect(entry).toBeDefined();
+      expect(entry.upstream).toBe("mimo-v2.5-pro");
+      expect(entry.endpoint).toBe("openai");
+      expect(entry.context).toBe(1_048_576);
+      expect(entry.maxOutput).toBe(65_536);
+      expect(entry.thinking).toBe(true);
+      expect(entry.multimodal).toBe(false);
+      expect(entry.inputPrice).toBe(1.74);
+      expect(entry.outputPrice).toBe(3.48);
     });
   });
 
@@ -65,6 +94,20 @@ describe("brainRegistry", () => {
       const entry = getBrainEntry("proxy/deepseek-v4-pro");
       expect(entry).toBeDefined();
       expect(entry!.upstream).toBe("deepseek-v4-pro");
+    });
+
+    it("should return brain entry for proxy/qwen3.7-max", () => {
+      const entry = getBrainEntry("proxy/qwen3.7-max");
+      expect(entry).toBeDefined();
+      expect(entry!.upstream).toBe("qwen3.7-max");
+      expect(entry!.endpoint).toBe("anthropic");
+    });
+
+    it("should return brain entry for proxy/mimo-v2.5-pro", () => {
+      const entry = getBrainEntry("proxy/mimo-v2.5-pro");
+      expect(entry).toBeDefined();
+      expect(entry!.upstream).toBe("mimo-v2.5-pro");
+      expect(entry!.endpoint).toBe("openai");
     });
 
     it("should return undefined for unknown model", () => {
@@ -85,6 +128,10 @@ describe("brainRegistry", () => {
       expect(isPassthrough("proxy/deepseek-v4-pro")).toBe(false);
     });
 
+    it("should return false for proxy/mimo-v2.5-pro (it's a brain, not passthrough)", () => {
+      expect(isPassthrough("proxy/mimo-v2.5-pro")).toBe(false);
+    });
+
     it("should return false for unknown models", () => {
       expect(isPassthrough("unknown")).toBe(false);
     });
@@ -94,6 +141,8 @@ describe("brainRegistry", () => {
     it("should extract upstream from proxy model id", () => {
       expect(parseProxyModelId("proxy/deepseek-v4-pro")).toBe("deepseek-v4-pro");
       expect(parseProxyModelId("proxy/kimi-k2.6")).toBe("kimi-k2.6");
+      expect(parseProxyModelId("proxy/qwen3.7-max")).toBe("qwen3.7-max");
+      expect(parseProxyModelId("proxy/mimo-v2.5-pro")).toBe("mimo-v2.5-pro");
     });
 
     it("should return null for non-proxy models", () => {
@@ -117,6 +166,8 @@ describe("brainRegistry", () => {
   describe("isKnownModel", () => {
     it("should return true for brain models", () => {
       expect(isKnownModel("proxy/deepseek-v4-pro")).toBe(true);
+      expect(isKnownModel("proxy/qwen3.7-max")).toBe(true);
+      expect(isKnownModel("proxy/mimo-v2.5-pro")).toBe(true);
     });
 
     it("should return true for passthrough models", () => {
@@ -133,6 +184,69 @@ describe("brainRegistry", () => {
       expect(isKnownModel("toString")).toBe(false);
       expect(isKnownModel("constructor")).toBe(false);
       expect(isKnownModel("hasOwnProperty")).toBe(false);
+    });
+  });
+
+  describe("truncateMessages respects each brain's full upstream context", () => {
+    // Regression guard: ensure the 2026-07-14 bump to 1_048_576 for the
+    // originally-800K brains (glm-5.2, deepseek-v4-pro) is preserved and that
+    // truncateMessages does not artificially cap the proxy's output below the
+    // real upstream limit. See CLAUDE.md § Brain context window policy.
+
+    const upstreamAccepts1M = [
+      "proxy/glm-5.2",
+      "proxy/deepseek-v4-pro",
+      "proxy/qwen3.7-max",
+      "proxy/mimo-v2.5-pro",
+    ];
+
+    it.each(upstreamAccepts1M)(
+      "%s registry context is exactly 1_048_576 (1M upstream)",
+      (modelId) => {
+        const entry = BRAIN_MODELS[modelId];
+        expect(entry).toBeDefined();
+        expect(entry.context).toBe(1_048_576);
+      },
+    );
+
+    it("truncateMessages preserves a ~900K-token user message when context=1_048_576", () => {
+      // Generate a single user message whose estimated token count exceeds 800K
+      // (the legacy limit) but fits within 1M. truncateMessages must keep it.
+      const tokenEstimate = 900_000;
+      const charsPerToken = 3;
+      const bigContent = "x".repeat(tokenEstimate * charsPerToken);
+
+      const result = truncateMessages(
+        [{ role: "user", content: bigContent }],
+        1_048_576,
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0].content).toBe(bigContent);
+    });
+
+    it("truncateMessages still drops a >1M-token user message down to fit", () => {
+      // Sanity check: at the new 1M limit, a 1.2M-token message should be
+      // truncated (not the full message).
+      const bigContent = "y".repeat(1_200_000 * 3);
+
+      const result = truncateMessages(
+        [{ role: "user", content: bigContent }],
+        1_048_576,
+      );
+
+      // The single user message should be dropped entirely (its token count
+      // exceeds the available budget) OR kept but truncated; either way the
+      // returned content length must be less than the input.
+      const totalChars = result.reduce(
+        (acc, m) =>
+          acc +
+          (typeof m.content === "string"
+            ? m.content.length
+            : JSON.stringify(m.content).length),
+        0,
+      );
+      expect(totalChars).toBeLessThan(bigContent.length);
     });
   });
 });

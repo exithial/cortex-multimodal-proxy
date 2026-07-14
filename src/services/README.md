@@ -8,8 +8,8 @@ This directory contains the core business logic of the proxy.
 
 **Responsibility**: Single source of truth for brain and passthrough models.
 
-- **Catalog**: 2 brains (`proxy/glm-5.2`, `proxy/deepseek-v4-pro`) + 1 passthrough (`mimo-v2.5`).
-- **Per-brain metadata**: `upstream`, `context` (819200), `maxOutput`, `thinking`, pricing, `endpoint` (openai/anthropic), `multimodal`.
+- **Catalog**: 4 brains (`proxy/glm-5.2`, `proxy/deepseek-v4-pro`, `proxy/qwen3.7-max`, `proxy/mimo-v2.5-pro`) + 1 passthrough (`mimo-v2.5`).
+- **Per-brain metadata**: `upstream`, `context` (real upstream limit — 1M for all 4 current brains), `maxOutput`, `thinking`, pricing, `endpoint` (openai/anthropic), `multimodal`.
 - **Helpers**: `getBrainEntry`, `isPassthrough`, `parseProxyModelId`, `isKnownModel`.
 - **Prototype safety**: uses `Object.hasOwn()` for registry lookups.
 
