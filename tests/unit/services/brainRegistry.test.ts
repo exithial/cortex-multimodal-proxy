@@ -10,8 +10,8 @@ import {
 
 describe("brainRegistry", () => {
   describe("BRAIN_MODELS", () => {
-    it("should contain 2 brain entries (glm-5.2, deepseek-v4-pro)", () => {
-      expect(Object.keys(BRAIN_MODELS)).toHaveLength(2);
+    it("should contain 4 brain entries (glm-5.2, deepseek-v4-pro, qwen3.7-max, mimo-v2.5-pro)", () => {
+      expect(Object.keys(BRAIN_MODELS)).toHaveLength(4);
     });
 
     it("each entry should have required fields", () => {
@@ -51,6 +51,32 @@ describe("brainRegistry", () => {
       expect(BRAIN_MODELS["proxy/deepseek-v4-pro"].upstream).toBe("deepseek-v4-pro");
       expect(BRAIN_MODELS["proxy/deepseek-v4-pro"].endpoint).toBe("openai");
     });
+
+    it("should include proxy/qwen3.7-max with anthropic endpoint and 1M context", () => {
+      const entry = BRAIN_MODELS["proxy/qwen3.7-max"];
+      expect(entry).toBeDefined();
+      expect(entry.upstream).toBe("qwen3.7-max");
+      expect(entry.endpoint).toBe("anthropic");
+      expect(entry.context).toBe(1_048_576);
+      expect(entry.maxOutput).toBe(65_536);
+      expect(entry.thinking).toBe(true);
+      expect(entry.multimodal).toBe(false);
+      expect(entry.inputPrice).toBe(2.50);
+      expect(entry.outputPrice).toBe(7.50);
+    });
+
+    it("should include proxy/mimo-v2.5-pro with openai endpoint and 1M context", () => {
+      const entry = BRAIN_MODELS["proxy/mimo-v2.5-pro"];
+      expect(entry).toBeDefined();
+      expect(entry.upstream).toBe("mimo-v2.5-pro");
+      expect(entry.endpoint).toBe("openai");
+      expect(entry.context).toBe(1_048_576);
+      expect(entry.maxOutput).toBe(65_536);
+      expect(entry.thinking).toBe(true);
+      expect(entry.multimodal).toBe(false);
+      expect(entry.inputPrice).toBe(1.74);
+      expect(entry.outputPrice).toBe(3.48);
+    });
   });
 
   describe("PASSTHROUGH_MODELS", () => {
@@ -65,6 +91,20 @@ describe("brainRegistry", () => {
       const entry = getBrainEntry("proxy/deepseek-v4-pro");
       expect(entry).toBeDefined();
       expect(entry!.upstream).toBe("deepseek-v4-pro");
+    });
+
+    it("should return brain entry for proxy/qwen3.7-max", () => {
+      const entry = getBrainEntry("proxy/qwen3.7-max");
+      expect(entry).toBeDefined();
+      expect(entry!.upstream).toBe("qwen3.7-max");
+      expect(entry!.endpoint).toBe("anthropic");
+    });
+
+    it("should return brain entry for proxy/mimo-v2.5-pro", () => {
+      const entry = getBrainEntry("proxy/mimo-v2.5-pro");
+      expect(entry).toBeDefined();
+      expect(entry!.upstream).toBe("mimo-v2.5-pro");
+      expect(entry!.endpoint).toBe("openai");
     });
 
     it("should return undefined for unknown model", () => {
@@ -85,6 +125,10 @@ describe("brainRegistry", () => {
       expect(isPassthrough("proxy/deepseek-v4-pro")).toBe(false);
     });
 
+    it("should return false for proxy/mimo-v2.5-pro (it's a brain, not passthrough)", () => {
+      expect(isPassthrough("proxy/mimo-v2.5-pro")).toBe(false);
+    });
+
     it("should return false for unknown models", () => {
       expect(isPassthrough("unknown")).toBe(false);
     });
@@ -94,6 +138,8 @@ describe("brainRegistry", () => {
     it("should extract upstream from proxy model id", () => {
       expect(parseProxyModelId("proxy/deepseek-v4-pro")).toBe("deepseek-v4-pro");
       expect(parseProxyModelId("proxy/kimi-k2.6")).toBe("kimi-k2.6");
+      expect(parseProxyModelId("proxy/qwen3.7-max")).toBe("qwen3.7-max");
+      expect(parseProxyModelId("proxy/mimo-v2.5-pro")).toBe("mimo-v2.5-pro");
     });
 
     it("should return null for non-proxy models", () => {
@@ -117,6 +163,8 @@ describe("brainRegistry", () => {
   describe("isKnownModel", () => {
     it("should return true for brain models", () => {
       expect(isKnownModel("proxy/deepseek-v4-pro")).toBe(true);
+      expect(isKnownModel("proxy/qwen3.7-max")).toBe(true);
+      expect(isKnownModel("proxy/mimo-v2.5-pro")).toBe(true);
     });
 
     it("should return true for passthrough models", () => {
