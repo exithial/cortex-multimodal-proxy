@@ -5,7 +5,7 @@
 ![Node.js](https://img.shields.io/badge/node.js->=20.x-green?style=flat-square&logo=node.js)
 ![CI](https://github.com/exithial/cortex-multimodal-proxy/workflows/CI%2FCD%20Pipeline/badge.svg)
 
-OpenAI/Anthropic-compatible HTTP proxy with **"Cortex Sensorial v3"** architecture: 2 brains via OpenCode Go subscription, MiMo V2.5 as multimodal senses for images, Gemini fallback for audio/video/PDF.
+OpenAI/Anthropic-compatible HTTP proxy with **"Cortex Sensorial v3"** architecture: 4 brains via OpenCode Go subscription, MiMo V2.5 as multimodal senses for images, Gemini fallback for audio/video/PDF.
 
 ## "Cortex Sensorial v3" Architecture
 
@@ -16,7 +16,7 @@ OpenAI/Anthropic-compatible HTTP proxy with **"Cortex Sensorial v3"** architectu
 
 ### Key Features
 
-- **2 Brains via OpenCode Go**: One subscription ($10/month), single API key, curated models
+- **4 Brains via OpenCode Go**: One subscription ($10/month), single API key, curated models
 - **Multimodal Layer**: MiMo V2.5 describes images; brain receives text descriptions
 - **Per-Brain Selection**: `proxy/<brain-id>` in `/v1/chat/completions` — choose brain per request
 - **Claude Code Compatible**: `haiku`/`sonnet`/`opus` aliases mapped via env to brain models
