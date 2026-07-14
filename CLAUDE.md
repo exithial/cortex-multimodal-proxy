@@ -7,7 +7,7 @@
 - **Docs (README, MODELS.md, all documentation)**: English
 
 ## Architecture
-- Pattern: "Cortex Sensorial v3" — 2 brains + 1 passthrough via OpenCode Go + MiMo V2.5 senses + Gemini fallback
+- Pattern: "Cortex Sensorial v3" — 4 brains + 1 passthrough via OpenCode Go + MiMo V2.5 senses + Gemini fallback
 - Text/code -> proxy/<brain> direct; images -> MiMo V2.5 -> brain; audio/video/PDF -> Gemini -> brain
 - Brain selection: `proxy/<model-id>` for text-only models, passthrough for natively multimodal
 - Natively multimodal model (mimo-v2.5) bypasses the senses layer
