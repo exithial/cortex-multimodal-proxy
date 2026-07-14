@@ -641,7 +641,7 @@ describe("OpenCodeGoService", () => {
       );
 
       const anthropicSse = [
-        'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_x","type":"message","role":"assistant","model":"qwen3.7-max","usage":{"input_tokens":10,"output_tokens":0}}}\n\n',
+        'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_abc-123","type":"message","role":"assistant","model":"qwen3.7-max","usage":{"input_tokens":10,"output_tokens":0}}}\n\n',
         'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
         'event: ping\ndata: {"type":"ping"}\n\n',
         'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}\n\n',
@@ -717,6 +717,10 @@ describe("OpenCodeGoService", () => {
       for (const chunk of textChunks) {
         expect(chunk.object).toBe("chat.completion.chunk");
         expect(Array.isArray(chunk.choices)).toBe(true);
+        // id must be a string in the upstream Anthropic format ("msg_xxx"),
+        // captured from message_start — not a synthetic placeholder.
+        expect(typeof chunk.id).toBe("string");
+        expect(chunk.id).toBe("msg_abc-123");
       }
 
       vi.unstubAllEnvs();

@@ -157,15 +157,24 @@ class OpenCodeGoService {
    * filtered out (message_start, content_block_start, content_block_stop,
    * message_stop, ping, error). The caller is expected to discard `null`
    * rather than emit anything.
+   *
+   * `upstreamMessageId` is the id from the Anthropic message_start event; we
+   * reuse it on every emitted chunk so the OpenAI client sees a stable id
+   * in the upstream-issued format (`msg_xxx`) rather than a synthetic
+   * `chatcmpl-<timestamp>` placeholder that some SDK validators reject.
    */
   convertAnthropicChunkToOpenAI(
     parsed: any,
     brainEntry: BrainModelEntry,
+    upstreamMessageId?: string,
   ): any | null {
     if (!parsed || typeof parsed !== "object") return null;
 
     const created = Math.floor(Date.now() / 1000);
-    const id = `chatcmpl-${created}-${Math.random().toString(36).slice(2, 8)}`;
+    const id =
+      typeof upstreamMessageId === "string" && upstreamMessageId.length > 0
+        ? upstreamMessageId
+        : `chatcmpl-${created}-${Math.random().toString(36).slice(2, 8)}`;
     const base = {
       id,
       object: "chat.completion.chunk",
@@ -361,6 +370,9 @@ class OpenCodeGoService {
 
     let buffer = "";
     let ended = false;
+    // Captured from the upstream Anthropic message_start event so every
+    // emitted OpenAI chunk can carry the same id (format `msg_xxx`).
+    let upstreamMessageId: string | undefined;
 
     const safeEnd = () => {
       if (ended) return;
@@ -432,9 +444,23 @@ class OpenCodeGoService {
             }
             try {
               const parsed = JSON.parse(payload);
+              // Capture the upstream message id from Anthropic message_start
+              // so every emitted chunk can carry a stable, upstream-issued id.
+              if (
+                brainEntry.endpoint === "anthropic" &&
+                parsed.type === "message_start" &&
+                parsed.message?.id &&
+                typeof parsed.message.id === "string"
+              ) {
+                upstreamMessageId = parsed.message.id;
+              }
               let chunkToSend: string;
               if (brainEntry.endpoint === "anthropic") {
-                const openaiChunk = this.convertAnthropicChunkToOpenAI(parsed, brainEntry);
+                const openaiChunk = this.convertAnthropicChunkToOpenAI(
+                  parsed,
+                  brainEntry,
+                  upstreamMessageId,
+                );
                 if (!openaiChunk) continue;
                 chunkToSend = JSON.stringify(openaiChunk);
               } else {
