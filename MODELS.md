@@ -73,7 +73,7 @@ Verified empirically via direct API calls to `https://opencode.ai/zen/go/v1/chat
 
 - **Base URL**: `https://opencode.ai/zen/go/v1`
 - **Auth**: `Authorization: Bearer <OPENCODE_GO_API_KEY>`
-- **OpenAI-format**: `/chat/completions` (both brain models + passthrough model)
+- **OpenAI-format**: `/chat/completions` (used by `proxy/glm-5.2`, `proxy/deepseek-v4-pro`, `proxy/mimo-v2.5-pro`, plus the `mimo-v2.5` passthrough)
 - **Anthropic-format**: `/messages` (used by `proxy/qwen3.7-max`; Anthropic-format conversion via `openAIToAnthropicPayload`)
 - **Model list**: `GET /v1/models`
 
@@ -86,11 +86,11 @@ These models were in the brain catalog but removed in v3.0.0:
 | `deepseek-multimodal-flash` | Replaced by `proxy/deepseek-v4-pro` (same provider, stronger model) |
 | `deepseek-multimodal-pro` | Replaced by `proxy/deepseek-v4-pro` |
 | `vision-direct` | No longer needed — MiMo V2.5 senses handles images |
-| `proxy/kimi-k2.7-code` | Removed — consolidated to2 brains |
-| `proxy/kimi-k2.6` | Removed — consolidated to2 brains |
-| `proxy/glm-5.1` | Removed — consolidated to2 brains |
-| `proxy/qwen3.7-plus` | Removed — consolidated to2 brains |
-| `proxy/qwen3.6-plus` | Removed — consolidated to2 brains |
+| `proxy/kimi-k2.7-code` | Removed — consolidated to 2 brains (later expanded to 4) |
+| `proxy/kimi-k2.6` | Removed — consolidated to 2 brains (later expanded to 4) |
+| `proxy/glm-5.1` | Removed — consolidated to 2 brains (later expanded to 4) |
+| `proxy/qwen3.7-plus` | Removed — consolidated to 2 brains (later expanded to 4) |
+| `proxy/qwen3.6-plus` | Removed — consolidated to 2 brains (later expanded to 4) |
 | `proxy/deepseek-v4-flash` | Removed — consolidated to 2 brains (later expanded to 4) |
 | `minimax-m3` (passthrough) | Removed — only mimo-v2.5 kept as passthrough |
 | `minimax-m2.7` (passthrough) | Removed — only mimo-v2.5 kept as passthrough |
