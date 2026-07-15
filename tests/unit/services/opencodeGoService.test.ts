@@ -925,5 +925,58 @@ describe("OpenCodeGoService", () => {
 
       vi.unstubAllEnvs();
     });
+
+    it("should call onError before onComplete when upstream fails with non-retryable error so the client receives the error chunk before [DONE]", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { opencodeGoService } = await import(
+        "../../../src/services/opencodeGoService"
+      );
+
+      const networkError = Object.assign(new Error("connect ETIMEDOUT"), {
+        code: "ETIMEDOUT",
+      });
+      mockedAxios.post.mockRejectedValueOnce(networkError);
+
+      const chunks: string[] = [];
+      const errors: unknown[] = [];
+      const order: string[] = [];
+      let completeCount = 0;
+
+      await opencodeGoService.chatCompletionStream(
+        {
+          model: "proxy/deepseek-v4-pro",
+          messages: [{ role: "user", content: "hi" }],
+          stream: true,
+        },
+        {
+          upstream: "deepseek-v4-pro",
+          context: 1_048_576,
+          maxOutput: 384000,
+          thinking: true,
+          inputPrice: 1.74,
+          outputPrice: 3.48,
+          endpoint: "openai",
+        },
+        (chunk) => {
+          chunks.push(chunk);
+        },
+        (error) => {
+          errors.push(error);
+          order.push("error");
+        },
+        () => {
+          completeCount += 1;
+          order.push("complete");
+        },
+      );
+
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(errors).toHaveLength(1);
+      expect(completeCount).toBe(1);
+      expect(order).toEqual(["error", "complete"]);
+
+      vi.unstubAllEnvs();
+    });
   });
 });
