@@ -12,6 +12,7 @@ export interface BrainModelEntry {
   outputPrice: number;
   endpoint: "openai" | "anthropic";
   multimodal: boolean;
+  providerName?: string;
 }
 
 export interface BrainProvider {
