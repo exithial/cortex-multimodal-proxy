@@ -330,8 +330,8 @@ class OpenCodeGoService {
         const isRetryable = status === 503 || status === 502 || status === 429;
 
         if (!isRetryable || attempt === maxRetries) {
-          safeEnd();
           onError(error);
+          safeEnd();
           return;
         }
 
@@ -426,8 +426,8 @@ class OpenCodeGoService {
         onError(error);
       });
     } catch (error: unknown) {
-      safeEnd();
       onError(error);
+      safeEnd();
     }
   }
 }
