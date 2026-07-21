@@ -11,7 +11,6 @@ import {
 import {
   getBrainEntry,
   isPassthrough,
-  isKnownModel,
   PASSTHROUGH_MODELS,
 } from "./services/brainRegistry";
 import type { BrainModelEntry } from "./services/brainRegistry";
@@ -297,7 +296,7 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
       `POST /v1/chat/completions | model: ${model} | stream: ${request.stream || false} | tools: ${!!request.tools}`,
     );
 
-    if (!isKnownModel(model)) {
+    if (!Object.hasOwn(getActiveBrainModels(), model) && !PASSTHROUGH_MODELS.has(model)) {
       const allKnown = [
         ...Object.keys(getActiveBrainModels()),
         ...Array.from(PASSTHROUGH_MODELS),
