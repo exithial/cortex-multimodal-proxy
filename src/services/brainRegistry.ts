@@ -1,13 +1,6 @@
-export interface BrainModelEntry {
-  upstream: string;
-  context: number;
-  maxOutput: number;
-  thinking: boolean;
-  inputPrice: number;
-  outputPrice: number;
-  endpoint: "openai" | "anthropic";
-  multimodal: boolean;
-}
+import type { BrainModelEntry } from "./brainProvider";
+
+export type { BrainModelEntry } from "./brainProvider";
 
 export const BRAIN_MODELS: Record<string, BrainModelEntry> = {
   "proxy/glm-5.2": {
