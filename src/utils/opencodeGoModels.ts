@@ -1,5 +1,5 @@
 import { PASSTHROUGH_MODELS } from "../services/brainRegistry";
-import { getActiveBrainModels } from "../services/providerSelector";
+import { getActiveBrainModels, getActiveProviderInfo } from "../services/providerSelector";
 
 export function getOpenCodeModelsList(): any[] {
   const brainModels = Object.entries(getActiveBrainModels()).map(
@@ -14,15 +14,21 @@ export function getOpenCodeModelsList(): any[] {
     }),
   );
 
-  const passthroughModels = Array.from(PASSTHROUGH_MODELS).map((id) => ({
-    id,
-    object: "model" as const,
-    created: 1706745600,
-    owned_by: "opencode-go",
-    permission: [],
-    root: id,
-    parent: null,
-  }));
+  // mimo-v2.5 requiere OpenCode Go. Solo exponer en modos donde OpenCode Go
+  // es la infra activa (opencode, hybrid, o auto que resuelve a opencode).
+  const mode = getActiveProviderInfo().mode;
+  const opencodeGoMode = mode === "opencode" || mode === "hybrid";
+  const passthroughModels = opencodeGoMode
+    ? Array.from(PASSTHROUGH_MODELS).map((id) => ({
+        id,
+        object: "model" as const,
+        created: 1706745600,
+        owned_by: "opencode-go",
+        permission: [],
+        root: id,
+        parent: null,
+      }))
+    : [];
 
   return [...brainModels, ...passthroughModels];
 }

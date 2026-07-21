@@ -20,12 +20,6 @@
           "cost": { "input": 0.14, "output": 0.28 },
           "limit": { "context": 819200, "output": 384000 },
           "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
-        },
-        "mimo-v2.5": {
-          "name": "MiMo V2.5 (Passthrough, multimodal nativo)",
-          "cost": { "input": 0.14, "output": 0.28 },
-          "limit": { "context": 1048576, "output": 131072 },
-          "modalities": { "input": ["text", "image"], "output": ["text"] }
         }
       }
     }
