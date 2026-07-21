@@ -17,11 +17,7 @@ const DEEPSEEK_TIMEOUT_MS = parseInt(
   process.env.DEEPSEEK_TIMEOUT_MS || "120000",
 );
 
-if (!DEEPSEEK_API_KEY) {
-  throw new Error("DEEPSEEK_API_KEY no configurado en .env");
-}
-
-class DeepSeekBrainProvider implements BrainProvider {
+export class DeepSeekBrainProvider implements BrainProvider {
   readonly name = "deepseek-direct";
   private apiKey: string;
   private baseUrl: string;
@@ -31,6 +27,9 @@ class DeepSeekBrainProvider implements BrainProvider {
     this.apiKey = DEEPSEEK_API_KEY;
     this.baseUrl = DEEPSEEK_BASE_URL;
     this.timeout = DEEPSEEK_TIMEOUT_MS;
+    if (!this.apiKey) {
+      throw new Error("DEEPSEEK_API_KEY no configurado en .env");
+    }
   }
 
   resolveEndpointUrl(endpoint: "openai" | "anthropic"): string {
@@ -250,4 +249,6 @@ class DeepSeekBrainProvider implements BrainProvider {
   }
 }
 
-export const deepseekBrainProvider = new DeepSeekBrainProvider();
+export const deepseekBrainProvider = process.env.DEEPSEEK_API_KEY
+  ? new DeepSeekBrainProvider()
+  : null;

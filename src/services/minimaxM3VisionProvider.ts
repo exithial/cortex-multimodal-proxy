@@ -11,10 +11,6 @@ const MINIMAX_BASE_URL =
 const SENSES_MODEL = process.env.SENSES_MODEL || "MiniMax-M3";
 const SENSES_TIMEOUT_MS = parseInt(process.env.SENSES_TIMEOUT_MS || "120000");
 
-if (!MINIMAX_API_KEY) {
-  throw new Error("MINIMAX_API_KEY no configurado en .env");
-}
-
 const IMAGE_PROMPT =
   process.env.SENSES_IMAGE_PROMPT ||
   `Describe esta imagen con precisión técnica para que un programador ciego pueda recrearla.
@@ -25,9 +21,15 @@ INSTRUCCIONES ESPECÍFICAS:
 4. Si contiene TEXTO: Transcribe TODO el texto visible preservando estructura.
 5. Sé LITERAL y PRECISO: No interpretes, solo describe.`;
 
-class MiniMaxM3VisionProvider implements VisionProvider {
+export class MiniMaxM3VisionProvider implements VisionProvider {
   readonly name = "minimax-m3";
   private readonly supportedTypes = new Set<VisionContentType>(["image", "video"]);
+
+  constructor() {
+    if (!MINIMAX_API_KEY) {
+      throw new Error("MINIMAX_API_KEY no configurado en .env");
+    }
+  }
 
   isAvailable(): boolean {
     return !!MINIMAX_API_KEY;
@@ -127,4 +129,6 @@ class MiniMaxM3VisionProvider implements VisionProvider {
   }
 }
 
-export const minimaxM3VisionProvider = new MiniMaxM3VisionProvider();
+export const minimaxM3VisionProvider = MINIMAX_API_KEY
+  ? new MiniMaxM3VisionProvider()
+  : null;

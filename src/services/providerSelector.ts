@@ -110,9 +110,9 @@ function ensureInitialized(): ProviderInfo {
 
   if (mode === "deepseek") {
     registerDeepSeekEntries("proxy/");
-    cachedBrainProvider = deepseekBrainProvider;
+    cachedBrainProvider = deepseekBrainProvider!;
     if (process.env.MINIMAX_API_KEY) {
-      cachedVisionProvider = minimaxM3VisionProvider;
+      cachedVisionProvider = minimaxM3VisionProvider!;
       cachedVisionAvailable = true;
     } else {
       logger.warn(
@@ -122,15 +122,15 @@ function ensureInitialized(): ProviderInfo {
       cachedVisionAvailable = false;
     }
   } else if (mode === "opencode") {
-    cachedBrainProvider = opencodeGoBrainProvider;
+    cachedBrainProvider = opencodeGoBrainProvider!;
     cachedVisionProvider = mimoSensesVisionProvider;
     cachedVisionAvailable = true;
   } else {
     // hybrid
     registerDeepSeekEntries("proxy/local-");
-    cachedBrainProvider = opencodeGoBrainProvider;
+    cachedBrainProvider = opencodeGoBrainProvider!;
     if (process.env.MINIMAX_API_KEY) {
-      cachedVisionProvider = minimaxM3VisionProvider;
+      cachedVisionProvider = minimaxM3VisionProvider!;
     } else {
       cachedVisionProvider = mimoSensesVisionProvider;
     }
@@ -161,7 +161,7 @@ function ensureInitialized(): ProviderInfo {
 
 export function getActiveBrainProvider(): BrainProvider {
   return ensureInitialized().primaryBrainProviderName === "" || !cachedBrainProvider
-    ? opencodeGoBrainProvider
+    ? opencodeGoBrainProvider!
     : cachedBrainProvider;
 }
 
@@ -169,11 +169,11 @@ export function getActiveBrainProviderFor(modelId: string): BrainProvider {
   const entry = getBrainModels()[modelId];
   if (!entry || !entry.providerName) {
     return ensureInitialized().primaryBrainProviderName === "opencode-go"
-      ? opencodeGoBrainProvider
-      : deepseekBrainProvider;
+      ? opencodeGoBrainProvider!
+      : deepseekBrainProvider!;
   }
-  if (entry.providerName === "deepseek-direct") return deepseekBrainProvider;
-  return opencodeGoBrainProvider;
+  if (entry.providerName === "deepseek-direct") return deepseekBrainProvider!;
+  return opencodeGoBrainProvider!;
 }
 
 export function getActiveVisionProvider(): VisionProvider | null {

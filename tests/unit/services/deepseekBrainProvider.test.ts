@@ -28,9 +28,13 @@ describe("DeepSeekBrainProvider", () => {
   it("throws at constructor if DEEPSEEK_API_KEY is missing", async () => {
     vi.stubEnv("DEEPSEEK_API_KEY", "");
     vi.stubEnv("DEEPSEEK_BASE_URL", "");
-    await expect(async () => {
-      await import("../../../src/services/deepseekBrainProvider");
-    }).rejects.toThrow("DEEPSEEK_API_KEY");
+    vi.resetModules();
+    const { DeepSeekBrainProvider } = await import(
+      "../../../src/services/deepseekBrainProvider"
+    );
+    expect(() => {
+      new DeepSeekBrainProvider();
+    }).toThrow("DEEPSEEK_API_KEY");
     vi.unstubAllEnvs();
   });
 

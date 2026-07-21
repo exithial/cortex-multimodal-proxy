@@ -19,11 +19,7 @@ const OPENCODE_GO_TIMEOUT_MS = parseInt(
   process.env.OPENCODE_GO_TIMEOUT_MS || "120000",
 );
 
-if (!OPENCODE_GO_API_KEY) {
-  throw new Error("OPENCODE_GO_API_KEY no configurado en .env");
-}
-
-class OpenCodeGoBrainProvider implements BrainProvider {
+export class OpenCodeGoBrainProvider implements BrainProvider {
   readonly name = "opencode-go";
   private apiKey: string;
   private baseUrl: string;
@@ -33,6 +29,9 @@ class OpenCodeGoBrainProvider implements BrainProvider {
     this.apiKey = OPENCODE_GO_API_KEY;
     this.baseUrl = OPENCODE_GO_BASE_URL;
     this.timeout = OPENCODE_GO_TIMEOUT_MS;
+    if (!this.apiKey) {
+      throw new Error("OPENCODE_GO_API_KEY no configurado en .env");
+    }
   }
 
   resolveEndpointUrl(endpoint: "openai" | "anthropic"): string {
@@ -301,4 +300,6 @@ class OpenCodeGoBrainProvider implements BrainProvider {
   }
 }
 
-export const opencodeGoBrainProvider = new OpenCodeGoBrainProvider();
+export const opencodeGoBrainProvider = process.env.OPENCODE_GO_API_KEY
+  ? new OpenCodeGoBrainProvider()
+  : null;

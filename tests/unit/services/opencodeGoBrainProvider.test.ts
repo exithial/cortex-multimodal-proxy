@@ -18,9 +18,13 @@ describe("OpenCodeGoBrainProvider", () => {
   describe("constructor", () => {
     it("should throw if OPENCODE_GO_API_KEY is not set", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "");
-      await expect(async () => {
-        await import("../../../src/services/opencodeGoBrainProvider");
-      }).rejects.toThrow("OPENCODE_GO_API_KEY");
+      vi.resetModules();
+      const { OpenCodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
+      );
+      expect(() => {
+        new OpenCodeGoBrainProvider();
+      }).toThrow("OPENCODE_GO_API_KEY");
       vi.unstubAllEnvs();
     });
   });

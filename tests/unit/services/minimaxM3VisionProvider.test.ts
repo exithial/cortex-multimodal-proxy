@@ -22,9 +22,13 @@ describe("MiniMaxM3VisionProvider", () => {
   it("throws at constructor if MINIMAX_API_KEY is missing", async () => {
     vi.stubEnv("MINIMAX_API_KEY", "");
     vi.stubEnv("MINIMAX_BASE_URL", "");
-    await expect(async () => {
-      await import("../../../src/services/minimaxM3VisionProvider");
-    }).rejects.toThrow("MINIMAX_API_KEY");
+    vi.resetModules();
+    const { MiniMaxM3VisionProvider } = await import(
+      "../../../src/services/minimaxM3VisionProvider"
+    );
+    expect(() => {
+      new MiniMaxM3VisionProvider();
+    }).toThrow("MINIMAX_API_KEY");
     vi.unstubAllEnvs();
   });
 
