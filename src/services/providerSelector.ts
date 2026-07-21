@@ -160,9 +160,8 @@ function ensureInitialized(): ProviderInfo {
 }
 
 export function getActiveBrainProvider(): BrainProvider {
-  return ensureInitialized().primaryBrainProviderName === "" || !cachedBrainProvider
-    ? opencodeGoBrainProvider!
-    : cachedBrainProvider;
+  ensureInitialized();
+  return cachedBrainProvider!;
 }
 
 export function getActiveBrainProviderFor(modelId: string): BrainProvider {
