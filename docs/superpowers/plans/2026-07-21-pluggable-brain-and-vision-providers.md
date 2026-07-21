@@ -2519,6 +2519,7 @@ git commit -m "refactor(middleware): dispatch on VisionProvider.supportsContentT
 
 **Files:**
 - Modify: `src/index.ts`
+- Modify: `src/utils/opencodeGoModels.ts` (rename `BRAIN_MODELS` → `BRAIN_MODELS_BASE` import; internally still works on the base entries since the function iterates the entries directly)
 - (no test changes; existing tests for `index.ts` endpoints use the active services through `processMultimodalContent`, which is already updated in Task 9)
 
 **Consumes:** All providers + `getActiveBrainProviderFor`, `getActiveVisionProvider`, `getActiveBrainModels`, `getActiveProviderInfo` (Task 8).
@@ -2552,10 +2553,12 @@ import {
 
 - In the route handler that calls `processMultimodalContent`, ensure the third argument is the active vision provider: `processMultimodalContent(messages, modelName, brainEntry, getActiveVisionProvider())`.
 
+- In `src/utils/opencodeGoModels.ts:1`, rename the import: `BRAIN_MODELS` → `BRAIN_MODELS_BASE`. The body of `getOpenCodeModelsList()` (which uses `Object.entries(BRAIN_MODELS)`) stays the same — `BRAIN_MODELS_BASE` is the new variable name but it has identical entries at this point (the runtime additions from `providerSelector` register `proxy/local-*` and `proxy/deepseek-v4-{pro,flash}` which `opencode.json` consumers in `hybrid`/`deepseek` mode want surfaced). To merge, change the body to `Object.entries(getActiveBrainModels())` so the helper reflects the active mode.
+
 - [ ] **Step 10.2: Verify no stale references remain**
 
-Run: `grep -rn "opencodeGoService\|mimoSensesService" src/`
-Expected: 0 hits (outside the new provider files themselves).
+Run: `grep -rn "opencodeGoService\|mimoSensesService\|\\bBRAIN_MODELS\\b" src/`
+Expected: 0 hits (outside the new provider files themselves; `BRAIN_MODELS_BASE` is allowed).
 
 - [ ] **Step 10.3: Run lint, build, tests**
 
