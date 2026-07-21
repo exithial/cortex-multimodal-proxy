@@ -2,7 +2,7 @@ import type { BrainModelEntry } from "./brainProvider";
 
 export type { BrainModelEntry } from "./brainProvider";
 
-export const BRAIN_MODELS: Record<string, BrainModelEntry> = {
+export const BRAIN_MODELS_BASE: Record<string, BrainModelEntry> = {
   "proxy/glm-5.2": {
     upstream: "glm-5.2",
     context: 1_048_576,
@@ -18,8 +18,8 @@ export const BRAIN_MODELS: Record<string, BrainModelEntry> = {
     context: 1_048_576,
     maxOutput: 384000,
     thinking: true,
-    inputPrice: 1.74,
-    outputPrice: 3.48,
+    inputPrice: 0.435,
+    outputPrice: 0.87,
     endpoint: "openai",
     multimodal: false,
   },
@@ -50,9 +50,29 @@ export const PASSTHROUGH_MODELS = new Set([
 ]);
 
 const PROXY_PREFIX = "proxy/";
+const LOCAL_PROXY_PREFIX = "proxy/local-";
+
+const BRAIN_MODELS_RUNTIME = new Map<string, BrainModelEntry>();
+
+export function registerBrainEntry(id: string, entry: BrainModelEntry): void {
+  BRAIN_MODELS_RUNTIME.set(id, entry);
+}
+
+export function resetBrainRegistry(): void {
+  BRAIN_MODELS_RUNTIME.clear();
+}
+
+export function getBrainModels(): Record<string, BrainModelEntry> {
+  const merged: Record<string, BrainModelEntry> = { ...BRAIN_MODELS_BASE };
+  for (const [id, entry] of BRAIN_MODELS_RUNTIME) {
+    merged[id] = entry;
+  }
+  return merged;
+}
 
 export function getBrainEntry(modelId: string): BrainModelEntry | undefined {
-  return Object.hasOwn(BRAIN_MODELS, modelId) ? BRAIN_MODELS[modelId] : undefined;
+  const models = getBrainModels();
+  return Object.hasOwn(models, modelId) ? models[modelId] : undefined;
 }
 
 export function isPassthrough(modelId: string): boolean {
@@ -65,6 +85,13 @@ export function parseProxyModelId(modelId: string): string | null {
   return upstream || null;
 }
 
+export function parseLocalProxyModelId(modelId: string): string | null {
+  if (!modelId.startsWith(LOCAL_PROXY_PREFIX)) return null;
+  const upstream = modelId.slice(LOCAL_PROXY_PREFIX.length);
+  return upstream || null;
+}
+
 export function isKnownModel(modelId: string): boolean {
-  return Object.hasOwn(BRAIN_MODELS, modelId) || PASSTHROUGH_MODELS.has(modelId);
+  const models = getBrainModels();
+  return Object.hasOwn(models, modelId) || PASSTHROUGH_MODELS.has(modelId);
 }
