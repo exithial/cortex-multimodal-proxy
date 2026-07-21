@@ -24,7 +24,7 @@ describe("MiniMaxM3VisionProvider", () => {
     vi.stubEnv("MINIMAX_BASE_URL", "");
     vi.resetModules();
     const { MiniMaxM3VisionProvider } = await import(
-      "../../../src/services/minimaxM3VisionProvider"
+      "../../../src/services/minimaxM3Provider"
     );
     expect(() => {
       new MiniMaxM3VisionProvider();
@@ -37,7 +37,7 @@ describe("MiniMaxM3VisionProvider", () => {
     vi.stubEnv("MINIMAX_BASE_URL", "https://api.minimax.io/anthropic");
     vi.stubEnv("SENSES_MODEL", "MiniMax-M3");
     const { minimaxM3VisionProvider } = await import(
-      "../../../src/services/minimaxM3VisionProvider"
+      "../../../src/services/minimaxM3Provider"
     );
     await minimaxM3VisionProvider.describeImage("https://example.com/img.png", "context");
     expect(mockedAxios.post).toHaveBeenCalledWith(
@@ -71,7 +71,7 @@ describe("MiniMaxM3VisionProvider", () => {
   it("does NOT include a thinking block in the payload", async () => {
     vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
     const { minimaxM3VisionProvider } = await import(
-      "../../../src/services/minimaxM3VisionProvider"
+      "../../../src/services/minimaxM3Provider"
     );
     await minimaxM3VisionProvider.describeImage("https://example.com/img.png");
     const callArgs = mockedAxios.post.mock.calls[0];
@@ -82,7 +82,7 @@ describe("MiniMaxM3VisionProvider", () => {
   it("describeVideo uses an Anthropic video block without thinking", async () => {
     vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
     const { minimaxM3VisionProvider } = await import(
-      "../../../src/services/minimaxM3VisionProvider"
+      "../../../src/services/minimaxM3Provider"
     );
     await minimaxM3VisionProvider.describeVideo("https://example.com/video.mp4", "context");
     const body = mockedAxios.post.mock.calls[0][1];
@@ -99,7 +99,7 @@ describe("MiniMaxM3VisionProvider", () => {
   it("returns the text content from the first text block", async () => {
     vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
     const { minimaxM3VisionProvider } = await import(
-      "../../../src/services/minimaxM3VisionProvider"
+      "../../../src/services/minimaxM3Provider"
     );
     const out = await minimaxM3VisionProvider.describeImage("https://example.com/img.png");
     expect(out).toBe("A diagram of the system");
@@ -111,7 +111,7 @@ describe("MiniMaxM3VisionProvider", () => {
       data: { content: [{ type: "tool_use" }] },
     });
     const { minimaxM3VisionProvider } = await import(
-      "../../../src/services/minimaxM3VisionProvider"
+      "../../../src/services/minimaxM3Provider"
     );
     await expect(
       minimaxM3VisionProvider.describeImage("https://example.com/img.png"),
@@ -122,28 +122,28 @@ describe("MiniMaxM3VisionProvider", () => {
     it("returns true for image", async () => {
       vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
       const { minimaxM3VisionProvider } = await import(
-        "../../../src/services/minimaxM3VisionProvider"
+        "../../../src/services/minimaxM3Provider"
       );
       expect(minimaxM3VisionProvider.supportsContentType("image")).toBe(true);
     });
     it("returns true for video", async () => {
       vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
       const { minimaxM3VisionProvider } = await import(
-        "../../../src/services/minimaxM3VisionProvider"
+        "../../../src/services/minimaxM3Provider"
       );
       expect(minimaxM3VisionProvider.supportsContentType("video")).toBe(true);
     });
     it("returns false for audio", async () => {
       vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
       const { minimaxM3VisionProvider } = await import(
-        "../../../src/services/minimaxM3VisionProvider"
+        "../../../src/services/minimaxM3Provider"
       );
       expect(minimaxM3VisionProvider.supportsContentType("audio")).toBe(false);
     });
     it("name is 'minimax-m3'", async () => {
       vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
       const { minimaxM3VisionProvider } = await import(
-        "../../../src/services/minimaxM3VisionProvider"
+        "../../../src/services/minimaxM3Provider"
       );
       expect(minimaxM3VisionProvider.name).toBe("minimax-m3");
     });

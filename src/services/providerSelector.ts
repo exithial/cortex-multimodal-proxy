@@ -2,7 +2,7 @@ import { logger } from "../utils/logger";
 import { opencodeGoBrainProvider } from "./opencodeGoBrainProvider";
 import { deepseekBrainProvider } from "./deepseekBrainProvider";
 import { mimoSensesVisionProvider } from "./mimoSensesVisionProvider";
-import { minimaxM3VisionProvider } from "./minimaxM3VisionProvider";
+import { minimaxM3Provider, minimaxM3VisionProvider } from "./minimaxM3Provider";
 import {
   BRAIN_MODELS_BASE,
   registerBrainEntry,
@@ -165,6 +165,10 @@ export function getActiveBrainProvider(): BrainProvider {
 }
 
 export function getActiveBrainProviderFor(modelId: string): BrainProvider {
+  // Passthrough directo a MiniMax-M3 (BRAIN_MODE=deepseek).
+  if (modelId === "MiniMax-M3" && minimaxM3Provider) {
+    return minimaxM3Provider;
+  }
   const entry = getBrainModels()[modelId];
   if (!entry || !entry.providerName) {
     return ensureInitialized().primaryBrainProviderName === "opencode-go"

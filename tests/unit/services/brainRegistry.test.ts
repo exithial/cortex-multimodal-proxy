@@ -88,9 +88,10 @@ describe("brainRegistry", () => {
   });
 
   describe("PASSTHROUGH_MODELS", () => {
-    it("should contain 1 natively multimodal model (mimo-v2.5)", () => {
-      expect(PASSTHROUGH_MODELS.size).toBe(1);
+    it("should contain 2 natively multimodal models (mimo-v2.5, MiniMax-M3)", () => {
+      expect(PASSTHROUGH_MODELS.size).toBe(2);
       expect(PASSTHROUGH_MODELS.has("mimo-v2.5")).toBe(true);
+      expect(PASSTHROUGH_MODELS.has("MiniMax-M3")).toBe(true);
     });
   });
 

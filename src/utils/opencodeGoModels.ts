@@ -14,21 +14,34 @@ export function getOpenCodeModelsList(): any[] {
     }),
   );
 
-  // mimo-v2.5 requiere OpenCode Go. Solo exponer en modos donde OpenCode Go
-  // es la infra activa (opencode, hybrid, o auto que resuelve a opencode).
+  // Passthroughs disponibles según el modo activo:
+  //   - mimo-v2.5: requiere OpenCode Go (opencode/hybrid modes)
+  //   - MiniMax-M3: requiere MiniMax M3 API (deepseek/hybrid modes)
   const mode = getActiveProviderInfo().mode;
-  const opencodeGoMode = mode === "opencode" || mode === "hybrid";
-  const passthroughModels = opencodeGoMode
-    ? Array.from(PASSTHROUGH_MODELS).map((id) => ({
-        id,
-        object: "model" as const,
-        created: 1706745600,
-        owned_by: "opencode-go",
-        permission: [],
-        root: id,
-        parent: null,
-      }))
-    : [];
+  const passthroughModels = Array.from(PASSTHROUGH_MODELS)
+    .filter((id) => {
+      if (id === "mimo-v2.5") {
+        return mode === "opencode" || mode === "hybrid";
+      }
+      if (id === "MiniMax-M3") {
+        return mode === "deepseek" || mode === "hybrid";
+      }
+      return false;
+    })
+    .map((id) => ({
+      id,
+      object: "model" as const,
+      created: 1706745600,
+      owned_by:
+        id === "mimo-v2.5"
+          ? "opencode-go"
+          : id === "MiniMax-M3"
+            ? "minimax"
+            : "cortex-multimodal-proxy",
+      permission: [],
+      root: id,
+      parent: null,
+    }));
 
   return [...brainModels, ...passthroughModels];
 }

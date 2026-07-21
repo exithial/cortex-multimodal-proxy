@@ -47,6 +47,7 @@ export const BRAIN_MODELS_BASE: Record<string, BrainModelEntry> = {
 
 export const PASSTHROUGH_MODELS = new Set([
   "mimo-v2.5",
+  "MiniMax-M3",
 ]);
 
 const PROXY_PREFIX = "proxy/";
