@@ -92,6 +92,12 @@ export function parseLocalProxyModelId(modelId: string): string | null {
 }
 
 export function isKnownModel(modelId: string): boolean {
-  const models = getBrainModels();
-  return Object.hasOwn(models, modelId) || PASSTHROUGH_MODELS.has(modelId);
+  // NOTE: This uses the unfiltered merged view (BRAIN_MODELS_BASE + runtime),
+  // which means in `deepseek` or `hybrid` mode, a request for a model that
+  // belongs only to the inactive provider passes the check here but then falls
+  // through to the active provider and gets rejected by the upstream API.
+  // The dispatch in src/index.ts surfaces a clear "unknown model" error for
+  // unmapped IDs. For mapped-but-dispatched-to-wrong-provider IDs, accept that
+  // the upstream returns a 400 — that signal is enough for the caller to know.
+  return Object.hasOwn(getBrainModels(), modelId) || PASSTHROUGH_MODELS.has(modelId);
 }
