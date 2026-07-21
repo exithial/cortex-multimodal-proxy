@@ -79,6 +79,23 @@ describe("MiniMaxM3VisionProvider", () => {
     expect(body.thinking).toBeUndefined();
   });
 
+  it("describeVideo uses an Anthropic video block without thinking", async () => {
+    vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
+    const { minimaxM3VisionProvider } = await import(
+      "../../../src/services/minimaxM3VisionProvider"
+    );
+    await minimaxM3VisionProvider.describeVideo("https://example.com/video.mp4", "context");
+    const body = mockedAxios.post.mock.calls[0][1];
+    expect(body.thinking).toBeUndefined();
+    expect(body.messages[0].content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "video",
+          source: { type: "url", url: "https://example.com/video.mp4" },
+        }),
+      ]),
+    );
+  });
   it("returns the text content from the first text block", async () => {
     vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
     const { minimaxM3VisionProvider } = await import(

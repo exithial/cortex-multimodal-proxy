@@ -135,6 +135,9 @@ export async function processMultimodalContent(
         if (vision && content.type === "image") {
           return await vision.describeImage(content.source, userContext);
         }
+        if (vision && content.type === "video") {
+          return await vision.describeVideo(content.source, userContext);
+        }
         return await geminiService.analyzeContent(content, userContext);
       } catch (error: unknown) {
         if (vision) {

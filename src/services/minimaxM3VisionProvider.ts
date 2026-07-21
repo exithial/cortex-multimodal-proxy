@@ -43,6 +43,21 @@ export class MiniMaxM3VisionProvider implements VisionProvider {
     imageUrl: string,
     userContext: string = "",
   ): Promise<string> {
+    return this.describeContent("image", imageUrl, userContext);
+  }
+
+  async describeVideo(
+    videoUrl: string,
+    userContext: string = "",
+  ): Promise<string> {
+    return this.describeContent("video", videoUrl, userContext);
+  }
+
+  private async describeContent(
+    contentType: "image" | "video",
+    contentUrl: string,
+    userContext: string,
+  ): Promise<string> {
     if (!this.isAvailable()) {
       throw new Error("MINIMAX_API_KEY no configurado en .env");
     }
@@ -59,8 +74,8 @@ export class MiniMaxM3VisionProvider implements VisionProvider {
           content: [
             { type: "text" as const, text: prompt },
             {
-              type: "image" as const,
-              source: { type: "url" as const, url: imageUrl },
+               type: contentType,
+               source: { type: "url" as const, url: contentUrl },
             },
           ],
         },
@@ -70,7 +85,7 @@ export class MiniMaxM3VisionProvider implements VisionProvider {
     };
 
     logger.info(
-      `MiniMax M3: Describiendo imagen con ${SENSES_MODEL}...`,
+      `MiniMax M3: Describiendo ${contentType} con ${SENSES_MODEL}...`,
     );
 
     let lastError: unknown;

@@ -5,4 +5,5 @@ export interface VisionProvider {
   isAvailable(): boolean;
   supportsContentType(type: VisionContentType): boolean;
   describeImage(imageUrl: string, userContext: string): Promise<string>;
+  describeVideo(videoUrl: string, userContext: string): Promise<string>;
 }

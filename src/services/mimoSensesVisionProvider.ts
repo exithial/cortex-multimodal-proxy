@@ -94,6 +94,13 @@ class MimoSensesVisionProvider implements VisionProvider {
 
     return content;
   }
+
+  async describeVideo(
+    _videoUrl: string,
+    _userContext: string = "",
+  ): Promise<string> {
+    throw new Error("MiMo Senses: video not supported");
+  }
 }
 
 export const mimoSensesVisionProvider = new MimoSensesVisionProvider();

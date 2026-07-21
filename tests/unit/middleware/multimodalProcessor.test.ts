@@ -16,6 +16,7 @@ vi.mock('../../../src/services/geminiService', () => ({
 }));
 
 const mockDescribeImage = vi.fn();
+const mockDescribeVideo = vi.fn();
 
 vi.mock('../../../src/services/providerSelector', () => ({
   getActiveVisionProvider: () => ({
@@ -23,6 +24,7 @@ vi.mock('../../../src/services/providerSelector', () => ({
     isAvailable: () => true,
     supportsContentType: (t: string) => t === 'image' || t === 'video',
     describeImage: (...args: any[]) => mockDescribeImage(...args),
+    describeVideo: (...args: any[]) => mockDescribeVideo(...args),
   }),
   getActiveBrainProvider: () => ({ name: 'test-brain' }),
   getActiveBrainProviderFor: () => ({ name: 'test-brain' }),
@@ -116,6 +118,22 @@ describe('multimodalProcessor', () => {
       expect(result.processedMessages[0].content).toContain('Descripcion de imagen');
     });
 
+    it('debe procesar video a traves del VisionProvider activo cuando supportsContentType("video")=true', async () => {
+      mockDescribeVideo.mockResolvedValue('Descripcion de video');
+
+      const messages: ChatMessage[] = [
+        {
+          role: 'user',
+          content: [{ type: 'video_url', video_url: { url: 'https://example.com/video.mp4' } }],
+        },
+      ];
+
+      const result = await processMultimodalContent(messages);
+
+      expect(mockDescribeVideo).toHaveBeenCalledWith('https://example.com/video.mp4', '');
+      expect(mockAnalyzeContent).not.toHaveBeenCalled();
+      expect(result.processedMessages[0].content).toContain('Descripcion de video');
+    });
     it('debe procesar multiples imagenes a traves del VisionProvider activo', async () => {
       mockDescribeImage
         .mockResolvedValueOnce('Primera imagen')

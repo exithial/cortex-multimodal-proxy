@@ -8,6 +8,14 @@ describe("MiMoSensesVisionProvider", () => {
     vi.resetModules();
   });
 
+  describe("describeVideo", () => {
+    it("throws not supported", async () => {
+      vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
+      const { mimoSensesVisionProvider } = await import("../../../src/services/mimoSensesVisionProvider");
+      await expect(mimoSensesVisionProvider.describeVideo("https://example.com/video.mp4")).rejects.toThrow("not supported");
+      vi.unstubAllEnvs();
+    });
+  });
   describe("isAvailable", () => {
     it("should return true when OPENCODE_GO_API_KEY is set", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
