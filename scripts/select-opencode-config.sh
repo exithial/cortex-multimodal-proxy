@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Sincroniza opencode.json con el template correspondiente segun BRAIN_MODE en .env
-# Uso: ./scripts/select-opencode-config.sh
+# Informa qué template de opencode.json usar según BRAIN_MODE en .env
+# Uso:
+#   ./scripts/select-opencode-config.sh                # solo imprime recomendación
+#   ./scripts/select-opencode-config.sh <dest_path>    # copia el template al destino
 #
-# Estructura esperada:
-#   opencode.json            — committed: template OpenCode Go (4 brains + passthrough)
-#   opencode.deepseek.json   — committed: template DeepSeek (2 brains + passthrough)
+# Templates disponibles (NO se regeneran automáticamente):
+#   opencode.json          — OpenCode Go (4 brains + mimo-v2.5 passthrough)
+#   opencode.deepseek.json — DeepSeek (2 brains + MiniMax-M3 passthrough)
 #
-# Comportamiento:
-#   BRAIN_MODE=deepseek       -> cp opencode.deepseek.json opencode.json
-#   BRAIN_MODE=opencode|hybrid|auto  -> git checkout -- opencode.json (restaura el template)
+# Para tu setup personal con BRAIN_MODE=deepseek, copiá manualmente:
+#   cp opencode.deepseek.json ~/.config/opencode/opencode.json
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -18,30 +19,29 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
-if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  echo "ERROR: no estás dentro de un repositorio git (necesario para restaurar opencode.json)" >&2
-  exit 1
-fi
-
 mode=$(grep -E "^BRAIN_MODE=" .env | head -1 | cut -d= -f2 | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
 
 case "$mode" in
   deepseek)
-    if [ ! -f opencode.deepseek.json ]; then
-      echo "ERROR: opencode.deepseek.json no existe" >&2
-      exit 1
-    fi
-    cp opencode.deepseek.json opencode.json
-    echo "✓ opencode.json <- opencode.deepseek.json (BRAIN_MODE=deepseek)"
-    echo "  Brains: $(python3 -c "import json; print(', '.join(json.load(open('opencode.json'))['provider']['cortex-multimodal']['models'].keys()))")"
+    template="opencode.deepseek.json"
+    echo "BRAIN_MODE=$mode → usa opencode.deepseek.json"
     ;;
   opencode|hybrid|auto|"")
-    git checkout -- opencode.json
-    echo "✓ opencode.json restaurado al template OpenCode Go (BRAIN_MODE=${mode:-auto})"
-    echo "  Brains: $(python3 -c "import json; print(', '.join(json.load(open('opencode.json'))['provider']['cortex-multimodal']['models'].keys()))")"
+    template="opencode.json"
+    echo "BRAIN_MODE=${mode:-auto} → usa opencode.json"
     ;;
   *)
     echo "ERROR: BRAIN_MODE='$mode' no reconocido (usa opencode|deepseek|hybrid|auto)" >&2
     exit 1
     ;;
 esac
+
+if [ ! -f "$template" ]; then
+  echo "ERROR: $template no existe" >&2
+  exit 1
+fi
+
+if [ $# -ge 1 ]; then
+  cp "$template" "$1"
+  echo "✓ $1 <- $template"
+fi
