@@ -8,7 +8,7 @@
 
 ## Goal
 
-Allow the same `cortex-multimodal-proxy` binary to run in two modes — `public` or `local` — selected at startup by the presence of env vars, with no breaking change to the public path and no model-ID change for OpenCode/Claude Code clients.
+Allow the same `cortex-multimodal-proxy` binary to run under four `BRAIN_MODE` values — `opencode`, `deepseek`, `auto`, or `hybrid` — selected at startup by env vars, with zero behavior change for the public path (no `BRAIN_MODE` set + only `OPENCODE_GO_API_KEY` present → byte-identical to v3.0.0) and no model-ID change for OpenCode/Claude Code clients in any mode.
 
 ### Success Criteria
 
@@ -69,13 +69,13 @@ The repo is public and must remain compatible with OpenCode Go (zero breaking ch
 ```
 Current (singletons):                    Target (provider interface + factory):
 ─────────────────────                    ────────────────────────────────────
-opencodeGoService  ─┐                   BrainProvider interface ──┬── OpenCodeGoBrainProvider (public mode)
-mimoSensesService  ─┤                                            ├── DeepSeekBrainProvider   (local mode)
-geminiService      ─┤                   VisionProvider interface ─┼── MimoSensesVisionProvider (public mode)
-pdfProcessor       ─┤                                            ├── MiniMaxM3VisionProvider (local mode)
+opencodeGoService  ─┐                   BrainProvider interface ──┬── OpenCodeGoBrainProvider (BRAIN_MODE=opencode|hybrid)
+mimoSensesService  ─┤                                            ├── DeepSeekBrainProvider   (BRAIN_MODE=deepseek|hybrid)
+geminiService      ─┤                   VisionProvider interface ─┼── MimoSensesVisionProvider (BRAIN_MODE=opencode|hybrid sin MINIMAX_API_KEY)
+pdfProcessor       ─┤                                            ├── MiniMaxM3VisionProvider (BRAIN_MODE=deepseek|hybrid con MINIMAX_API_KEY)
 multimodalProcessor ┘                                            └── geminiService (always — fallback)
-                          + providerSelector.ts  (env-driven factory; chooses active providers;
-                                                   builds dynamic BRAIN_MODELS at startup)
+                          + providerSelector.ts  (env-driven factory; resolves BRAIN_MODE;
+                                                   instantiates providers; builds dynamic BRAIN_MODELS at startup)
                           + anthropicPayloadConverter.ts (extracted helper)
 ```
 
@@ -94,7 +94,7 @@ Changes are **additive and opt-in**. Public mode paths are byte-identical to v3.
 | `src/services/mimoSensesVisionProvider.ts` | `MimoSensesVisionProvider` — wrap of the current `mimoSensesService` logic. |
 | `src/services/minimaxM3VisionProvider.ts` | `MiniMaxM3VisionProvider` — Anthropic-format POST to `${MINIMAX_BASE_URL}/v1/messages`. Key from `MINIMAX_API_KEY`. `model = SENSES_MODEL` (default `MiniMax-M3`). Image content via `{type:"image", source:{type:"url", url:imageUrl}}`. **No `thinking` block** (disabled by design). Same retry curve. |
 | `src/services/anthropicPayloadConverter.ts` | Helper extracted from the current `openAIToAnthropicPayload` (`opencodeGoService.ts:25-118`). Reusable by any Anthropic-format brain provider (future-proofing, not required by this scope). |
-| `src/services/providerSelector.ts` | Factory: reads env, decides mode (`public` vs `local`), instantiates the active `BrainProvider` and `VisionProvider`, populates `BRAIN_MODELS` via `registerBrainEntry()`. Exports `getActiveBrainProvider()`, `getActiveVisionProvider()`, `getBrainModels()`, and `getActiveProviderInfo()` (for `/health` and `/v1/models`). |
+| `src/services/providerSelector.ts` | Factory: reads `BRAIN_MODE` and keys, resolves mode (`opencode` / `deepseek` / `hybrid`), picks primary + (in `hybrid`) optional secondary providers, instantiates the active `BrainProvider` and `VisionProvider`, populates `BRAIN_MODELS` via `registerBrainEntry()`. Exports `getActiveBrainProvider()`, `getActiveVisionProvider()`, `getBrainModels()`, and `getActiveProviderInfo()` (for `/health` and `/v1/models`). |
 
 #### Renamed Files (Pure Rename, Same Code Inside)
 
@@ -123,7 +123,18 @@ The old files are deleted after the rename — there is no backward-compat shim 
 
 ```typescript
 // src/services/brainProvider.ts
-export interface BrainModelEntry { /* moved here from brainRegistry.ts to break cycle */ }
+// Canonical declaration of BrainModelEntry; brainRegistry.ts re-exports it
+// for backwards-compat with existing `from "./brainRegistry"` imports.
+export interface BrainModelEntry {
+  upstream: string;
+  context: number;
+  maxOutput: number;
+  thinking: boolean;
+  inputPrice: number;
+  outputPrice: number;
+  endpoint: "openai" | "anthropic";
+  multimodal: boolean;
+}
 
 export interface BrainProvider {
   readonly name: string;        // "opencode-go" | "deepseek-direct" | future
@@ -185,7 +196,7 @@ export interface VisionProvider {
 
 ### 5. `providerSelector` Behavior
 
-The selector reads a single env var: `BRAIN_MODE` (default: `opencode`). Allowed values:
+The selector reads a single env var: `BRAIN_MODE` (default: `auto`). Allowed values:
 
 - `opencode` — only OpenCode Go brains, MiMo V2.5 vision. Requires `OPENCODE_GO_API_KEY`.
 - `deepseek` — only DeepSeek V4 Pro/Flash (local IDs), MiniMax M3 vision (if `MINIMAX_API_KEY` set). Requires `DEEPSEEK_API_KEY`.
@@ -325,7 +336,20 @@ The OpenCode JSON client config never changes. The user just edits `.env` (set `
 
 #### `BRAIN_MODE=hybrid`
 
-Same routing rules as `opencode` for OpenCode Go brains; same routing as `deepseek` for `proxy/local-deepseek-v4-{pro,flash}` brains. Both providers' retry/streaming/auth logic independent. Vision uses whichever `VisionProvider` the selector chose at startup. The client's `opencode.json` can reference either flavor of ID depending on which provider they want to target.
+Both providers are live simultaneously. The brain registry contains 6 entries:
+
+- `proxy/glm-5.2`, `proxy/deepseek-v4-pro` (OpenCode Go flavor), `proxy/qwen3.7-max`, `proxy/mimo-v2.5-pro` — served by `OpenCodeGoBrainProvider`.
+- `proxy/local-deepseek-v4-pro`, `proxy/local-deepseek-v4-flash` — served by `DeepSeekBrainProvider`.
+
+Routing per request:
+
+1. Client → `POST /v1/chat/completions` with `model: "proxy/local-deepseek-v4-pro"` (or any of the 6 IDs).
+2. `index.ts` looks up `modelEntry` in the merged `getBrainModels()` view. The entry's `endpoint` discriminator decides nothing about which provider — only `index.ts` needs to call `getActiveBrainProvider()` for the right flavor. Implementation: the brain registry stores a `provider` discriminator per entry (e.g. `"opencode-go"` or `"deepseek-direct"`), set by whichever selector call registered it. `index.ts` uses that discriminator to pick the right provider instance.
+3. `multimodalProcessor` receives `activeVisionProvider` (M3 if `MINIMAX_API_KEY` set, else MiMo). Senses provider serves **both** flavors' requests.
+4. Per-entry brain call routes to whichever provider the entry was registered with.
+5. Stream/no-stream per the chosen provider's implementation.
+
+Vision provides multimodal coverage for both OpenCode Go brains and the user's local DeepSeek brains using the single active `VisionProvider`. Both flavors of `proxy/deepseek-v4-pro` (the OpenCode Go one and the local-prefix one) coexist; clients pick by ID. `parseLocalProxyModelId("proxy/local-deepseek-v4-pro")` returns `"deepseek-v4-pro"` for the upstream call.
 
 #### `BRAIN_MODE=auto`
 
