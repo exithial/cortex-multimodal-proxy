@@ -4,10 +4,9 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: cortex-multimodal-proxy
+    network_mode: host
     env_file:
       - .env
-    ports:
-      - "${PORT:-7777}:7777"
     volumes:
       - proxy-cache:/app/cache
     restart: always
