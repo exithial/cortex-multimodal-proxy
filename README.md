@@ -25,6 +25,25 @@ OpenAI/Anthropic-compatible HTTP proxy with **"Cortex Sensorial v3"** architectu
 - **SSE Streaming**: Native support for real-time responses on both formats
 - **Intelligent Routing**: 8 content types, per-brain context limits, truncate messages
 
+### Modes
+
+The proxy supports four `BRAIN_MODE` values:
+
+- `auto` (default) — picks `deepseek` if `DEEPSEEK_API_KEY` is set, else `opencode` if `OPENCODE_GO_API_KEY` is set, else fatal at startup.
+- `opencode` — only OpenCode Go brains (`proxy/glm-5.2`, `proxy/deepseek-v4-pro`, `proxy/qwen3.7-max`, `proxy/mimo-v2.5-pro`) + MiMo V2.5 vision. Requires `OPENCODE_GO_API_KEY`.
+- `deepseek` — only DeepSeek brains under their standard IDs (`proxy/deepseek-v4-pro`, `proxy/deepseek-v4-flash`) + MiniMax M3 vision (if `MINIMAX_API_KEY` set). Requires `DEEPSEEK_API_KEY`.
+- `hybrid` — both providers loaded. OpenCode Go brains under `proxy/<id>`; user's DeepSeek under `proxy/local-deepseek-v4-{pro,flash}`. Vision follows `MINIMAX_API_KEY`.
+
+To switch modes, set `BRAIN_MODE` in `.env` and restart. Existing clients (`opencode.json`) need no changes.
+
+### Pricing
+
+| Model ID | Input / Output per 1M | Notes |
+|----------|----------------------|-------|
+| `proxy/deepseek-v4-pro` | $0.435 / $0.87 per 1M (combined $0.575 / $1.15 with senses) | Post-June 2026 price cut |
+| `proxy/local-deepseek-v4-pro`  | DeepSeek V4 Pro via your account (BRAIN_MODE=hybrid) | User-billed |
+| `proxy/local-deepseek-v4-flash` | DeepSeek V4 Flash via your account (BRAIN_MODE=hybrid) | User-billed |
+
 ## Requirements
 
 - **Node.js** >= 20.x (LTS)
@@ -94,7 +113,19 @@ Add to `~/.config/opencode/opencode.json`:
         },
         "proxy/deepseek-v4-pro": {
           "name": "DeepSeek V4 Pro (Cortex Proxy)",
-          "cost": { "input": 1.88, "output": 3.48 },
+          "cost": { "input": 0.575, "output": 1.15 },
+          "limit": { "context": 819200, "output": 384000 },
+          "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
+        },
+        "proxy/local-deepseek-v4-pro": {
+          "name": "DeepSeek V4 Pro (your account, BRAIN_MODE=hybrid)",
+          "cost": { "input": 0.435, "output": 0.87 },
+          "limit": { "context": 819200, "output": 384000 },
+          "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
+        },
+        "proxy/local-deepseek-v4-flash": {
+          "name": "DeepSeek V4 Flash (your account, BRAIN_MODE=hybrid)",
+          "cost": { "input": 0.14, "output": 0.28 },
           "limit": { "context": 819200, "output": 384000 },
           "modalities": { "input": ["text", "image", "audio", "video", "pdf"], "output": ["text"] }
         },

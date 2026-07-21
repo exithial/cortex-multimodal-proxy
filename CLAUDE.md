@@ -14,6 +14,9 @@
 - All brains use max thinking (`thinking: { type: "enabled" }`)
 - Retry with exponential backoff (3 attempts, 2s/4s delays) on503/502/429
 
+## Modes
+`BRAIN_MODE` env var: `auto` (default) | `opencode` | `deepseek` | `hybrid`. See `BRAIN_MODE` block in `.env.example`. Mode selection happens at startup; clients (`opencode.json`, Claude Code mappings) don't change.
+
 ## Compatibility
 - **Primary clients**: OpenCode (OpenAI-compatible `/v1/chat/completions`) and Claude Code (Anthropic-compatible `/v1/messages`)
 - Every feature, refactor, and dependency change MUST preserve full compatibility with both clients
@@ -24,6 +27,7 @@
 
 ## Models
 - Brain options (text-only via `proxy/` prefix): `proxy/glm-5.2`, `proxy/deepseek-v4-pro`, `proxy/qwen3.7-max`, `proxy/mimo-v2.5-pro`
+- Hybrid-only brains (BRAIN_MODE=hybrid only): `proxy/local-deepseek-v4-pro`, `proxy/local-deepseek-v4-flash`
 - All brains: thinking enabled
 - Endpoints: `proxy/glm-5.2`, `proxy/deepseek-v4-pro`, `proxy/mimo-v2.5-pro` use OpenAI-format (`/chat/completions`); `proxy/qwen3.7-max` uses Anthropic-format (`/messages`)
 - Context windows: ALL brains accept **1M** upstream natively — the proxy sends up to 1M to them — but clients see **800K** in `opencode.json`/`/v1/models` so they auto-compact before reaching the limit. The 200K gap is headroom for MiMo senses image descriptions. See `Brain context window policy` below.
@@ -68,10 +72,10 @@ When a brain has `endpoint: "anthropic"` (currently `proxy/qwen3.7-max`) but the
 - Always calculate combined worst-case (MiMo senses + brain) and present in README
 - MiMo V2.5 senses: $0.14 in / $0.28 out per 1M tokens
 - GLM-5.2: $1.40 in / $4.40 out per 1M
-- DeepSeek V4 Pro: $1.74 in / $3.48 out per 1M
+- DeepSeek V4 Pro: $0.435 in / $0.87 out per 1M (post-June 2026 price cut; previous $1.74/$3.48 was pre-cut)
 - Qwen3.7 Max: $2.50 in / $7.50 out per 1M
 - MiMo V2.5 Pro: $1.74 in / $3.48 out per 1M
-- Combined worst-case: GLM-5.2 ($1.54/$4.40), DeepSeek V4 Pro ($1.88/$3.48), Qwen3.7 Max ($2.64/$7.78), MiMo V2.5 Pro ($1.88/$3.76)
+- Combined worst-case: GLM-5.2 ($1.54/$4.40), DeepSeek V4 Pro ($0.575/$1.15), Qwen3.7 Max ($2.64/$7.78), MiMo V2.5 Pro ($1.88/$3.76)
 
 ## Code Quality
 - Build must pass (`npm run build`)
