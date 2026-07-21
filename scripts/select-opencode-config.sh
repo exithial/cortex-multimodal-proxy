@@ -1,19 +1,25 @@
 #!/usr/bin/env bash
-# Regenera opencode.json desde el template correspondiente segun BRAIN_MODE en .env
+# Sincroniza opencode.json con el template correspondiente segun BRAIN_MODE en .env
 # Uso: ./scripts/select-opencode-config.sh
 #
-# Templates:
-#   opencode.opencode.json — 4 brains OpenCode Go + mimo-v2.5 passthrough
-#   opencode.deepseek.json — 2 brains DeepSeek (tu cuenta) + mimo-v2.5 passthrough
+# Estructura esperada:
+#   opencode.json            — committed: template OpenCode Go (4 brains + passthrough)
+#   opencode.deepseek.json   — committed: template DeepSeek (2 brains + passthrough)
 #
-# Output:
-#   opencode.json — el archivo que tu OpenCode TUI lee
+# Comportamiento:
+#   BRAIN_MODE=deepseek       -> cp opencode.deepseek.json opencode.json
+#   BRAIN_MODE=opencode|hybrid|auto  -> git checkout -- opencode.json (restaura el template)
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 if [ ! -f .env ]; then
   echo "ERROR: .env no existe" >&2
+  exit 1
+fi
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "ERROR: no estás dentro de un repositorio git (necesario para restaurar opencode.json)" >&2
   exit 1
 fi
 
@@ -30,12 +36,8 @@ case "$mode" in
     echo "  Brains: $(python3 -c "import json; print(', '.join(json.load(open('opencode.json'))['provider']['cortex-multimodal']['models'].keys()))")"
     ;;
   opencode|hybrid|auto|"")
-    if [ ! -f opencode.opencode.json ]; then
-      echo "ERROR: opencode.opencode.json no existe" >&2
-      exit 1
-    fi
-    cp opencode.opencode.json opencode.json
-    echo "✓ opencode.json <- opencode.opencode.json (BRAIN_MODE=${mode:-auto})"
+    git checkout -- opencode.json
+    echo "✓ opencode.json restaurado al template OpenCode Go (BRAIN_MODE=${mode:-auto})"
     echo "  Brains: $(python3 -c "import json; print(', '.join(json.load(open('opencode.json'))['provider']['cortex-multimodal']['models'].keys()))")"
     ;;
   *)
