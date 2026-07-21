@@ -27,6 +27,8 @@ export interface ProviderInfo {
   hybridProviders: string[];
 }
 
+type CachedProviderInfo = Omit<ProviderInfo, "brainIds">;
+
 function readBRAIN_MODE(): string {
   return (process.env.BRAIN_MODE ?? "auto").toLowerCase().trim();
 }
@@ -99,9 +101,9 @@ let cachedMode: ResolvedMode | null = null;
 let cachedBrainProvider: BrainProvider | null = null;
 let cachedVisionProvider: VisionProvider | null = null;
 let cachedVisionAvailable = false;
-let cachedInfo: ProviderInfo | null = null;
+let cachedInfo: CachedProviderInfo | null = null;
 
-function ensureInitialized(): ProviderInfo {
+function ensureInitialized(): CachedProviderInfo {
   if (cachedInfo) return cachedInfo;
 
   resetBrainRegistry();
@@ -137,14 +139,12 @@ function ensureInitialized(): ProviderInfo {
     cachedVisionAvailable = true;
   }
 
-  const brainIds = Object.keys(getBrainModels()).sort();
   cachedInfo = {
     mode,
-    brainProviderName: cachedBrainProvider.name,
+    brainProviderName: cachedBrainProvider!.name,
     visionProviderName: cachedVisionProvider?.name ?? null,
     visionProviderAvailable: cachedVisionAvailable,
-    brainIds,
-    primaryBrainProviderName: cachedBrainProvider.name,
+    primaryBrainProviderName: cachedBrainProvider!.name,
     hybridProviders:
       mode === "hybrid"
         ? Array.from(
@@ -194,7 +194,11 @@ export function getActiveBrainModels(): Record<string, BrainModelEntry> {
 }
 
 export function getActiveProviderInfo(): ProviderInfo {
-  return ensureInitialized();
+  const info = ensureInitialized();
+  return {
+    ...info,
+    brainIds: Object.keys(getActiveBrainModels()).sort(),
+  };
 }
 
 // Eagerly init at module load to surface startup errors immediately.
