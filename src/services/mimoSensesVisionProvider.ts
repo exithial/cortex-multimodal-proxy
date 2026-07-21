@@ -1,5 +1,9 @@
 import axios from "axios";
 import { logger } from "../utils/logger";
+import type {
+  VisionProvider,
+  VisionContentType,
+} from "./visionProvider";
 
 const SENSES_MODEL = process.env.SENSES_MODEL || "mimo-v2.5";
 const OPENCODE_GO_BASE_URL =
@@ -17,9 +21,16 @@ INSTRUCCIONES ESPECÍFICAS:
 4. Si contiene TEXTO: Transcribe TODO el texto visible preservando estructura.
 5. Sé LITERAL y PRECISO: No interpretes, solo describe.`;
 
-class MiMoSensesService {
+class MimoSensesVisionProvider implements VisionProvider {
+  readonly name = "mimo-v2.5-senses";
+  private readonly supportedTypes = new Set<VisionContentType>(["image"]);
+
   isAvailable(): boolean {
     return !!OPENCODE_GO_API_KEY;
+  }
+
+  supportsContentType(type: VisionContentType): boolean {
+    return this.supportedTypes.has(type);
   }
 
   async describeImage(
@@ -85,4 +96,4 @@ class MiMoSensesService {
   }
 }
 
-export const mimoSensesService = new MiMoSensesService();
+export const mimoSensesVisionProvider = new MimoSensesVisionProvider();

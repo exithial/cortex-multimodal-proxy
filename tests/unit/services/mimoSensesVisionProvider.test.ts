@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("axios");
 vi.mock("dotenv/config", () => ({}));
 
-describe("MiMoSensesService", () => {
+describe("MiMoSensesVisionProvider", () => {
   beforeEach(() => {
     vi.resetModules();
   });
@@ -11,15 +11,15 @@ describe("MiMoSensesService", () => {
   describe("isAvailable", () => {
     it("should return true when OPENCODE_GO_API_KEY is set", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { mimoSensesService } = await import("../../../src/services/mimoSensesService");
-      expect(mimoSensesService.isAvailable()).toBe(true);
+      const { mimoSensesVisionProvider } = await import("../../../src/services/mimoSensesVisionProvider");
+      expect(mimoSensesVisionProvider.isAvailable()).toBe(true);
       vi.unstubAllEnvs();
     });
 
     it("should return false when OPENCODE_GO_API_KEY is not set", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "");
-      const { mimoSensesService } = await import("../../../src/services/mimoSensesService");
-      expect(mimoSensesService.isAvailable()).toBe(false);
+      const { mimoSensesVisionProvider } = await import("../../../src/services/mimoSensesVisionProvider");
+      expect(mimoSensesVisionProvider.isAvailable()).toBe(false);
       vi.unstubAllEnvs();
     });
   });
@@ -37,9 +37,9 @@ describe("MiMoSensesService", () => {
         },
       });
 
-      const { mimoSensesService } = await import("../../../src/services/mimoSensesService");
+      const { mimoSensesVisionProvider } = await import("../../../src/services/mimoSensesVisionProvider");
 
-      const result = await mimoSensesService.describeImage(
+      const result = await mimoSensesVisionProvider.describeImage(
         "data:image/png;base64,abc123",
         "describe this screenshot",
       );
@@ -53,5 +53,19 @@ describe("MiMoSensesService", () => {
 
       vi.unstubAllEnvs();
     });
+  });
+});
+
+import { mimoSensesVisionProvider } from "../../../src/services/mimoSensesVisionProvider";
+
+describe("MimoSensesVisionProvider.supportsContentType", () => {
+  it("returns true for image", () => {
+    expect(mimoSensesVisionProvider.supportsContentType("image")).toBe(true);
+  });
+  it("returns false for video", () => {
+    expect(mimoSensesVisionProvider.supportsContentType("video")).toBe(false);
+  });
+  it("returns false for audio", () => {
+    expect(mimoSensesVisionProvider.supportsContentType("audio")).toBe(false);
   });
 });
