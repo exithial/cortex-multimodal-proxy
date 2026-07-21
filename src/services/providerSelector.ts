@@ -199,11 +199,6 @@ export function getActiveProviderInfo(): ProviderInfo {
 
 // Eagerly init at module load to surface startup errors immediately.
 // (The lazy init above still works for tests that want to reset env.)
-// eslint-disable-next-line no-useless-catch
-try {
-  ensureInitialized();
-} catch (err) {
-  throw err;
-}
+ensureInitialized();
 
 void BRAIN_MODELS_BASE; // keep base import to ensure the module side-effects apply
