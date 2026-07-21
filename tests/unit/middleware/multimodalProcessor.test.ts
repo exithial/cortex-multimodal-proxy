@@ -17,11 +17,17 @@ vi.mock('../../../src/services/geminiService', () => ({
 
 const mockDescribeImage = vi.fn();
 
-vi.mock('../../../src/services/mimoSensesService', () => ({
-  mimoSensesService: {
-    describeImage: (...args: any[]) => mockDescribeImage(...args),
+vi.mock('../../../src/services/providerSelector', () => ({
+  getActiveVisionProvider: () => ({
+    name: 'test-vision',
     isAvailable: () => true,
-  },
+    supportsContentType: (t: string) => t === 'image' || t === 'video',
+    describeImage: (...args: any[]) => mockDescribeImage(...args),
+  }),
+  getActiveBrainProvider: () => ({ name: 'test-brain' }),
+  getActiveBrainProviderFor: () => ({ name: 'test-brain' }),
+  getActiveBrainModels: () => ({}),
+  getActiveProviderInfo: () => ({}),
 }));
 
 const mockAnalyzePDF = vi.fn();
@@ -87,8 +93,8 @@ describe('multimodalProcessor', () => {
       expect(result.processedMessages).toEqual(messages);
     });
 
-    it('debe procesar imagen con Gemini', async () => {
-      mockAnalyzeContent.mockResolvedValue('Descripcion de imagen');
+    it('debe procesar imagen a traves del VisionProvider activo cuando supportsContentType("image")=true', async () => {
+      mockDescribeImage.mockResolvedValue('Descripcion de imagen');
 
       const messages: ChatMessage[] = [
         {
@@ -102,15 +108,16 @@ describe('multimodalProcessor', () => {
 
       const result = await processMultimodalContent(messages);
 
-      expect(mockAnalyzeContent).toHaveBeenCalled();
-      expect(result.strategy).toBe('vision');
+      expect(mockDescribeImage).toHaveBeenCalled();
+      expect(mockAnalyzeContent).not.toHaveBeenCalled();
+      expect(result.strategy).toBe('vision-mimo');
       expect(result.useDeepseekDirectly).toBe(false);
       expect(result.processedMessages[0].content).toContain('DESCRIPCI');
       expect(result.processedMessages[0].content).toContain('Descripcion de imagen');
     });
 
-    it('debe procesar multiples imagenes', async () => {
-      mockAnalyzeContent
+    it('debe procesar multiples imagenes a traves del VisionProvider activo', async () => {
+      mockDescribeImage
         .mockResolvedValueOnce('Primera imagen')
         .mockResolvedValueOnce('Segunda imagen');
 
@@ -126,7 +133,8 @@ describe('multimodalProcessor', () => {
 
       const result = await processMultimodalContent(messages);
 
-      expect(mockAnalyzeContent).toHaveBeenCalledTimes(2);
+      expect(mockDescribeImage).toHaveBeenCalledTimes(2);
+      expect(mockAnalyzeContent).not.toHaveBeenCalled();
       expect(result.processedMessages[0].content).toContain('Primera imagen');
       expect(result.processedMessages[0].content).toContain('Segunda imagen');
     });
@@ -191,7 +199,8 @@ describe('multimodalProcessor', () => {
       expect(result.processedMessages[0].content).toContain('Fallback Gemini');
     });
 
-    it('debe lanzar error si Gemini falla', async () => {
+    it('debe lanzar error si VisionProvider y fallback a Gemini fallan', async () => {
+      mockDescribeImage.mockRejectedValue(new Error('Vision API error'));
       mockAnalyzeContent.mockRejectedValue(new Error('Gemini API error'));
 
       const messages: ChatMessage[] = [
@@ -206,8 +215,8 @@ describe('multimodalProcessor', () => {
       await expect(processMultimodalContent(messages)).rejects.toThrow('Gemini API error');
     });
 
-    it('debe pasar contexto del usuario a Gemini', async () => {
-      mockAnalyzeContent.mockResolvedValue('Descripcion');
+    it('debe pasar contexto del usuario al VisionProvider activo', async () => {
+      mockDescribeImage.mockResolvedValue('Descripcion');
 
       const messages: ChatMessage[] = [
         {
@@ -221,8 +230,8 @@ describe('multimodalProcessor', () => {
 
       await processMultimodalContent(messages);
 
-      expect(mockAnalyzeContent).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'image' }),
+      expect(mockDescribeImage).toHaveBeenCalledWith(
+        'https://example.com/img.png',
         'Describe detalladamente esta imagen'
       );
     });
@@ -385,6 +394,22 @@ describe('multimodalProcessor', () => {
       expect(mockAnalyzeContent).not.toHaveBeenCalled();
       expect(result.strategy).toBe('vision-mimo');
       expect(result.processedMessages[0].content).toContain('Descripcion MiMo Pro');
+    });
+
+    it("routes image content through the active VisionProvider when supportsContentType('image')=true", async () => {
+      mockDescribeImage.mockResolvedValue('described by active vision');
+      const messages: ChatMessage[] = [
+        { role: 'user', content: 'look' },
+        {
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: 'https://x/y.png' } } as any,
+          ],
+        },
+      ];
+      const result = await processMultimodalContent(messages);
+      expect(mockDescribeImage).toHaveBeenCalledWith('https://x/y.png', expect.any(String));
+      expect(result.strategy).toBe('vision-mimo');
     });
   });
 
