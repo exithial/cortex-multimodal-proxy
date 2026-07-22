@@ -32,21 +32,11 @@ export class DeepSeekBrainProvider implements BrainProvider {
     }
   }
 
-  resolveEndpointUrl(endpoint: "openai" | "anthropic"): string {
-    if (endpoint === "anthropic") {
-      return `${this.baseUrl}/anthropic/v1/messages`;
-    }
+  resolveEndpointUrl(_endpoint: "openai" | "anthropic"): string {
     return `${this.baseUrl}/chat/completions`;
   }
 
-  buildAuthHeaders(endpoint: "openai" | "anthropic"): Record<string, string> {
-    if (endpoint === "anthropic") {
-      return {
-        "x-api-key": this.apiKey,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      };
-    }
+  buildAuthHeaders(_endpoint: "openai" | "anthropic"): Record<string, string> {
     return {
       Authorization: `Bearer ${this.apiKey}`,
       "Content-Type": "application/json",
