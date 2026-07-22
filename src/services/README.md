@@ -47,7 +47,7 @@ This directory contains the core business logic of the proxy.
 **Responsibility**: MiniMax M3 vision (text + image + video) for `BRAIN_MODE=deepseek` and `BRAIN_MODE=hybrid` (implements `VisionProvider`).
 
 - Anthropic-format POST to `${MINIMAX_BASE_URL}/v1/messages` (default `https://api.minimax.io/anthropic`).
-- `model = SENSES_MODEL` (default `MiniMax-M3`). Image content via `{type:"image", source:{type:"url", url: imageUrl}}`.
+- `model = SENSES_MODEL` (default `mimo-v2.5` (overridable per deployment)). Image content via `{type:"image", source:{type:"url", url: imageUrl}}`.
 - **No `thinking` block** (disabled by design).
 - `supportsContentType`: image=true; video=true; audio=false.
 

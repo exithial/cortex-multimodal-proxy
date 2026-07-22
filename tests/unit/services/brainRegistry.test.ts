@@ -282,16 +282,39 @@ describe("BrainRegistry runtime registration", () => {
     expect(getBrainEntry("proxy/local-test")?.upstream).toBe("deepseek-v4-pro");
   });
 
-  it("parseLocalProxyModelId strips 'proxy/local-' prefix", async () => {
-    const { parseLocalProxyModelId } = await import(
+  it("parseLocalProxyModelId strips 'proxy/local-' prefix and validates", async () => {
+    const { parseLocalProxyModelId, registerBrainEntry } = await import(
       "../../../src/services/brainRegistry"
     );
+    registerBrainEntry("proxy/local-deepseek-v4-pro", {
+      upstream: "deepseek-v4-pro",
+      context: 1_048_576,
+      maxOutput: 384_000,
+      thinking: true,
+      inputPrice: 0.435,
+      outputPrice: 0.87,
+      endpoint: "openai",
+      multimodal: false,
+      providerName: "deepseek-direct",
+    });
+    registerBrainEntry("proxy/local-deepseek-v4-flash", {
+      upstream: "deepseek-v4-flash",
+      context: 1_048_576,
+      maxOutput: 384_000,
+      thinking: true,
+      inputPrice: 0.14,
+      outputPrice: 0.28,
+      endpoint: "openai",
+      multimodal: false,
+      providerName: "deepseek-direct",
+    });
     expect(parseLocalProxyModelId("proxy/local-deepseek-v4-pro")).toBe(
       "deepseek-v4-pro",
     );
     expect(parseLocalProxyModelId("proxy/local-deepseek-v4-flash")).toBe(
       "deepseek-v4-flash",
     );
+    expect(parseLocalProxyModelId("proxy/local-unknown-model")).toBeNull();
     expect(parseLocalProxyModelId("proxy/deepseek-v4-pro")).toBeNull();
     expect(parseLocalProxyModelId("not-a-proxy-id")).toBeNull();
   });

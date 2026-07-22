@@ -89,7 +89,9 @@ export function parseProxyModelId(modelId: string): string | null {
 export function parseLocalProxyModelId(modelId: string): string | null {
   if (!modelId.startsWith(LOCAL_PROXY_PREFIX)) return null;
   const upstream = modelId.slice(LOCAL_PROXY_PREFIX.length);
-  return upstream || null;
+  if (!upstream) return null;
+  if (!Object.hasOwn(getBrainModels(), modelId)) return null;
+  return upstream;
 }
 
 export function isKnownModel(modelId: string): boolean {
