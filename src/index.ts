@@ -2,8 +2,6 @@ import "dotenv/config";
 import express, { Request, Response } from "express";
 import { logger } from "./utils/logger";
 import { cacheService } from "./services/cacheService";
-import { opencodeGoService } from "./services/opencodeGoService";
-import { geminiService } from "./services/geminiService";
 import { processMultimodalContent } from "./middleware/multimodalProcessor";
 import { anthropicAdapter } from "./services/anthropicAdapter";
 import {
@@ -13,11 +11,15 @@ import {
 import {
   getBrainEntry,
   isPassthrough,
-  isKnownModel,
-  BRAIN_MODELS,
   PASSTHROUGH_MODELS,
 } from "./services/brainRegistry";
 import type { BrainModelEntry } from "./services/brainRegistry";
+import {
+  getActiveBrainProviderFor,
+  getActiveBrainModels,
+  getActiveProviderInfo,
+  getActiveVisionProvider,
+} from "./services/providerSelector";
 import type {
   ChatCompletionRequest,
   ChatCompletionResponse,
@@ -148,6 +150,7 @@ app.get("/health", (req: Request, res: Response) => {
     uptime: process.uptime(),
     capabilities: ["text", "image", "audio", "video", "pdf"],
     max_file_size_mb: parseInt(process.env.MAX_FILE_SIZE_MB || "50"),
+    providers: getActiveProviderInfo(),
   });
 });
 
@@ -293,9 +296,9 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
       `POST /v1/chat/completions | model: ${model} | stream: ${request.stream || false} | tools: ${!!request.tools}`,
     );
 
-    if (!isKnownModel(model)) {
+    if (!Object.hasOwn(getActiveBrainModels(), model) && !PASSTHROUGH_MODELS.has(model)) {
       const allKnown = [
-        ...Object.keys(BRAIN_MODELS),
+        ...Object.keys(getActiveBrainModels()),
         ...Array.from(PASSTHROUGH_MODELS),
       ];
       res.status(400).json({
@@ -322,6 +325,7 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
       request.messages,
       model,
       brainEntry,
+      getActiveVisionProvider(),
     );
     res.setHeader("X-Multimodal-Strategy", strategy);
 
@@ -375,7 +379,7 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
         );
       });
 
-      await opencodeGoService.chatCompletionStream(
+      await getActiveBrainProviderFor(model).chatCompletionStream(
         processedRequest,
         brainEntry,
         (chunk) => {
@@ -402,7 +406,7 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
         abortController.signal,
       );
     } else {
-      const response = await opencodeGoService.createChatCompletion(
+      const response = await getActiveBrainProviderFor(model).createChatCompletion(
         processedRequest,
         brainEntry,
       );
@@ -592,6 +596,7 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
           openaiRequest.messages,
           mappedModel,
           brainEntry,
+          getActiveVisionProvider(),
         );
       processedMessages = pm;
       strategy = st;
@@ -625,7 +630,7 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
           resolvePromise = resolve;
         });
 
-        await opencodeGoService.chatCompletionStream(
+        await getActiveBrainProviderFor(openaiRequest.model).chatCompletionStream(
           processedRequest,
           brainEntry!,
           (chunk) => {
@@ -687,7 +692,7 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
       return;
     }
 
-    const openaiResponse = await opencodeGoService.createChatCompletion(
+    const openaiResponse = await getActiveBrainProviderFor(openaiRequest.model).createChatCompletion(
       processedRequest,
       brainEntry!,
     );
@@ -774,7 +779,7 @@ async function init() {
         `Limite por archivo: ${process.env.MAX_FILE_SIZE_MB || "50"}MB`,
       );
       logger.info(
-        `  Brains: ${Object.keys(BRAIN_MODELS).join(", ")} (max thinking)`,
+        `  Brains: ${Object.keys(getActiveBrainModels()).join(", ")} (max thinking)`,
       );
       logger.info(
         `  Passthrough: ${Array.from(PASSTHROUGH_MODELS).join(", ")} (multimodal nativo)`,

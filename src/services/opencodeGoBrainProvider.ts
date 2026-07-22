@@ -3,13 +3,13 @@ import { logger } from "../utils/logger";
 import type {
   ChatCompletionRequest,
   ChatCompletionResponse,
-  ChatMessage,
 } from "../types/openai";
-import type { BrainModelEntry } from "./brainRegistry";
+import type { BrainModelEntry, BrainProvider } from "./brainProvider";
 import {
   prepareMessages,
   truncateMessages,
 } from "./messageTransforms";
+import { openAIToAnthropicPayload } from "./anthropicPayloadConverter";
 import { convertAnthropicChunkToOpenAI } from "./anthropicStreamConverter";
 
 const OPENCODE_GO_API_KEY = process.env.OPENCODE_GO_API_KEY || "";
@@ -19,106 +19,8 @@ const OPENCODE_GO_TIMEOUT_MS = parseInt(
   process.env.OPENCODE_GO_TIMEOUT_MS || "120000",
 );
 
-if (!OPENCODE_GO_API_KEY) {
-  throw new Error("OPENCODE_GO_API_KEY no configurado en .env");
-}
-
-function openAIToAnthropicPayload(
-  request: ChatCompletionRequest,
-  upstreamModel: string,
-  validMessages: any[],
-  stream: boolean,
-  thinking: boolean,
-): any {
-  const systemMsg = validMessages.find((m) => m.role === "system");
-  const nonSystemMessages = validMessages.filter((m) => m.role !== "system");
-
-  const anthropicMessages = nonSystemMessages.map((m: any) => {
-    if (m.role === "tool") {
-      return {
-        role: "user",
-        content: [
-          {
-            type: "tool_result",
-            tool_use_id: m.tool_call_id,
-            content:
-              typeof m.content === "string"
-                ? m.content
-                : JSON.stringify(m.content),
-          },
-        ],
-      };
-    }
-    if (m.role === "assistant" && m.tool_calls?.length) {
-      const blocks: any[] = [];
-      if (m.content) {
-        blocks.push({ type: "text", text: m.content });
-      }
-      for (const tc of m.tool_calls) {
-        let input: any = {};
-        try {
-          input = tc.function.arguments ? JSON.parse(tc.function.arguments) : {};
-        } catch {
-          input = { _raw: tc.function.arguments };
-        }
-        blocks.push({
-          type: "tool_use",
-          id: tc.id,
-          name: tc.function.name,
-          input,
-        });
-      }
-      return { role: "assistant", content: blocks };
-    }
-    return {
-      role: m.role === "assistant" ? "assistant" : "user",
-      content: m.content,
-    };
-  });
-
-  const payload: any = {
-    model: upstreamModel,
-    messages: anthropicMessages,
-    max_tokens: request.max_tokens || 4096,
-    stream,
-  };
-
-  if (systemMsg) {
-    payload.system =
-      typeof systemMsg.content === "string"
-        ? systemMsg.content
-        : JSON.stringify(systemMsg.content);
-  }
-  if (request.temperature !== undefined) {
-    payload.temperature = request.temperature;
-  }
-  if (request.tools) {
-    payload.tools = request.tools.map((tool: any) => {
-      if (tool.type === "function") {
-        return {
-          name: tool.function.name,
-          description: tool.function.description,
-          input_schema: tool.function.parameters,
-        };
-      }
-      return tool;
-    });
-  }
-  if (thinking) {
-    const budgetTokens = Math.max(1024, Math.floor(payload.max_tokens / 4));
-    payload.thinking = {
-      type: "enabled",
-      budget_tokens: budgetTokens,
-    };
-    if (!payload.max_tokens || payload.max_tokens < budgetTokens + 1024) {
-      payload.max_tokens = budgetTokens + 4096;
-    }
-  }
-
-  return payload;
-}
-
-class OpenCodeGoService {
+export class OpenCodeGoBrainProvider implements BrainProvider {
+  readonly name = "opencode-go";
   private apiKey: string;
   private baseUrl: string;
   private timeout: number;
@@ -127,6 +29,9 @@ class OpenCodeGoService {
     this.apiKey = OPENCODE_GO_API_KEY;
     this.baseUrl = OPENCODE_GO_BASE_URL;
     this.timeout = OPENCODE_GO_TIMEOUT_MS;
+    if (!this.apiKey) {
+      throw new Error("OPENCODE_GO_API_KEY no configurado en .env");
+    }
   }
 
   resolveEndpointUrl(endpoint: "openai" | "anthropic"): string {
@@ -136,7 +41,7 @@ class OpenCodeGoService {
     return `${this.baseUrl}/chat/completions`;
   }
 
-  private buildAuthHeaders(endpoint: "openai" | "anthropic"): Record<string, string> {
+  buildAuthHeaders(endpoint: "openai" | "anthropic"): Record<string, string> {
     if (endpoint === "anthropic") {
       return {
         "x-api-key": this.apiKey,
@@ -150,24 +55,6 @@ class OpenCodeGoService {
     };
   }
 
-  /**
-   * Convert an Anthropic SSE event to an OpenAI-format `ChatCompletionChunk`
-   * for clients that speak the OpenAI streaming protocol (e.g. OpenCode TUI).
-   *
-   * Thin wrapper that delegates to `anthropicStreamConverter.ts` so the
-   * per-event handlers can stay small (<30 lines each) and so the
-   * discriminated-union type lives next to its consumer.
-   *
-   * Returns `null` for events that have no OpenAI equivalent
-   * (message_start, content_block_start with text, content_block_stop,
-   * message_stop, ping, error) — the caller discards `null`.
-   *
-   * `upstreamMessageId` is the id captured from the Anthropic
-   * message_start event; we reuse it on every emitted chunk so the
-   * OpenAI client sees a stable id in the upstream-issued format
-   * (`msg_xxx`) rather than a synthetic `chatcmpl-<timestamp>`
-   * placeholder that some SDK validators reject.
-   */
   convertAnthropicChunkToOpenAI(
     parsed: unknown,
     brainEntry: BrainModelEntry,
@@ -299,8 +186,6 @@ class OpenCodeGoService {
 
     let buffer = "";
     let ended = false;
-    // Captured from the upstream Anthropic message_start event so every
-    // emitted OpenAI chunk can carry the same id (format `msg_xxx`).
     let upstreamMessageId: string | undefined;
 
     const safeEnd = () => {
@@ -323,9 +208,7 @@ class OpenCodeGoService {
         });
         break;
       } catch (error: unknown) {
-        if (signal?.aborted) {
-          return;
-        }
+        if (signal?.aborted) return;
         const status = axios.isAxiosError(error) ? error.response?.status : 0;
         const isRetryable = status === 503 || status === 502 || status === 429;
 
@@ -347,24 +230,17 @@ class OpenCodeGoService {
     }
 
     try {
-
       const stream = response.data;
 
       stream.on("data", (chunk: Buffer) => {
-        if (ended) {
-          return;
-        }
+        if (ended) return;
         buffer += chunk.toString();
         const lines = buffer.split("\n");
         buffer = lines.pop() || "";
 
         for (const line of lines) {
           if (!line.trim()) continue;
-          if (line.startsWith("event: ")) {
-            // Anthropic SSE event lines (e.g. "event: ping") — OpenAI SSE has no
-            // event prefix; skip to avoid leaking Anthropic metadata to openai-format clients.
-            continue;
-          }
+          if (line.startsWith("event: ")) continue;
           if (line.startsWith("data: ")) {
             const payload = line.slice(6).trim();
             if (payload === "[DONE]") {
@@ -373,8 +249,6 @@ class OpenCodeGoService {
             }
             try {
               const parsed = JSON.parse(payload);
-              // Capture the upstream message id from Anthropic message_start
-              // so every emitted chunk can carry a stable, upstream-issued id.
               if (
                 brainEntry.endpoint === "anthropic" &&
                 parsed.type === "message_start" &&
@@ -406,9 +280,7 @@ class OpenCodeGoService {
       });
 
       stream.on("end", () => {
-        if (ended) {
-          return;
-        }
+        if (ended) return;
         if (buffer.trim()) {
           onChunk(`${buffer}\n`);
         }
@@ -416,13 +288,9 @@ class OpenCodeGoService {
       });
 
       stream.on("error", (error: unknown) => {
-        if (ended) {
-          return;
-        }
+        if (ended) return;
         ended = true;
-        if (signal?.aborted) {
-          return;
-        }
+        if (signal?.aborted) return;
         onError(error);
       });
     } catch (error: unknown) {
@@ -432,4 +300,6 @@ class OpenCodeGoService {
   }
 }
 
-export const opencodeGoService = new OpenCodeGoService();
+export const opencodeGoBrainProvider = process.env.OPENCODE_GO_API_KEY
+  ? new OpenCodeGoBrainProvider()
+  : null;

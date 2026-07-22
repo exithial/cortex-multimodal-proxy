@@ -4,10 +4,15 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: cortex-multimodal-proxy
-    env_file:
-      - .env
+    # Default: bridge networking + published port. Works for most setups.
+    # For advanced networking requirements, uncomment `network_mode: host`
+    # below and remove the `ports:` mapping. The proxy then binds directly on
+    # the host; firewalling is the operator's responsibility.
+    # network_mode: host
     ports:
       - "${PORT:-7777}:7777"
+    env_file:
+      - .env
     volumes:
       - proxy-cache:/app/cache
     restart: always

@@ -1,7 +1,6 @@
 import type { ChatMessage, MessageContent } from "../types/openai";
 import { logger } from "../utils/logger";
 import { geminiService } from "../services/geminiService";
-import { mimoSensesService } from "../services/mimoSensesService";
 import { pdfProcessor } from "../utils/pdfProcessor";
 import { getErrorMessage } from "../utils/error";
 import {
@@ -9,6 +8,11 @@ import {
   getBrainEntry,
   type BrainModelEntry,
 } from "../services/brainRegistry";
+import { getActiveVisionProvider } from "../services/providerSelector";
+import type {
+  VisionProvider,
+  VisionContentType,
+} from "../services/visionProvider";
 import {
   detectMultimodalContent,
   extractUserContext,
@@ -21,6 +25,7 @@ export async function processMultimodalContent(
   messages: ChatMessage[],
   modelName?: string,
   brainEntry?: BrainModelEntry,
+  visionProvider?: VisionProvider | null,
 ): Promise<{
   processedMessages: ChatMessage[];
   useDeepseekDirectly: boolean;
@@ -39,11 +44,8 @@ export async function processMultimodalContent(
 
   const resolvedBrain = brainEntry ?? (modelName ? getBrainEntry(modelName) : undefined);
   const isMultimodalNative = resolvedBrain?.multimodal === true;
-  const useMimoForImages =
-    !isMultimodalNative &&
-    !!modelName &&
-    modelName.startsWith("proxy/") &&
-    mimoSensesService.isAvailable();
+  const activeVision = visionProvider ?? getActiveVisionProvider();
+  const imageVisionProvider = activeVision ?? undefined;
   // 1. Detectar contenido
   const analysis = await detectMultimodalContent(messages);
 
@@ -114,23 +116,33 @@ export async function processMultimodalContent(
 
   const visionDescriptions = await Promise.all(
     visionContent.map(async (content, index) => {
-      const useMimo = useMimoForImages && content.type === "image";
-      const processor = useMimo ? "MiMo V2.5" : "Gemini";
+      const vision =
+        imageVisionProvider &&
+        imageVisionProvider.supportsContentType(content.type as VisionContentType)
+          ? imageVisionProvider
+          : null;
+      const processor = vision
+        ? vision.name === "mimo-v2.5-senses"
+          ? "MiMo V2.5"
+          : vision.name === "minimax-m3"
+            ? "MiniMax M3"
+            : "Vision"
+        : "Gemini";
       logger.info(
         `Procesando ${content.type} ${index + 1}/${visionContent.length} con ${processor}...`,
       );
       try {
-        if (useMimo) {
-          return await mimoSensesService.describeImage(
-            content.source,
-            userContext,
-          );
+        if (vision && content.type === "image") {
+          return await vision.describeImage(content.source, userContext);
+        }
+        if (vision && content.type === "video") {
+          return await vision.describeVideo(content.source, userContext);
         }
         return await geminiService.analyzeContent(content, userContext);
       } catch (error: unknown) {
-        if (useMimo) {
+        if (vision) {
           logger.warn(
-            `MiMo V2.5 fallo para ${content.type} ${index + 1}: ${getErrorMessage(error)}. Fallback a Gemini...`,
+            `${vision.name} fallo para ${content.type} ${index + 1}: ${getErrorMessage(error)}. Fallback a Gemini...`,
           );
           return await geminiService.analyzeContent(content, userContext);
         }
@@ -230,8 +242,8 @@ export async function processMultimodalContent(
   // 6. Si hay contenido que DeepSeek puede manejar directamente, mantenerlo
   // (ya está en los mensajes originales)
 
-  const usedMimo = visionContent.some(
-    (c) => c.type === "image" && useMimoForImages,
+  const usedActiveVision = visionContent.some(
+    (c) => imageVisionProvider?.supportsContentType(c.type as VisionContentType) ?? false,
   );
   let strategy:
     | "direct"
@@ -240,7 +252,7 @@ export async function processMultimodalContent(
     | "local"
     | "mixed" = "mixed";
   if (visionContent.length > 0 && localContent.length === 0)
-    strategy = usedMimo ? "vision-mimo" : "vision";
+    strategy = usedActiveVision ? "vision-mimo" : "vision";
   else if (visionContent.length === 0 && localContent.length > 0)
     strategy = "local";
 

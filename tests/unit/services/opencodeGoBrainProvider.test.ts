@@ -9,7 +9,7 @@ const mockedAxios = axios as unknown as {
   post: ReturnType<typeof vi.fn>;
 };
 
-describe("OpenCodeGoService", () => {
+describe("OpenCodeGoBrainProvider", () => {
   beforeEach(() => {
     vi.resetModules();
     mockedAxios.post = vi.fn();
@@ -18,9 +18,13 @@ describe("OpenCodeGoService", () => {
   describe("constructor", () => {
     it("should throw if OPENCODE_GO_API_KEY is not set", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "");
-      await expect(async () => {
-        await import("../../../src/services/opencodeGoService");
-      }).rejects.toThrow("OPENCODE_GO_API_KEY");
+      vi.resetModules();
+      const { OpenCodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
+      );
+      expect(() => {
+        new OpenCodeGoBrainProvider();
+      }).toThrow("OPENCODE_GO_API_KEY");
       vi.unstubAllEnvs();
     });
   });
@@ -28,8 +32,8 @@ describe("OpenCodeGoService", () => {
   describe("buildPayload", () => {
     it("should build openai payload for openai endpoint brain", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       const request = {
@@ -38,7 +42,7 @@ describe("OpenCodeGoService", () => {
         stream: false,
       };
 
-      const payload = opencodeGoService.buildPayload(
+      const payload = opencodeGoBrainProvider.buildPayload(
         request,
         "deepseek-v4-pro",
         true,
@@ -54,8 +58,8 @@ describe("OpenCodeGoService", () => {
 
     it("should translate payload to Anthropic format when endpoint is anthropic", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       const request = {
@@ -67,7 +71,7 @@ describe("OpenCodeGoService", () => {
         stream: false,
       };
 
-      const payload = opencodeGoService.buildPayload(
+      const payload = opencodeGoBrainProvider.buildPayload(
         request,
         "glm-5.2",
         true,
@@ -84,8 +88,8 @@ describe("OpenCodeGoService", () => {
 
     it("should convert OpenAI tools to Anthropic tools", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       const request = {
@@ -104,7 +108,7 @@ describe("OpenCodeGoService", () => {
         stream: false,
       };
 
-      const payload = opencodeGoService.buildPayload(
+      const payload = opencodeGoBrainProvider.buildPayload(
         request,
         "glm-5.2",
         false,
@@ -119,8 +123,8 @@ describe("OpenCodeGoService", () => {
 
     it("should convert tool_calls in assistant messages to Anthropic tool_use blocks", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       const request = {
@@ -141,7 +145,7 @@ describe("OpenCodeGoService", () => {
         stream: false,
       };
 
-      const payload = opencodeGoService.buildPayload(
+      const payload = opencodeGoBrainProvider.buildPayload(
         request,
         "glm-5.2",
         false,
@@ -159,8 +163,8 @@ describe("OpenCodeGoService", () => {
 
     it("should respect maxContextTokens parameter and truncate overflow", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       const longContent = "x".repeat(6000);
@@ -174,7 +178,7 @@ describe("OpenCodeGoService", () => {
         stream: false,
       };
 
-      const payload = opencodeGoService.buildPayload(
+      const payload = opencodeGoBrainProvider.buildPayload(
         request,
         "glm-5.2",
         true,
@@ -190,11 +194,11 @@ describe("OpenCodeGoService", () => {
   describe("resolveEndpointUrl", () => {
     it("should return openai endpoint for openai brain", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
-      const url = opencodeGoService.resolveEndpointUrl("openai");
+      const url = opencodeGoBrainProvider.resolveEndpointUrl("openai");
       expect(url).toContain("/chat/completions");
       expect(url).toContain("opencode.ai");
       vi.unstubAllEnvs();
@@ -202,11 +206,11 @@ describe("OpenCodeGoService", () => {
 
     it("should return anthropic endpoint for anthropic brain", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
-      const url = opencodeGoService.resolveEndpointUrl("anthropic");
+      const url = opencodeGoBrainProvider.resolveEndpointUrl("anthropic");
       expect(url).toContain("/messages");
       expect(url).toContain("opencode.ai");
       vi.unstubAllEnvs();
@@ -216,8 +220,8 @@ describe("OpenCodeGoService", () => {
   describe("createChatCompletion auth header", () => {
     it("should send Bearer auth header", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       mockedAxios.post.mockResolvedValueOnce({
@@ -236,7 +240,7 @@ describe("OpenCodeGoService", () => {
         },
       });
 
-      await opencodeGoService.createChatCompletion(
+      await opencodeGoBrainProvider.createChatCompletion(
         {
           model: "proxy/kimi-k2.7-code",
           messages: [{ role: "user", content: "hi" }],
@@ -262,8 +266,8 @@ describe("OpenCodeGoService", () => {
 
     it("should send x-api-key header and anthropic-version for Anthropic endpoint", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       mockedAxios.post.mockResolvedValueOnce({
@@ -277,7 +281,7 @@ describe("OpenCodeGoService", () => {
         },
       });
 
-      await opencodeGoService.createChatCompletion(
+      await opencodeGoBrainProvider.createChatCompletion(
         {
           model: "proxy/qwen3.6-plus",
           messages: [{ role: "user", content: "hi" }],
@@ -308,8 +312,8 @@ describe("OpenCodeGoService", () => {
   describe("chatCompletionStream", () => {
     it("should buffer SSE chunks split across the packet boundary", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       const eventPayload = JSON.stringify({
@@ -335,7 +339,7 @@ describe("OpenCodeGoService", () => {
       let completed = false;
       let safeEndGuard = true;
 
-      await opencodeGoService.chatCompletionStream(
+      await opencodeGoBrainProvider.chatCompletionStream(
         {
           model: "proxy/kimi-k2.7-code",
           messages: [{ role: "user", content: "hi" }],
@@ -371,14 +375,14 @@ describe("OpenCodeGoService", () => {
 
     it("should send Bearer auth header on stream requests", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       const stream = Readable.from([]);
       mockedAxios.post.mockResolvedValueOnce({ data: stream });
 
-      await opencodeGoService.chatCompletionStream(
+      await opencodeGoBrainProvider.chatCompletionStream(
         {
           model: "proxy/kimi-k2.7-code",
           messages: [{ role: "user", content: "hi" }],
@@ -407,8 +411,8 @@ describe("OpenCodeGoService", () => {
 
     it("should not call onError after clean 'end' (socket reset race)", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       const stream = new PassThrough();
@@ -418,7 +422,7 @@ describe("OpenCodeGoService", () => {
       const errors: unknown[] = [];
       let completeCount = 0;
 
-      const promise = opencodeGoService.chatCompletionStream(
+      const promise = opencodeGoBrainProvider.chatCompletionStream(
         {
           model: "proxy/kimi-k2.7-code",
           messages: [{ role: "user", content: "hi" }],
@@ -455,8 +459,8 @@ describe("OpenCodeGoService", () => {
 
     it("should not throw and should call onError exactly once when upstream stream errors before end", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       const stream = new PassThrough();
@@ -466,7 +470,7 @@ describe("OpenCodeGoService", () => {
       const errors: unknown[] = [];
       let completeCount = 0;
 
-      const promise = opencodeGoService.chatCompletionStream(
+      const promise = opencodeGoBrainProvider.chatCompletionStream(
         {
           model: "proxy/kimi-k2.7-code",
           messages: [{ role: "user", content: "hi" }],
@@ -501,8 +505,8 @@ describe("OpenCodeGoService", () => {
 
     it("should flush pending buffer exactly once on 'end' even if 'data' and 'end' race", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       const stream = new PassThrough();
@@ -512,7 +516,7 @@ describe("OpenCodeGoService", () => {
       const errors: unknown[] = [];
       let completeCount = 0;
 
-      const promise = opencodeGoService.chatCompletionStream(
+      const promise = opencodeGoBrainProvider.chatCompletionStream(
         {
           model: "proxy/kimi-k2.7-code",
           messages: [{ role: "user", content: "hi" }],
@@ -549,8 +553,8 @@ describe("OpenCodeGoService", () => {
 
     it("should forward AbortSignal to axios on stream requests", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       const stream = new PassThrough();
@@ -559,7 +563,7 @@ describe("OpenCodeGoService", () => {
       const controller = new AbortController();
       stream.end();
 
-      await opencodeGoService.chatCompletionStream(
+      await opencodeGoBrainProvider.chatCompletionStream(
         {
           model: "proxy/kimi-k2.7-code",
           messages: [{ role: "user", content: "hi" }],
@@ -587,8 +591,8 @@ describe("OpenCodeGoService", () => {
 
     it("should not call onError when AbortSignal is aborted mid-stream", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       const stream = new PassThrough();
@@ -598,7 +602,7 @@ describe("OpenCodeGoService", () => {
       const errors: unknown[] = [];
       let completeCount = 0;
 
-      const promise = opencodeGoService.chatCompletionStream(
+      const promise = opencodeGoBrainProvider.chatCompletionStream(
         {
           model: "proxy/kimi-k2.7-code",
           messages: [{ role: "user", content: "hi" }],
@@ -636,8 +640,8 @@ describe("OpenCodeGoService", () => {
 
     it("should convert Anthropic SSE events (text_delta, message_delta, ping) to OpenAI chunks for openai-format clients", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       const anthropicSse = [
@@ -658,7 +662,7 @@ describe("OpenCodeGoService", () => {
       const errors: unknown[] = [];
       let completed = false;
 
-      await opencodeGoService.chatCompletionStream(
+      await opencodeGoBrainProvider.chatCompletionStream(
         {
           model: "proxy/qwen3.7-max",
           messages: [{ role: "user", content: "hi" }],
@@ -728,8 +732,8 @@ describe("OpenCodeGoService", () => {
 
     it("should map Anthropic thinking_delta to OpenAI reasoning_content for openai-format clients", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       const anthropicSse = [
@@ -745,7 +749,7 @@ describe("OpenCodeGoService", () => {
 
       const chunks: string[] = [];
 
-      await opencodeGoService.chatCompletionStream(
+      await opencodeGoBrainProvider.chatCompletionStream(
         {
           model: "proxy/qwen3.7-max",
           messages: [{ role: "user", content: "hi" }],
@@ -788,8 +792,8 @@ describe("OpenCodeGoService", () => {
 
     it("should convert Anthropic tool_use stream (content_block_start + input_json_delta + message_delta) to OpenAI tool_calls", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       const anthropicSse = [
@@ -810,7 +814,7 @@ describe("OpenCodeGoService", () => {
 
       const chunks: string[] = [];
 
-      await opencodeGoService.chatCompletionStream(
+      await opencodeGoBrainProvider.chatCompletionStream(
         {
           model: "proxy/qwen3.7-max",
           messages: [{ role: "user", content: "weather in Madrid?" }],
@@ -878,8 +882,8 @@ describe("OpenCodeGoService", () => {
 
     it("should pass through OpenAI-format chunks unchanged when endpoint is openai", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       const openaiChunk = JSON.stringify({
@@ -897,7 +901,7 @@ describe("OpenCodeGoService", () => {
 
       const chunks: string[] = [];
 
-      await opencodeGoService.chatCompletionStream(
+      await opencodeGoBrainProvider.chatCompletionStream(
         {
           model: "proxy/deepseek-v4-pro",
           messages: [{ role: "user", content: "hi" }],
@@ -928,8 +932,8 @@ describe("OpenCodeGoService", () => {
 
     it("should call onError before onComplete when upstream fails with non-retryable error so the client receives the error chunk before [DONE]", async () => {
       vi.stubEnv("OPENCODE_GO_API_KEY", "sk-test-key");
-      const { opencodeGoService } = await import(
-        "../../../src/services/opencodeGoService"
+      const { opencodeGoBrainProvider } = await import(
+        "../../../src/services/opencodeGoBrainProvider"
       );
 
       const networkError = Object.assign(new Error("connect ETIMEDOUT"), {
@@ -942,7 +946,7 @@ describe("OpenCodeGoService", () => {
       const order: string[] = [];
       let completeCount = 0;
 
-      await opencodeGoService.chatCompletionStream(
+      await opencodeGoBrainProvider.chatCompletionStream(
         {
           model: "proxy/deepseek-v4-pro",
           messages: [{ role: "user", content: "hi" }],
