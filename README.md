@@ -40,9 +40,14 @@ To switch modes, set `BRAIN_MODE` in `.env` and restart. Existing clients (`open
 
 | Model ID | Input / Output per 1M | Notes |
 |----------|----------------------|-------|
+| `proxy/glm-5.2` | $1.40 / $4.40 per 1M (combined $1.54 / $4.40 with senses) | OpenCode Go brain |
 | `proxy/deepseek-v4-pro` | $0.435 / $0.87 per 1M (combined $0.575 / $1.15 with senses) | Post-June 2026 price cut |
+| `proxy/qwen3.7-max` | $2.50 / $7.50 per 1M (combined $2.64 / $7.78 with senses) | OpenCode Go brain (Anthropic-format) |
+| `proxy/mimo-v2.5-pro` | $1.74 / $3.48 per 1M (combined $1.88 / $3.76 with senses) | OpenCode Go brain |
 | `proxy/local-deepseek-v4-pro`  | DeepSeek V4 Pro via your account (BRAIN_MODE=hybrid) | User-billed |
 | `proxy/local-deepseek-v4-flash` | DeepSeek V4 Flash via your account (BRAIN_MODE=hybrid) | User-billed |
+| `mimo-v2.5` (passthrough) | $0.14 / $0.28 per 1M | BRAIN_MODE=opencode/hybrid |
+| `MiniMax-M3` (passthrough) | Anthropic-format, billed by MiniMax | BRAIN_MODE=deepseek/hybrid |
 
 ## Requirements
 

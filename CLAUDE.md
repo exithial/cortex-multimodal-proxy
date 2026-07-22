@@ -31,9 +31,9 @@
 - All brains: thinking enabled
 - Endpoints: `proxy/glm-5.2`, `proxy/deepseek-v4-pro`, `proxy/mimo-v2.5-pro` use OpenAI-format (`/chat/completions`); `proxy/qwen3.7-max` uses Anthropic-format (`/messages`)
 - Context windows: ALL brains accept **1M** upstream natively — the proxy sends up to 1M to them — but clients see **800K** in `opencode.json`/`/v1/models` so they auto-compact before reaching the limit. The 200K gap is headroom for MiMo senses image descriptions. See `Brain context window policy` below.
-- Passthrough (natively multimodal): `mimo-v2.5`
-- Claude Code aliases: `haiku` → `mimo-v2.5` (passthrough), `sonnet` → `proxy/deepseek-v4-pro` (default), `opus` → `proxy/glm-5.2` (default)
-- Senses: MiMo V2.5 for images (mimo-v2.5 multimodal native), Gemini for audio/video/PDFs
+- Passthroughs (natively multimodal, no `proxy/` prefix): `mimo-v2.5` (BRAIN_MODE=opencode/hybrid via OpenCode Go) and `MiniMax-M3` (BRAIN_MODE=deepseek/hybrid via Anthropic-format direct API; requires `MINIMAX_API_KEY`). Only one passthrough is exposed in `/v1/models` at a time, depending on `BRAIN_MODE`.
+- Claude Code aliases: `haiku` → `mimo-v2.5` (opencode/hybrid) or `MiniMax-M3` (deepseek/hybrid), `sonnet` → `proxy/deepseek-v4-pro` (default), `opus` → `proxy/glm-5.2` (default)
+- Vision providers: `MimoSensesVisionProvider` (MiMo V2.5, image only, via OpenCode Go) for opencode/hybrid; `MiniMaxM3Provider` (image + video, Anthropic-format, no thinking block, requires `MINIMAX_API_KEY`) for deepseek/hybrid. Gemini 2.5 Flash fallback when active vision provider is unavailable or the content type is unsupported.
 
 ## Token Limits
 - Per brain — see `src/services/brainRegistry.ts`
@@ -102,14 +102,18 @@ When a brain has `endpoint: "anthropic"` (currently `proxy/qwen3.7-max`) but the
 - Delete local + remote branch after merge
 
 ## Services
-- `src/services/opencodeGoService.ts`: Generic OpenCode Go caller with retry logic for all brain models + passthrough
-- `src/services/mimoSensesService.ts`: MiMo V2.5 image description
+- `src/services/opencodeGoBrainProvider.ts`: `OpenCodeGoBrainProvider` (renamed from `opencodeGoService`) — generic OpenCode Go caller with retry logic for all brain models + passthrough
+- `src/services/mimoSensesVisionProvider.ts`: `MimoSensesVisionProvider` (renamed from `mimoSensesService`) — MiMo V2.5 image description
 - `src/services/geminiService.ts`: Gemini fallback for audio/video/PDF (still required for non-image media)
-- `src/services/brainRegistry.ts`: 4 brain entries + 1 passthrough model + helpers (getBrainEntry, isPassthrough, parseProxyModelId, isKnownModel)
-- `src/services/messageTransforms.ts`: Shared truncateMessages and prepareMessages helpers
+- `src/services/brainRegistry.ts`: `BRAIN_MODELS_BASE` (4 OpenCode Go brains) + `PASSTHROUGH_MODELS = { mimo-v2.5, MiniMax-M3 }` + runtime `registerBrainEntry()` + `parseLocalProxyModelId()` (validates against registry). Helpers: `getBrainEntry`, `isPassthrough`, `parseProxyModelId`, `isKnownModel`
+- `src/services/providerSelector.ts`: `BRAIN_MODE` resolver (auto/opencode/deepseek/hybrid) + provider factory + mode-aware filter (`getActiveBrainModels`, `getActiveBrainProviderFor`)
+- `src/services/deepseekBrainProvider.ts`: `DeepSeekBrainProvider` — direct DeepSeek V4 Pro/Flash, OpenAI-compatible, retries
+- `src/services/minimaxM3Provider.ts`: `MiniMaxM3Provider` — Anthropic-format chat + image/video vision passthrough, no thinking block
+- `src/services/messageTransforms.ts`: Shared `truncateMessages` and `prepareMessages` helpers
 - `src/services/anthropicAdapter.ts`: Claude Code ↔ OpenAI translation
+- `src/services/anthropicPayloadConverter.ts`: Shared OpenAI→Anthropic payload converter (used by `OpenCodeGoBrainProvider` and `MiniMaxM3Provider`)
 - `src/middleware/multimodalDetector.ts`: Content type detection
-- `src/middleware/multimodalProcessor.ts`: Orchestrates vision-mimo + Gemini fallback + local PDF routing
+- `src/middleware/multimodalProcessor.ts`: Orchestrates `VisionProvider` dispatch (supports content type) + Gemini fallback + local PDF routing
 
 ## Testing
 - Unit tests: Vitest, fast, no API keys needed

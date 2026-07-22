@@ -1,4 +1,4 @@
-# MODELS.md — Cortex Multimodal Proxy v3.0.0
+# MODELS.md — Cortex Multimodal Proxy
 
 **Modes**: `BRAIN_MODE=auto` (default) | `opencode` | `deepseek` | `hybrid`. See README "Modes" section. DeepSeek V4 Pro pricing reflects June 2026 cut ($0.435/$0.87).
 
@@ -20,12 +20,13 @@ All brains use OpenAI-format endpoint at `https://opencode.ai/zen/go/v1/chat/com
 
 ## Passthrough Models (Natively Multimodal, no proxy prefix)
 
-| Model ID | Endpoint | Thinking | Context | Max Output | Input/Output per 1M |
-|----------|----------|----------|---------|------------|---------------------|
-| `mimo-v2.5` | OpenAI | ✅ | 1M | 128K | $0.14 / $0.28 |
+| Model ID | Endpoint | Thinking | Context | Max Output | Input/Output per 1M | Available in |
+|----------|----------|----------|---------|------------|---------------------|--------------|
+| `mimo-v2.5` | OpenAI (via OpenCode Go) | ✅ | 1M | 128K | $0.14 / $0.28 | `BRAIN_MODE=opencode` / `hybrid` |
+| `MiniMax-M3` | Anthropic (`/v1/messages`) | ❌ (no thinking block) | 1M | 65K | varies | `BRAIN_MODE=deepseek` / `hybrid` (requires `MINIMAX_API_KEY`) |
 
 Passthrough models handle images natively — no MiMo V2.5 senses layer needed.
-Available in `/v1/models` but not proxied (configured directly in OpenCode).
+Exposed in `/v1/models` according to the active `BRAIN_MODE` (`getActiveProviderInfo().mode` in `src/services/providerSelector.ts`). The proxy routes the model directly to the upstream provider; only one passthrough is exposed at a time.
 
 ## Senses Layer
 

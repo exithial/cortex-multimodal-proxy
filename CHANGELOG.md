@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Pluggable brain and vision providers via `BRAIN_MODE`** (PR #9). New env var selects between four modes:
+  - `auto` (default) — picks `deepseek` if `DEEPSEEK_API_KEY` is set, else `opencode` if `OPENCODE_GO_API_KEY` is set; warns and proceeds if both are set.
+  - `opencode` — only the 4 OpenCode Go brains (`proxy/glm-5.2`, `proxy/deepseek-v4-pro`, `proxy/qwen3.7-max`, `proxy/mimo-v2.5-pro`) plus MiMo V2.5 vision.
+  - `deepseek` — only DeepSeek V4 Pro/Flash brains under their standard IDs (`proxy/deepseek-v4-{pro,flash}`) plus MiniMax M3 vision (requires `MINIMAX_API_KEY`).
+  - `hybrid` — both providers active: OpenCode Go brains under `proxy/<id>`, user's DeepSeek under `proxy/local-deepseek-v4-{pro,flash}`.
+- **New provider interfaces**:
+  - `BrainProvider` (`src/services/brainProvider.ts`) — text-only chat completion abstraction with per-entry `providerName` discriminator for hybrid routing.
+  - `VisionProvider` (`src/services/visionProvider.ts`) — multimodal content description with `supportsContentType("image" | "video")` gate.
+- **New provider implementations**:
+  - `OpenCodeGoBrainProvider` (renamed from `opencodeGoService`) — generic OpenCode Go caller, used in `opencode`/`hybrid`.
+  - `DeepSeekBrainProvider` — direct DeepSeek V4 Pro/Flash via `https://api.deepseek.com/v1/chat/completions`, OpenAI-compatible, OpenCode-style retries (3 attempts, 2s/4s delays on 503/502/429).
+  - `MimoSensesVisionProvider` (renamed from `mimoSensesService`) — MiMo V2.5 image description via OpenCode Go.
+  - `MiniMaxM3Provider` — Anthropic-format chat + image/video vision passthrough (`https://api.minimax.io/anthropic/v1/messages`), no thinking block, single `x-api-key` auth header.
+- **Runtime brain registry** in `src/services/brainRegistry.ts`: `BRAIN_MODELS_BASE` (4 OpenCode Go brains), `PASSTHROUGH_MODELS = { mimo-v2.5, MiniMax-M3 }`, runtime `registerBrainEntry()`, `parseLocalProxyModelId()` with registry validation.
+- **Provider selector** in `src/services/providerSelector.ts`: `BRAIN_MODE` resolver, per-entry routing via `entry.providerName`, mode-aware model filtering, mode-aware passthrough exposure in `/v1/models`.
+- **Two OpenCode TUI templates** committed (both stable):
+  - `opencode.json` — OpenCode Go flavor (5 entries: 4 brains + `mimo-v2.5` passthrough).
+  - `opencode.deepseek.json` — DeepSeek flavor (3 entries: 2 brains + `MiniMax-M3` passthrough).
+  - `scripts/select-opencode-config.sh` is informational and never mutates state.
+- **Shared converters**: `anthropicPayloadConverter.ts` (OpenAI→Anthropic payload, used by `OpenCodeGoBrainProvider` and `MiniMaxM3Provider`) and `anthropicStreamConverter.ts` (Anthropic SSE → OpenAI streaming chunks).
+
+### Changed
+
+- **Multimodal pipeline** (`src/middleware/multimodalProcessor.ts`) accepts a `VisionProvider` and dispatches on `supportsContentType` with Gemini fallback. `parseLocalProxyModelId` now validates the parsed upstream against the registry; unknown `proxy/local-*` IDs return null instead of leaking to provider routing.
+- **DeepSeek pricing** reflects the post-June 2026 price cut: $0.435 input / $0.87 output per 1M tokens (was $1.74 / $3.48 pre-cut).
+- **Docker** (`compose.yml`): default to bridge networking with explicit port mapping; host-mode option left as a single commented line for advanced setups (no public networking details leaked).
+- **Env validation** moved into provider constructors; each provider singleton is `process.env.KEY ? new Provider() : null`, so `BRAIN_MODE=opencode` users no longer crash on missing `DEEPSEEK_API_KEY` and vice versa.
+- **`.env.example`**: `SENSES_MODEL` default restored to `mimo-v2.5` so a fresh install with `BRAIN_MODE=auto` + only `OPENCODE_GO_API_KEY` resolves correctly to the MiMo senses provider.
+
+### Backward compatibility
+
+- `BRAIN_MODE=auto` with only `OPENCODE_GO_API_KEY` set preserves byte-for-byte the v3.1.0 public contract: same 4 brains, same passthrough (`mimo-v2.5`), same `/v1/models` listing, same Anthropic SSE → OpenAI streaming conversion.
+
 ## [3.1.0] - 2026-07-14
 
 ### Added
