@@ -1,6 +1,6 @@
 {
   "name": "cortex-multimodal-proxy",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Cortex Multimodal Proxy: 4 brains (glm-5.2, deepseek-v4-pro, qwen3.7-max, mimo-v2.5-pro) via OpenCode Go + 1 passthrough (mimo-v2.5). OpenAI/Anthropic-compatible.",
   "author": "exithial <en.solis.g@gmail.com>",
   "main": "dist/index.js",

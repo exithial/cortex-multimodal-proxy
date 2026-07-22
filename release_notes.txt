@@ -1,30 +1,42 @@
-Cortex Multimodal Proxy v3.0.0 — "Cortex Sensorial v3"
+# Cortex Multimodal Proxy v3.2.0 — Release Notes
 
-The 3.0.0 release is a complete rebuild of the proxy around the OpenCode Go subscription and a new lightweight image-description pipeline powered by MiMo V 2.5. The proxy keeps full compatibility with the two clients it was built for (OpenCode CLI and Claude Code), while running leaner and cheaper on upstream API costs.
+## What's new
 
-What changed for users
+Cortex Multimodal Proxy v3.2.0 introduces a runtime provider switch so the same proxy can serve your OpenCode Go subscription, your DeepSeek account, or both — without changing the OpenCode TUI configuration.
 
-- The project is now named Cortex Multimodal Proxy. The GitHub repository has been renamed to exithial/cortex-multimodal-proxy.
-- Claude Code users get the same haiku / sonnet / opus experience. Internally, haiku is now routed through the multimodal MiMo V 2.5 path (no more Gemini detour for fast or short prompts).
-- OpenCode users see a curated 3-model list instead of the previous 5-variants DeepSeek list. Pick the brain that matches the task; the proxy handles the rest.
-- Images attached to text-only requests are now described by MiMo V 2.5 instead of going through Gemini. For end users this means lower per-image cost and faster responses for everyday questions.
-- Audio, video, and large PDFs continue to use Gemini 2.5 Flash when configured. The Gemini integration is now optional and only engaged for non-image media, so you can run the proxy without a Gemini key for text, code, and image workflows.
-- All brains run with maximum-quality reasoning enabled by default. Expect deeper reasoning in long-horizon tasks.
-- A single OpenCode Go subscription replaces separate DeepSeek and Google API bills. One key, one invoice.
+Pick your mode with a single environment variable:
 
-What changed for operators
+- **`auto`** — recommended default. Uses your OpenCode Go brains if that key is set, otherwise your DeepSeek account.
+- **`opencode`** — exclusively the four OpenCode Go text brains plus MiMo V2.5 image vision.
+- **`deepseek`** — exclusively DeepSeek V4 Pro/Flash under your account, plus MiniMax M3 as the native multimodal passthrough (image and video in one shot).
+- **`hybrid`** — both providers loaded. OpenCode Go brains keep their standard names; your DeepSeek account shows up under `proxy/local-deepseek-v4-pro` and `proxy/local-deepseek-v4-flash`.
 
-- The model registry is the new single source of truth. Adding or swapping a brain is a one-line change.
-- Upstream 503 / 502 / 429 responses trigger an automatic retry with exponential backoff, honoring the Retry-After header. Short blips no longer surface as user-visible failures.
-- The container image and Docker Compose service have been renamed to cortex-multimodal-proxy.
+Existing clients do not need to change. The `auto` mode preserves the v3.1.0 wire format exactly: the same four brains, the same `mimo-v2.5` passthrough, the same `/v1/models` listing, the same SSE streaming behaviour.
 
-Upgrade notes
+## Why this matters
 
-- The env file now expects OPENCODE_GO_API_KEY (from opencode.ai/auth). DEEPSEEK_API_KEY and DEEPSEEK_BASE_URL are no longer read.
-- GEMINI_API_KEY is optional. Leave it unset if you do not use audio, video, or large PDFs.
-- Existing Claude Code setups work unchanged; the alias mapping is now controlled via CLAUDE_HAIKU_MODEL, CLAUDE_SONNET_MODEL, and CLAUDE_OPUS_MODEL environment variables.
-- Existing OpenCode setups should update the model references to the proxy/glm-5.2 and proxy/deepseek-v4-pro identifiers (vision-direct is no longer a model entry).
+- **One proxy, two ecosystems** — no more maintaining separate installations for OpenCode Go and direct DeepSeek.
+- **Cost-aware routing** — when only the DeepSeek key is set, your OpenCode Go brains are dropped (no idle $10/month dependency) and DeepSeek's post-June 2026 price cut kicks in: $0.435 input / $0.87 output per million tokens.
+- **Native video support** — DeepSeek mode pairs with MiniMax M3, which handles both image and video in one upstream call (no separate audio/video/PDF fallback chain needed for those media types).
+- **Two ready-to-use OpenCode TUI templates** committed in the repo (`opencode.json` for OpenCode Go flavor, `opencode.deepseek.json` for DeepSeek flavor); `scripts/select-opencode-config.sh` is a printed reminder, never a silent rewrite.
 
-Acknowledgements
+## What's stable
 
-Thanks to the OpenCode Go team for the unified subscription and to the model providers behind GLM-5.2, DeepSeek V4 Pro, and MiMo V 2.5.
+- All four OpenCode Go brains — `proxy/glm-5.2`, `proxy/deepseek-v4-pro`, `proxy/qwen3.7-max`, `proxy/mimo-v2.5-pro` — unchanged in API surface and pricing.
+- MiMo V2.5 senses layer (image description, $0.14 / $0.28 per 1M) — unchanged.
+- Gemini 2.5 Flash fallback for audio/PDF — unchanged.
+- Claude Code compatibility (`/v1/messages` with Anthropic-format) — unchanged.
+- `/health`, `/v1/models`, SSE streaming, retry policy — unchanged.
+
+## Upgrading
+
+1. Pull the new image / checkout the tag.
+2. Pick a mode by adding `BRAIN_MODE=<auto|opencode|deepseek|hybrid>` to your `.env`.
+3. If you want the new DeepSeek or MiniMax M3 capabilities, add `DEEPSEEK_API_KEY` and/or `MINIMAX_API_KEY` to `.env` too.
+4. Restart the container. No client reconfiguration required.
+
+## Credits
+
+Cortex Multimodal Proxy — open source under the project's existing license. Issues, pull requests, and bug reports welcome on the project repository.
+
+— The Cortex Multimodal Proxy maintainers

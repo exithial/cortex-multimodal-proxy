@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-07-22
+
 ### Added
 
 - **Pluggable brain and vision providers via `BRAIN_MODE`** (PR #9). New env var selects between four modes:
