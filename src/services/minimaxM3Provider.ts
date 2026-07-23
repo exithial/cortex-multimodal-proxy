@@ -98,6 +98,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
       ],
       max_tokens: 4096,
       stream: false,
+      thinking: { type: "disabled" as const },
     };
 
     logger.info(
@@ -143,7 +144,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
   buildPayload(
     request: ChatCompletionRequest,
     _upstreamModel: string,
-    _thinking: boolean,
+    thinking: boolean,
     _maxContextTokens: number,
     _endpoint: "openai" | "anthropic",
   ): any {
@@ -235,6 +236,9 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
         return tool;
       });
     }
+    if (thinking) {
+      payload.thinking = { type: "adaptive" };
+    }
     return payload;
   }
 
@@ -245,7 +249,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
     const payload = this.buildPayload(
       request,
       MINIMAX_CHAT_MODEL,
-      false,
+      true,
       1_048_576,
       "anthropic",
     );
@@ -267,7 +271,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
     const payload = this.buildPayload(
       request,
       MINIMAX_CHAT_MODEL,
-      false,
+      true,
       1_048_576,
       "anthropic",
     );
@@ -410,10 +414,13 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
   ): ChatCompletionResponse {
     const blocks = anthropic.content || [];
     let text = "";
+    let reasoning = "";
     let toolCalls: any[] | undefined;
     for (const b of blocks) {
       if (b.type === "text") text += (text ? "\n" : "") + b.text;
-      else if (b.type === "tool_use") {
+      else if (b.type === "thinking") {
+        reasoning += reasoning ? (b.thinking || "") : (b.thinking || "");
+      } else if (b.type === "tool_use") {
         toolCalls = toolCalls ?? [];
         toolCalls.push({
           id: b.id,
@@ -426,6 +433,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
       }
     }
     const message: any = { role: "assistant", content: text };
+    if (reasoning) message.reasoning_content = reasoning;
     if (toolCalls?.length) message.tool_calls = toolCalls;
     const stopReason = anthropic.stop_reason;
     const finishReason =
@@ -521,6 +529,21 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
             {
               index: 0,
               delta: { content: delta.text },
+              finish_reason: null,
+            },
+          ],
+        };
+      }
+      if (delta?.type === "thinking_delta") {
+        return {
+          id: `chatcmpl-${randomUUID()}`,
+          object: "chat.completion.chunk",
+          created: Math.floor(Date.now() / 1000),
+          model: request.model,
+          choices: [
+            {
+              index: 0,
+              delta: { reasoning_content: delta.thinking || "" },
               finish_reason: null,
             },
           ],

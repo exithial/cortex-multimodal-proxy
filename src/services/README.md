@@ -42,13 +42,18 @@ This directory contains the core business logic of the proxy.
 - Thinking-max via `thinking: { type: "enabled" }` (same retry curve as `opencodeGoBrainProvider`).
 - Streaming: OpenAI SSE passthrough.
 
-### `minimaxM3VisionProvider.ts`
+### `minimaxM3Provider.ts`
 
-**Responsibility**: MiniMax M3 vision (text + image + video) for `BRAIN_MODE=deepseek` and `BRAIN_MODE=hybrid` (implements `VisionProvider`).
+**Responsibility**: MiniMax M3 provider for `BRAIN_MODE=deepseek` and `BRAIN_MODE=hybrid` (implements both `BrainProvider` and `VisionProvider`).
 
 - Anthropic-format POST to `${MINIMAX_BASE_URL}/v1/messages` (default `https://api.minimax.io/anthropic`).
-- `model = SENSES_MODEL` (default `mimo-v2.5` (overridable per deployment)). Image content via `{type:"image", source:{type:"url", url: imageUrl}}`.
-- **No `thinking` block** (disabled by design).
+- Exports `MiniMaxM3Provider` (canonical), `minimaxM3Provider` (brain), and `minimaxM3VisionProvider` / `MiniMaxM3VisionProvider` (vision, kept for backward-compat).
+- **Vision (image/video description)**: payload includes `thinking: { type: "disabled" }` (explicit OFF, defensive against default changes).
+- **Passthrough chat (request)**: payload includes `thinking: { type: "adaptive" }` — MiniMax M3's canonical thinking control (see official docs); the model decides the budget adaptively.
+- **Passthrough chat (response)**:
+  - Stream: `content_block_delta.thinking_delta` → `choices[0].delta.reasoning_content`; `text_delta` → `choices[0].delta.content`. Mirrors the `qwen3.7-max` conversion table.
+  - Non-stream: all `thinking` blocks are concatenated into `message.reasoning_content`; text becomes `message.content`.
+  - Tool-use blocks (`tool_use`) map to OpenAI `tool_calls` like the other Anthropic-format brains.
 - `supportsContentType`: image=true; video=true; audio=false.
 
 ### `brainProvider.ts` / `visionProvider.ts`

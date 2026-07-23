@@ -33,7 +33,7 @@
 - Context windows: ALL brains accept **1M** upstream natively — the proxy sends up to 1M to them — but clients see **800K** in `opencode.json`/`/v1/models` so they auto-compact before reaching the limit. The 200K gap is headroom for MiMo senses image descriptions. See `Brain context window policy` below.
 - Passthroughs (natively multimodal, no `proxy/` prefix): `mimo-v2.5` (BRAIN_MODE=opencode/hybrid via OpenCode Go) and `MiniMax-M3` (BRAIN_MODE=deepseek/hybrid via Anthropic-format direct API; requires `MINIMAX_API_KEY`). Only one passthrough is exposed in `/v1/models` at a time, depending on `BRAIN_MODE`.
 - Claude Code aliases: `haiku` → `mimo-v2.5` (opencode/hybrid) or `MiniMax-M3` (deepseek/hybrid), `sonnet` → `proxy/deepseek-v4-pro` (default), `opus` → `proxy/glm-5.2` (default)
-- Vision providers: `MimoSensesVisionProvider` (MiMo V2.5, image only, via OpenCode Go) for opencode/hybrid; `MiniMaxM3Provider` (image + video, Anthropic-format, no thinking block, requires `MINIMAX_API_KEY`) for deepseek/hybrid. Gemini 2.5 Flash fallback when active vision provider is unavailable or the content type is unsupported.
+- Vision providers: `MimoSensesVisionProvider` (MiMo V2.5, image only, via OpenCode Go) for opencode/hybrid; `MiniMaxM3Provider` (image + video, Anthropic-format, requires `MINIMAX_API_KEY`) for deepseek/hybrid — vision payloads send `thinking: { type: "disabled" }`; passthrough chat payloads send `thinking: { type: "adaptive" }` (MiniMax canonical). Gemini 2.5 Flash fallback when active vision provider is unavailable or the content type is unsupported.
 
 ## Token Limits
 - Per brain — see `src/services/brainRegistry.ts`
@@ -54,17 +54,23 @@ The 200K gap between client-visible 800K and the upstream 1M is **mandatory head
 **When adding a new brain:** `BrainModelEntry.context` = real upstream limit (e.g., 1M for 1M models); `limit.context` in `opencode.json` and `README.md` = 800K for any brain on the MiMo senses pipeline.
 
 ### Anthropic → OpenAI streaming conversion
-When a brain has `endpoint: "anthropic"` (currently `proxy/qwen3.7-max`) but the client speaks OpenAI-format (e.g. OpenCode TUI over `/v1/chat/completions`), the upstream's Anthropic SSE events are converted to OpenAI `ChatCompletionChunk` shape on the fly. Implemented in `OpenCodeGoService.convertAnthropicChunkToOpenAI`:
+When a brain has `endpoint: "anthropic"` (currently `proxy/qwen3.7-max` via OpenCode Go, and `MiniMax-M3` via the Anthropic-format passthrough) but the client speaks OpenAI-format (e.g. OpenCode TUI over `/v1/chat/completions`), the upstream's Anthropic SSE events are converted to OpenAI `ChatCompletionChunk` shape on the fly. Two implementations share the same mapping table:
+
+- `opencodeGoBrainProvider.convertAnthropicChunkToOpenAI` — for brains reached via OpenCode Go (e.g. `proxy/qwen3.7-max`)
+- `minimaxM3Provider.anthropicStreamToOpenAIChunk` — for the `MiniMax-M3` passthrough
 
 | Anthropic event | OpenAI chunk |
 |-----------------|--------------|
 | `content_block_start` (text) | (skipped — first `text_delta` opens the choice) |
 | `content_block_start` (tool_use) | `choices[0].delta.tool_calls[0]` with `id`, `type: "function"`, `function.name` |
+| `content_block_start` (thinking) | (skipped — first `thinking_delta` opens the reasoning stream) |
 | `content_block_delta.text_delta` | `choices[0].delta.content` |
 | `content_block_delta.thinking_delta` | `choices[0].delta.reasoning_content` |
 | `content_block_delta.input_json_delta` | `choices[0].delta.tool_calls[0].function.arguments` (chunk accumulates via `tool_calls[].index`) |
 | `message_delta` (stop_reason) | `choices[0].finish_reason` (`end_turn`→`stop`, `max_tokens`→`length`, `tool_use`→`tool_calls`) |
 | `message_start`, `content_block_stop`, `message_stop`, `ping` | filtered (no OpenAI equivalent) |
+
+For the **non-streaming** path, MiniMax passthrough accumulates all `thinking` blocks into `message.reasoning_content` in the returned OpenAI `ChatCompletionResponse` (alongside `message.content` for text).
 
 `reasoning_content` is a DeepSeek/opencode extension to the OpenAI streaming schema, not part of standard OpenAI. Clients that strictly validate against OpenAI's ChatCompletionChunk schema may ignore it; in practice the OpenCode TUI, Claude Code, and the OpenAI Node SDK all surface it as a separate reasoning channel.
 
@@ -108,7 +114,7 @@ When a brain has `endpoint: "anthropic"` (currently `proxy/qwen3.7-max`) but the
 - `src/services/brainRegistry.ts`: `BRAIN_MODELS_BASE` (4 OpenCode Go brains) + `PASSTHROUGH_MODELS = { mimo-v2.5, MiniMax-M3 }` + runtime `registerBrainEntry()` + `parseLocalProxyModelId()` (validates against registry). Helpers: `getBrainEntry`, `isPassthrough`, `parseProxyModelId`, `isKnownModel`
 - `src/services/providerSelector.ts`: `BRAIN_MODE` resolver (auto/opencode/deepseek/hybrid) + provider factory + mode-aware filter (`getActiveBrainModels`, `getActiveBrainProviderFor`)
 - `src/services/deepseekBrainProvider.ts`: `DeepSeekBrainProvider` — direct DeepSeek V4 Pro/Flash, OpenAI-compatible, retries
-- `src/services/minimaxM3Provider.ts`: `MiniMaxM3Provider` — Anthropic-format chat + image/video vision passthrough, no thinking block
+- `src/services/minimaxM3Provider.ts`: `MiniMaxM3Provider` — Anthropic-format chat + image/video vision passthrough (vision: `thinking: { type: "disabled" }`; passthrough chat: `thinking: { type: "adaptive" }`)
 - `src/services/messageTransforms.ts`: Shared `truncateMessages` and `prepareMessages` helpers
 - `src/services/anthropicAdapter.ts`: Claude Code ↔ OpenAI translation
 - `src/services/anthropicPayloadConverter.ts`: Shared OpenAI→Anthropic payload converter (used by `OpenCodeGoBrainProvider` and `MiniMaxM3Provider`)
