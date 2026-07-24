@@ -7,6 +7,7 @@ RUN npm ci
 
 COPY tsconfig.json ./
 COPY src ./src
+COPY public ./public
 RUN npm run build
 
 FROM node:20-alpine AS runtime
@@ -18,8 +19,9 @@ COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/public ./public
 
-RUN mkdir -p /app/cache && chown -R node:node /app
+RUN mkdir -p /app/cache /app/data && chown -R node:node /app
 
 USER node
 EXPOSE 7777

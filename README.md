@@ -208,7 +208,47 @@ Default Claude Code mappings (configurable via env vars):
 | `/v1/messages` | POST | Anthropic Messages API (Claude Code) |
 | `/v1/models` | GET | Model list (4 proxy brains + 1 passthrough) |
 | `/v1/cache/stats` | GET | Contextual cache statistics |
+| `/v1/dashboard/snapshot` | GET | Dashboard JSON snapshot (totals, time-series, models, logs) |
+| `/dashboard/` | GET | Informational dashboard UI |
 | `/health` | GET | Service status + version |
+
+## Dashboard
+
+An informational dashboard is served on the same Express app and port as the proxy (no separate process, no extra auth — consistent with the rest of the proxy today). It captures every request's `usage`, cost, latency, status, cache hit, and routing strategy, persists them to SQLite, and surfaces them in a single-page UI.
+
+Open `http://<host>:7777/dashboard/` after the proxy is running.
+
+What you get:
+
+- **Hero cards** — tokens in/out (totals), cost USD, request count + error split, cache hit ratio + hits/misses, error rate, uptime
+- **Time-series chart** — tokens in/out over the last 24h (hourly) or last 30d (daily), toggle via the segmented control
+- **Models table** — per-model breakdown: in/out/cost/req/err/cache/p50/p95, sorted by request count
+- **Log tail** — last 200 lines of `combined.log` + `error.log` with level filter and substring search; "refresh" button for on-demand reload
+- **Footer** — version, BRAIN_MODE, providers, log tail length
+
+Live updates are pure polling: the server tells the client the cadence via `operational.poll_interval_ms` (default 10s). The UI honors that value; no SSE/WebSocket.
+
+### Env vars
+
+| Var | Default | Meaning |
+|-----|---------|---------|
+| `DASHBOARD_ENABLED` | `true` | Master switch. `false` = no DB writes, snapshot returns 503, UI shows a "disabled" banner |
+| `DASHBOARD_RETENTION_DAYS` | `90` | Events older than this are purged every hour |
+| `DASHBOARD_POLL_INTERVAL_MS` | `10000` | Server advertises this; client honors it |
+| `DASHBOARD_LOG_TAIL_LINES` | `200` | Max lines returned in `recentLogs` |
+| `DASHBOARD_DB_PATH` | `./data/dashboard.db` | SQLite file path; the directory is auto-created |
+
+### Rollback
+
+Set `DASHBOARD_ENABLED=false` in `.env` and restart. The dashboard route still serves the UI (with a "disabled" banner), but no events are written and `GET /v1/dashboard/snapshot` returns 503. To fully remove, revert the merge commit — no other behavior changes.
+
+### Notes
+
+- The dashboard's cache-hit boolean means "any cache served this request" — Anthropic dedupe (2s TTL, `/v1/messages`) today, plus descriptions cache (7d TTL, future) when it gets wired up.
+- Cost = `(prompt_tokens / 1M) × inputPrice + (completion_tokens / 1M) × outputPrice` using the registry's `inputPrice`/`outputPrice` for the brain the request was routed to. No external pricing API; numbers are estimates from the registry.
+- Streaming requests: `usage` is captured from the last chunk; if the provider doesn't emit usage (some don't), the row is still recorded with 0 tokens but real latency and status.
+- Errors are captured via the existing try/catch in both `/v1/chat/completions` and `/v1/messages`, with `status="error"`.
+- The DB file is mounted as a named Docker volume (`proxy-data`) so it survives container restarts.
 
 ### Technical Metrics
 

@@ -20,6 +20,13 @@ import {
   getActiveProviderInfo,
   getActiveVisionProvider,
 } from "./services/providerSelector";
+import {
+  dashboardService,
+  type ClientKind,
+  type RecordRequestPayload,
+  type Strategy,
+} from "./services/dashboardService";
+import { mountDashboardRoutes } from "./routes/dashboard";
 import type {
   ChatCompletionRequest,
   ChatCompletionResponse,
@@ -41,6 +48,7 @@ const DEDUPE_TTL_MS = parseInt(process.env.DEDUPE_TTL_MS || "2000");
 const HAIKU_DEFER_MS = parseInt(
   process.env.ANTHROPIC_HAIKU_DEFER_MS || "150",
 );
+const SERVER_START_TIME = Date.now();
 
 const inFlightAnthropic = new Map<string, Promise<AnthropicMessage>>();
 const inFlightAnthropicByContent = new Map<
@@ -235,6 +243,66 @@ function extractAssistantContent(messages: ChatMessage[]): string {
   return JSON.stringify(msg.content);
 }
 
+function tryRecord(payload: RecordRequestPayload): void {
+  try {
+    dashboardService.recordRequest(payload);
+  } catch (err) {
+    logger.warn(`dashboardService.recordRequest fallo: ${getErrorMessage(err)}`);
+  }
+}
+
+function extractUsageFromChunk(chunk: string): {
+  prompt: number;
+  completion: number;
+  total: number;
+} {
+  let prompt = 0;
+  let completion = 0;
+  let total = 0;
+  for (const line of chunk.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("data:")) continue;
+    const body = trimmed.slice(5).trim();
+    if (!body || body === "[DONE]") continue;
+    try {
+      const parsed = JSON.parse(body);
+      const u =
+        parsed.usage ??
+        parsed.message?.usage ??
+        (parsed.type === "message_delta" ? parsed.usage : null);
+      if (u && typeof u === "object") {
+        if (typeof u.input_tokens === "number") {
+          prompt = Math.max(prompt, u.input_tokens);
+          completion = Math.max(completion, u.output_tokens ?? 0);
+        } else {
+          if (typeof u.prompt_tokens === "number")
+            prompt = Math.max(prompt, u.prompt_tokens);
+          if (typeof u.completion_tokens === "number")
+            completion = Math.max(completion, u.completion_tokens);
+        }
+        if (typeof u.total_tokens === "number")
+          total = Math.max(total, u.total_tokens);
+      }
+    } catch {
+      // ignore malformed chunks
+    }
+  }
+  if (total === 0) total = prompt + completion;
+  return { prompt, completion, total };
+}
+
+function computeCost(
+  brain: BrainModelEntry | null,
+  promptTokens: number,
+  completionTokens: number,
+): number {
+  if (!brain) return 0;
+  return (
+    (promptTokens / 1_000_000) * brain.inputPrice +
+    (completionTokens / 1_000_000) * brain.outputPrice
+  );
+}
+
 // Cache stats
 app.get("/v1/cache/stats", async (req: Request, res: Response) => {
   try {
@@ -245,6 +313,9 @@ app.get("/v1/cache/stats", async (req: Request, res: Response) => {
     res.status(500).json({ error: getErrorMessage(error) });
   }
 });
+
+// Dashboard routes (static + snapshot)
+mountDashboardRoutes(app, { startTime: SERVER_START_TIME });
 
 // Models endpoint - Lista modelos multimodales disponibles
 // Compatible 100% con OpenAI API
@@ -328,6 +399,7 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
       getActiveVisionProvider(),
     );
     res.setHeader("X-Multimodal-Strategy", strategy);
+    const strategyForRecord: Strategy = strategy;
 
     if (isPassthrough(model)) {
       logger.info(`Passthrough: ${model} (nativamente multimodal)`);
@@ -349,6 +421,8 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
 
       let clientClosed = false;
       const abortController = new AbortController();
+      let lastChunk = "";
+      let streamError: unknown = null;
       const safeWrite = (chunk: string): void => {
         if (clientClosed || res.writableEnded || res.destroyed) return;
         try {
@@ -383,9 +457,11 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
         processedRequest,
         brainEntry,
         (chunk) => {
+          lastChunk += chunk;
           safeWrite(chunk);
         },
         (error) => {
+          streamError = error;
           const errorResponse: ErrorResponse = {
             error: {
               message: getErrorMessage(error),
@@ -402,6 +478,21 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
           logger.info(
             `✓ Request stream completado (${elapsed}s) | ${brainEntry.upstream}`,
           );
+          const usage = extractUsageFromChunk(lastChunk);
+          tryRecord({
+            ts: Date.now(),
+            model,
+            brain: brainEntry.upstream,
+            strategy: strategyForRecord,
+            promptTokens: usage.prompt,
+            completionTokens: usage.completion,
+            totalTokens: usage.total,
+            costUsd: computeCost(brainEntry, usage.prompt, usage.completion),
+            latencyMs: Date.now() - startTime,
+            status: streamError ? "error" : "ok",
+            cacheHit: 0,
+            client: "openai",
+          });
         },
         abortController.signal,
       );
@@ -414,10 +505,48 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
       logger.info(
         `✓ Request completado (${elapsed}s) | ${brainEntry.upstream}`,
       );
+      const usage = response.usage ?? {
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        total_tokens: 0,
+      };
+      tryRecord({
+        ts: Date.now(),
+        model,
+        brain: brainEntry.upstream,
+        strategy: strategyForRecord,
+        promptTokens: usage.prompt_tokens,
+        completionTokens: usage.completion_tokens,
+        totalTokens: usage.total_tokens,
+        costUsd: computeCost(
+          brainEntry,
+          usage.prompt_tokens,
+          usage.completion_tokens,
+        ),
+        latencyMs: Date.now() - startTime,
+        status: "ok",
+        cacheHit: 0,
+        client: "openai",
+      });
       res.json(response);
     }
   } catch (error: unknown) {
     logger.error("Error procesando request:", error);
+
+    tryRecord({
+      ts: Date.now(),
+      model: req.body?.model ?? "unknown",
+      brain: "unknown",
+      strategy: "direct",
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      costUsd: 0,
+      latencyMs: Date.now() - startTime,
+      status: "error",
+      cacheHit: 0,
+      client: "openai",
+    });
 
     const errorResponse: ErrorResponse = {
       error: {
@@ -441,6 +570,7 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
   let contentKey = "";
   let deferred: Deferred<AnthropicMessage> | null = null;
   const requestId = randomUUID();
+  const clientKind: ClientKind = "anthropic";
 
   try {
     const anthropicRequest = req.body as AnthropicRequest;
@@ -459,6 +589,22 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
           "anthropic-version",
           req.headers["anthropic-version"] || "2023-06-01",
         );
+        tryRecord({
+          ts: Date.now(),
+          model: originalModel,
+          brain: "in-flight-dedupe",
+          strategy: "direct",
+          promptTokens: response.usage?.input_tokens ?? 0,
+          completionTokens: response.usage?.output_tokens ?? 0,
+          totalTokens:
+            (response.usage?.input_tokens ?? 0) +
+            (response.usage?.output_tokens ?? 0),
+          costUsd: 0,
+          latencyMs: Date.now() - startTime,
+          status: "ok",
+          cacheHit: 1,
+          client: clientKind,
+        });
         res.json(response);
         return;
       }
@@ -470,6 +616,22 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
       logger.info(
         `Cache HIT (Anthropic dedupe) | request_id: ${requestId} | model: ${originalModel}`,
       );
+      tryRecord({
+        ts: Date.now(),
+        model: originalModel,
+        brain: "anthropic-dedupe",
+        strategy: "direct",
+        promptTokens: cachedResponse.usage?.input_tokens ?? 0,
+        completionTokens: cachedResponse.usage?.output_tokens ?? 0,
+        totalTokens:
+          (cachedResponse.usage?.input_tokens ?? 0) +
+          (cachedResponse.usage?.output_tokens ?? 0),
+        costUsd: 0,
+        latencyMs: Date.now() - startTime,
+        status: "ok",
+        cacheHit: 1,
+        client: clientKind,
+      });
       if (anthropicRequest.stream) {
         res.setHeader("Content-Type", "text/event-stream");
         res.setHeader("Cache-Control", "no-cache");
@@ -514,6 +676,22 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
         `In-flight dedupe (Anthropic) | request_id: ${requestId} | model: ${originalModel}`,
       );
       const response = await existing;
+      tryRecord({
+        ts: Date.now(),
+        model: originalModel,
+        brain: "in-flight-dedupe",
+        strategy: "direct",
+        promptTokens: response.usage?.input_tokens ?? 0,
+        completionTokens: response.usage?.output_tokens ?? 0,
+        totalTokens:
+          (response.usage?.input_tokens ?? 0) +
+          (response.usage?.output_tokens ?? 0),
+        costUsd: 0,
+        latencyMs: Date.now() - startTime,
+        status: "ok",
+        cacheHit: 1,
+        client: clientKind,
+      });
       if (anthropicRequest.stream) {
         res.setHeader("Content-Type", "text/event-stream");
         res.setHeader("Cache-Control", "no-cache");
@@ -678,7 +856,9 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
         },
       );
 
+      let accumulatedChunks = "";
       for await (const event of anthropicStream) {
+        accumulatedChunks += event;
         res.write(event);
       }
 
@@ -689,6 +869,21 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
       logger.info(
         `OK Request stream Anthropic completado (${elapsed}s total) | request_id: ${requestId} | internal: ${internalModel}`,
       );
+      const usage = extractUsageFromChunk(accumulatedChunks);
+      tryRecord({
+        ts: Date.now(),
+        model: originalModel,
+        brain: brainEntry!.upstream,
+        strategy,
+        promptTokens: usage.prompt,
+        completionTokens: usage.completion,
+        totalTokens: usage.total,
+        costUsd: computeCost(brainEntry!, usage.prompt, usage.completion),
+        latencyMs: Date.now() - startTime,
+        status: "ok",
+        cacheHit: 0,
+        client: clientKind,
+      });
       return;
     }
 
@@ -716,11 +911,48 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
     logger.info(
       `OK Request Anthropic completado (${elapsed}s total) | request_id: ${requestId} | internal: ${internalModel}`,
     );
+    const usage = anthropicResponse.usage ?? {
+      input_tokens: 0,
+      output_tokens: 0,
+    };
+    tryRecord({
+      ts: Date.now(),
+      model: originalModel,
+      brain: brainEntry!.upstream,
+      strategy,
+      promptTokens: usage.input_tokens,
+      completionTokens: usage.output_tokens,
+      totalTokens: usage.input_tokens + usage.output_tokens,
+      costUsd: computeCost(
+        brainEntry!,
+        usage.input_tokens,
+        usage.output_tokens,
+      ),
+      latencyMs: Date.now() - startTime,
+      status: "ok",
+      cacheHit: 0,
+      client: clientKind,
+    });
   } catch (error: unknown) {
     if (deferred) deferred.reject(error);
     if (requestKey) inFlightAnthropic.delete(requestKey);
     inFlightAnthropicByContent.delete(contentKey);
     logger.error("Error procesando request Anthropic:", error);
+
+    tryRecord({
+      ts: Date.now(),
+      model: req.body?.model ?? "unknown",
+      brain: "unknown",
+      strategy: "direct",
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      costUsd: 0,
+      latencyMs: Date.now() - startTime,
+      status: "error",
+      cacheHit: 0,
+      client: clientKind,
+    });
 
     const errorResponse: AnthropicError = {
       type: "error",
@@ -765,28 +997,38 @@ async function init() {
       "Arquitectura 'Cortex Sensorial v3': 4 brains via OpenCode Go (glm-5.2, deepseek-v4-pro, qwen3.7-max, mimo-v2.5-pro) + 1 passthrough (mimo-v2.5)",
     );
     await cacheService.init();
+    await dashboardService.init();
 
-    app.listen(PORT, () => {
-      logger.info(
-        `Servidor multimodal escuchando en http://localhost:${PORT}`,
-      );
-      logger.info(`Health check: http://localhost:${PORT}/health`);
-      logger.info(`Modelos: http://localhost:${PORT}/v1/models`);
-      logger.info(
-        `Capacidades: texto, imagenes (MiMo), audio/video/PDF (Gemini fallback)`,
-      );
-      logger.info(
-        `Limite por archivo: ${process.env.MAX_FILE_SIZE_MB || "50"}MB`,
-      );
-      logger.info(
-        `  Brains: ${Object.keys(getActiveBrainModels()).join(", ")} (max thinking)`,
-      );
-      logger.info(
-        `  Passthrough: ${Array.from(PASSTHROUGH_MODELS).join(", ")} (multimodal nativo)`,
-      );
-      logger.info(
-        `  Senses: MiMo V2.5 para imagenes | Gemini fallback: ${process.env.GEMINI_MODEL || "gemini-2.5-flash"}`,
-      );
+    return new Promise<void>((resolve) => {
+      const server = app.listen(PORT, () => {
+        const addr = server.address();
+        const boundPort =
+          typeof addr === "object" && addr ? addr.port : PORT;
+        logger.info(
+          `Servidor multimodal escuchando en http://localhost:${boundPort}`,
+        );
+        logger.info(`Health check: http://localhost:${boundPort}/health`);
+        logger.info(`Modelos: http://localhost:${boundPort}/v1/models`);
+        logger.info(
+          `Capacidades: texto, imagenes (MiMo), audio/video/PDF (Gemini fallback)`,
+        );
+        logger.info(
+          `Limite por archivo: ${process.env.MAX_FILE_SIZE_MB || "50"}MB`,
+        );
+        logger.info(
+          `  Brains: ${Object.keys(getActiveBrainModels()).join(", ")} (max thinking)`,
+        );
+        logger.info(
+          `  Passthrough: ${Array.from(PASSTHROUGH_MODELS).join(", ")} (multimodal nativo)`,
+        );
+        logger.info(
+          `  Senses: MiMo V2.5 para imagenes | Gemini fallback: ${process.env.GEMINI_MODEL || "gemini-2.5-flash"}`,
+        );
+        logger.info(
+          `  Dashboard: http://localhost:${boundPort}/dashboard/`,
+        );
+        resolve();
+      });
     });
   } catch (error) {
     logger.error(
@@ -797,8 +1039,12 @@ async function init() {
   }
 }
 
+export { app, init };
+
 // Manejo de señales
 process.on("SIGINT", () => process.exit(0));
 process.on("SIGTERM", () => process.exit(0));
 
-init();
+if (require.main === module) {
+  void init();
+}

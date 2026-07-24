@@ -6,6 +6,8 @@ cache/*.json
 cache/*.pid
 !cache/.gitkeep
 *.tsbuildinfo
+data/
+!data/.gitkeep
 .DS_Store
 
 # Testing

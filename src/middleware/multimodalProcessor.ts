@@ -30,6 +30,7 @@ export async function processMultimodalContent(
   processedMessages: ChatMessage[];
   useDeepseekDirectly: boolean;
   strategy: "direct" | "vision" | "vision-mimo" | "local" | "mixed";
+  descriptionsCacheHits: number;
 }> {
   if (modelName && isPassthrough(modelName)) {
     logger.info(
@@ -39,6 +40,7 @@ export async function processMultimodalContent(
       processedMessages: messages,
       useDeepseekDirectly: true,
       strategy: "direct",
+      descriptionsCacheHits: 0,
     };
   }
 
@@ -55,6 +57,7 @@ export async function processMultimodalContent(
       processedMessages: messages,
       useDeepseekDirectly: true,
       strategy: "direct",
+      descriptionsCacheHits: 0,
     };
   }
 
@@ -89,6 +92,7 @@ export async function processMultimodalContent(
       processedMessages: messages,
       useDeepseekDirectly: true,
       strategy: "direct",
+      descriptionsCacheHits: 0,
     };
   }
 
@@ -105,6 +109,7 @@ export async function processMultimodalContent(
         processedMessages: messages,
         useDeepseekDirectly: true,
         strategy: "direct",
+        descriptionsCacheHits: 0,
       };
     }
   }
@@ -256,7 +261,12 @@ export async function processMultimodalContent(
   else if (visionContent.length === 0 && localContent.length > 0)
     strategy = "local";
 
-  return { processedMessages, useDeepseekDirectly: false, strategy };
+  return {
+    processedMessages,
+    useDeepseekDirectly: false,
+    strategy,
+    descriptionsCacheHits: 0,
+  };
 }
 
 export async function canDeepseekHandleDirectly(
