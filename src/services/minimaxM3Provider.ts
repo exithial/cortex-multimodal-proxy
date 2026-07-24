@@ -424,6 +424,23 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
     throw lastError;
   }
 
+  /**
+   * Extract Anthropic prompt-cache fields from the usage block and shape
+   * them as OpenAI `prompt_tokens_details`. The dashboard and the
+   * proxy hooks use `cached_tokens > 0` to set `cacheHit: 1`.
+   * Returns `null` if no cache field is present (avoid sending
+   * `prompt_tokens_details: { cached_tokens: 0 }` for every call).
+   */
+  private extractCacheFields(usage: any): { cached_tokens: number } | null {
+    if (!usage || typeof usage !== "object") return null;
+    const read = usage.cache_read_input_tokens;
+    const created = usage.cache_creation_input_tokens;
+    const cached = (typeof read === "number" ? read : 0) +
+      (typeof created === "number" ? created : 0);
+    if (cached <= 0) return null;
+    return { cached_tokens: cached };
+  }
+
   private anthropicToOpenAIResponse(
     anthropic: any,
     request: ChatCompletionRequest,
@@ -487,6 +504,9 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
             total_tokens:
               (anthropic.usage.input_tokens ?? 0) +
               (anthropic.usage.output_tokens ?? 0),
+            ...(this.extractCacheFields(anthropic.usage)
+              ? { prompt_tokens_details: this.extractCacheFields(anthropic.usage)! }
+              : {}),
           }
         : undefined,
     };
@@ -614,11 +634,14 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
         const inTok = typeof u.input_tokens === "number" ? u.input_tokens : 0;
         const outTok =
           typeof u.output_tokens === "number" ? u.output_tokens : 0;
-        chunk.usage = {
+        const usage: Record<string, unknown> = {
           prompt_tokens: inTok,
           completion_tokens: outTok,
           total_tokens: inTok + outTok,
         };
+        const cacheFields = this.extractCacheFields(u);
+        if (cacheFields) usage.prompt_tokens_details = cacheFields;
+        chunk.usage = usage;
       }
       return chunk;
     }

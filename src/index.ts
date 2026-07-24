@@ -255,10 +255,13 @@ function extractUsageFromChunk(chunk: string): {
   prompt: number;
   completion: number;
   total: number;
+  cachedTokens: number;
+  cacheHit: boolean;
 } {
   let prompt = 0;
   let completion = 0;
   let total = 0;
+  let cachedTokens = 0;
   for (const line of chunk.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed.startsWith("data:")) continue;
@@ -282,13 +285,27 @@ function extractUsageFromChunk(chunk: string): {
         }
         if (typeof u.total_tokens === "number")
           total = Math.max(total, u.total_tokens);
+        // OpenAI convention: `prompt_tokens_details.cached_tokens` (or
+        // Anthropic's `cache_read_input_tokens`). Either signals a hit.
+        const details = u.prompt_tokens_details;
+        if (details && typeof details.cached_tokens === "number") {
+          cachedTokens = Math.max(cachedTokens, details.cached_tokens);
+        } else if (typeof u.cache_read_input_tokens === "number") {
+          cachedTokens = Math.max(cachedTokens, u.cache_read_input_tokens);
+        }
       }
     } catch {
       // ignore malformed chunks
     }
   }
   if (total === 0) total = prompt + completion;
-  return { prompt, completion, total };
+  return {
+    prompt,
+    completion,
+    total,
+    cachedTokens,
+    cacheHit: cachedTokens > 0,
+  };
 }
 
 function computeCost(
@@ -510,7 +527,7 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
             costUsd: computeCost(brainEntry, usage.prompt, usage.completion),
             latencyMs: Date.now() - startTime,
             status: streamError ? "error" : "ok",
-            cacheHit: 0,
+            cacheHit: usage.cacheHit ? 1 : 0,
             client: "openai",
           });
         },
@@ -530,6 +547,8 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
         completion_tokens: 0,
         total_tokens: 0,
       };
+      const cachedFromDetails =
+        usage.prompt_tokens_details?.cached_tokens ?? 0;
       tryRecord({
         ts: Date.now(),
         model,
@@ -545,7 +564,7 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
         ),
         latencyMs: Date.now() - startTime,
         status: "ok",
-        cacheHit: 0,
+        cacheHit: cachedFromDetails > 0 ? 1 : 0,
         client: "openai",
       });
       res.json(response);
@@ -901,7 +920,7 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
         costUsd: computeCost(brainEntry!, usage.prompt, usage.completion),
         latencyMs: Date.now() - startTime,
         status: "ok",
-        cacheHit: 0,
+        cacheHit: usage.cacheHit ? 1 : 0,
         client: clientKind,
       });
       return;
@@ -935,6 +954,7 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
       input_tokens: 0,
       output_tokens: 0,
     };
+    const cachedFromAnthropic = usage.cache_read_input_tokens ?? 0;
     tryRecord({
       ts: Date.now(),
       model: originalModel,
@@ -950,7 +970,7 @@ app.post("/v1/messages", async (req: Request, res: Response) => {
       ),
       latencyMs: Date.now() - startTime,
       status: "ok",
-      cacheHit: 0,
+      cacheHit: cachedFromAnthropic > 0 ? 1 : 0,
       client: clientKind,
     });
   } catch (error: unknown) {
