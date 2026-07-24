@@ -411,6 +411,148 @@ describe("MiniMaxM3Provider (passthrough chat)", () => {
     expect(signatureChunks.length).toBe(0);
   });
 
+  it("chatCompletionStream uses the same chunk id across all chunks in a single response (OpenCode context continuity)", async () => {
+    vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
+    vi.stubEnv("MINIMAX_BASE_URL", "https://api.minimax.io/anthropic");
+    const { EventEmitter } = await import("events");
+    const fakeStream = new EventEmitter();
+    mockedAxios.post.mockResolvedValue({ data: fakeStream });
+    const { minimaxM3Provider } = await import(
+      "../../../src/services/minimaxM3Provider"
+    );
+    const onChunk = vi.fn();
+    const onError = vi.fn();
+    const onComplete = vi.fn();
+    await minimaxM3Provider.chatCompletionStream(
+      { model: "MiniMax-M3", stream: true, messages: [{ role: "user" as const, content: "hi" }] },
+      passthroughBrainEntry,
+      onChunk,
+      onError,
+      onComplete,
+    );
+    fakeStream.emit(
+      "data",
+      Buffer.from(
+        'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n' +
+          'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hello"}}\n\n' +
+          'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":" world"}}\n\n' +
+          'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":1,"output_tokens":2}}\n\n',
+      ),
+    );
+    await new Promise<void>((r) => setImmediate(r));
+    fakeStream.emit("end");
+    const emitted = parseEmittedChunks(onChunk);
+    expect(emitted.length).toBeGreaterThanOrEqual(3);
+    const ids = new Set(emitted.map((c) => c.id));
+    expect(ids.size).toBe(1);
+  });
+
+  it("chatCompletionStream emits usage chunk when message_delta carries input_tokens/output_tokens (dashboard capture)", async () => {
+    vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
+    vi.stubEnv("MINIMAX_BASE_URL", "https://api.minimax.io/anthropic");
+    const { EventEmitter } = await import("events");
+    const fakeStream = new EventEmitter();
+    mockedAxios.post.mockResolvedValue({ data: fakeStream });
+    const { minimaxM3Provider } = await import(
+      "../../../src/services/minimaxM3Provider"
+    );
+    const onChunk = vi.fn();
+    const onError = vi.fn();
+    const onComplete = vi.fn();
+    await minimaxM3Provider.chatCompletionStream(
+      {
+        model: "MiniMax-M3",
+        stream: true,
+        messages: [{ role: "user" as const, content: "hi" }],
+      },
+      passthroughBrainEntry,
+      onChunk,
+      onError,
+      onComplete,
+    );
+    fakeStream.emit(
+      "data",
+      Buffer.from(
+        'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}\n\n' +
+          'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":42,"output_tokens":7}}\n\n',
+      ),
+    );
+    await new Promise<void>((r) => setImmediate(r));
+    fakeStream.emit("end");
+    const emittedBodies = parseEmittedChunks(onChunk);
+    const usageChunks = emittedBodies.filter((b) => b.usage);
+    expect(usageChunks).toHaveLength(1);
+    const u = usageChunks[0].usage as {
+      prompt_tokens: number;
+      completion_tokens: number;
+      total_tokens: number;
+      prompt_tokens_details?: { cached_tokens?: number };
+    };
+    expect(u.prompt_tokens).toBe(42);
+    expect(u.completion_tokens).toBe(7);
+    expect(u.total_tokens).toBe(49);
+  });
+
+  it("chatCompletionStream emits cached_tokens in usage chunk when message_delta has cache_read_input_tokens (Anthropic prompt cache)", async () => {
+    vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
+    vi.stubEnv("MINIMAX_BASE_URL", "https://api.minimax.io/anthropic");
+    const { EventEmitter } = await import("events");
+    const fakeStream = new EventEmitter();
+    mockedAxios.post.mockResolvedValue({ data: fakeStream });
+    const { minimaxM3Provider } = await import(
+      "../../../src/services/minimaxM3Provider"
+    );
+    const onChunk = vi.fn();
+    const onError = vi.fn();
+    const onComplete = vi.fn();
+    await minimaxM3Provider.chatCompletionStream(
+      { model: "MiniMax-M3", stream: true, messages: [{ role: "user" as const, content: "hi" }] },
+      passthroughBrainEntry,
+      onChunk,
+      onError,
+      onComplete,
+    );
+    fakeStream.emit(
+      "data",
+      Buffer.from(
+        'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}\n\n' +
+          'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":10,"output_tokens":5,"cache_read_input_tokens":1000,"cache_creation_input_tokens":500}}\n\n',
+      ),
+    );
+    await new Promise<void>((r) => setImmediate(r));
+    fakeStream.emit("end");
+    const usageChunks = parseEmittedChunks(onChunk).filter((b) => b.usage);
+    expect(usageChunks).toHaveLength(1);
+    const details = (usageChunks[0].usage as any).prompt_tokens_details as
+      | { cached_tokens: number }
+      | undefined;
+    expect(details?.cached_tokens).toBe(1500);
+  });
+
+  it("createChatCompletion includes prompt_tokens_details.cached_tokens when MiniMax returns cache_read_input_tokens", async () => {
+    vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
+    vi.stubEnv("MINIMAX_BASE_URL", "https://api.minimax.io/anthropic");
+    mockedAxios.post.mockResolvedValue({
+      data: {
+        content: [{ type: "text", text: "answer" }],
+        stop_reason: "end_turn",
+        usage: {
+          input_tokens: 10,
+          output_tokens: 5,
+          cache_read_input_tokens: 2048,
+        },
+      },
+    });
+    const { minimaxM3Provider } = await import(
+      "../../../src/services/minimaxM3Provider"
+    );
+    const resp = await minimaxM3Provider.createChatCompletion(
+      { model: "MiniMax-M3", messages: [{ role: "user" as const, content: "hi" }] },
+      passthroughBrainEntry,
+    );
+    expect(resp.usage?.prompt_tokens_details?.cached_tokens).toBe(2048);
+  });
+
   it("createChatCompletion joins adjacent thinking blocks with a newline separator", async () => {
     vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
     vi.stubEnv("MINIMAX_BASE_URL", "https://api.minimax.io/anthropic");

@@ -294,6 +294,13 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
       onComplete();
     };
 
+    // Single response id reused across ALL chunks in this stream. The
+    // OpenAI convention is one id per response (not per chunk), and
+    // clients like OpenCode use it to associate chunks with the same
+    // response — a per-chunk id would cause context counters to reset.
+    const chunkId = `chatcmpl-${randomUUID()}`;
+    const createdAt = Math.floor(Date.now() / 1000);
+
     const maxRetries = 3;
     const baseDelay = 2000;
     let response: any;
@@ -350,6 +357,8 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
               const openaiChunk = this.anthropicStreamToOpenAIChunk(
                 parsed,
                 request,
+                chunkId,
+                createdAt,
               );
               if (openaiChunk) {
                 onChunk(`data: ${JSON.stringify(openaiChunk)}\n\n`);
@@ -415,6 +424,23 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
     throw lastError;
   }
 
+  /**
+   * Extract Anthropic prompt-cache fields from the usage block and shape
+   * them as OpenAI `prompt_tokens_details`. The dashboard and the
+   * proxy hooks use `cached_tokens > 0` to set `cacheHit: 1`.
+   * Returns `null` if no cache field is present (avoid sending
+   * `prompt_tokens_details: { cached_tokens: 0 }` for every call).
+   */
+  private extractCacheFields(usage: any): { cached_tokens: number } | null {
+    if (!usage || typeof usage !== "object") return null;
+    const read = usage.cache_read_input_tokens;
+    const created = usage.cache_creation_input_tokens;
+    const cached = (typeof read === "number" ? read : 0) +
+      (typeof created === "number" ? created : 0);
+    if (cached <= 0) return null;
+    return { cached_tokens: cached };
+  }
+
   private anthropicToOpenAIResponse(
     anthropic: any,
     request: ChatCompletionRequest,
@@ -478,6 +504,9 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
             total_tokens:
               (anthropic.usage.input_tokens ?? 0) +
               (anthropic.usage.output_tokens ?? 0),
+            ...(this.extractCacheFields(anthropic.usage)
+              ? { prompt_tokens_details: this.extractCacheFields(anthropic.usage)! }
+              : {}),
           }
         : undefined,
     };
@@ -486,15 +515,20 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
   private anthropicStreamToOpenAIChunk(
     parsed: any,
     request: ChatCompletionRequest,
+    chunkId: string,
+    createdAt: number,
   ): Record<string, unknown> | null {
+    const base = {
+      id: chunkId,
+      object: "chat.completion.chunk",
+      created: createdAt,
+      model: request.model,
+    };
     if (parsed.type === "content_block_start") {
       const block = parsed.content_block;
       if (block?.type === "tool_use") {
         return {
-          id: `chatcmpl-${randomUUID()}`,
-          object: "chat.completion.chunk",
-          created: Math.floor(Date.now() / 1000),
-          model: request.model,
+          ...base,
           choices: [
             {
               index: 0,
@@ -518,10 +552,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
         };
       }
       return {
-        id: `chatcmpl-${randomUUID()}`,
-        object: "chat.completion.chunk",
-        created: Math.floor(Date.now() / 1000),
-        model: request.model,
+        ...base,
         choices: [
           {
             index: 0,
@@ -535,10 +566,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
       const delta = parsed.delta;
       if (delta?.type === "text_delta") {
         return {
-          id: `chatcmpl-${randomUUID()}`,
-          object: "chat.completion.chunk",
-          created: Math.floor(Date.now() / 1000),
-          model: request.model,
+          ...base,
           choices: [
             {
               index: 0,
@@ -553,10 +581,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
           return null;
         }
         return {
-          id: `chatcmpl-${randomUUID()}`,
-          object: "chat.completion.chunk",
-          created: Math.floor(Date.now() / 1000),
-          model: request.model,
+          ...base,
           choices: [
             {
               index: 0,
@@ -575,10 +600,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
       }
       if (delta?.type === "input_json_delta") {
         return {
-          id: `chatcmpl-${randomUUID()}`,
-          object: "chat.completion.chunk",
-          created: Math.floor(Date.now() / 1000),
-          model: request.model,
+          ...base,
           choices: [
             {
               index: 0,
@@ -603,13 +625,25 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
             : stopReason === "tool_use"
               ? "tool_calls"
               : "stop";
-      return {
-        id: `chatcmpl-${randomUUID()}`,
-        object: "chat.completion.chunk",
-        created: Math.floor(Date.now() / 1000),
-        model: request.model,
+      const chunk: Record<string, unknown> = {
+        ...base,
         choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
       };
+      const u = parsed.usage;
+      if (u && typeof u === "object") {
+        const inTok = typeof u.input_tokens === "number" ? u.input_tokens : 0;
+        const outTok =
+          typeof u.output_tokens === "number" ? u.output_tokens : 0;
+        const usage: Record<string, unknown> = {
+          prompt_tokens: inTok,
+          completion_tokens: outTok,
+          total_tokens: inTok + outTok,
+        };
+        const cacheFields = this.extractCacheFields(u);
+        if (cacheFields) usage.prompt_tokens_details = cacheFields;
+        chunk.usage = usage;
+      }
+      return chunk;
     }
     return null;
   }

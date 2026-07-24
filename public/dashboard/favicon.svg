@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6" fill="#0b0a0e"/>
+  <text
+    x="16"
+    y="23"
+    text-anchor="middle"
+    font-family="'Instrument Serif', 'Times New Roman', serif"
+    font-size="24"
+    font-style="italic"
+    fill="#f0a830"
+  >C</text>
+  <circle cx="26" cy="6" r="2.5" fill="#4dd4cf"/>
+</svg>

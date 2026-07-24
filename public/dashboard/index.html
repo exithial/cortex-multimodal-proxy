@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cortex · Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="/dashboard/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;600&display=swap"
+    />
+    <link rel="stylesheet" href="/dashboard/styles.css" />
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+    <main class="page">
+      <header class="masthead">
+        <div class="masthead-left">
+          <span class="dot" id="live-dot" aria-hidden="true"></span>
+          <h1 class="title">
+            <span class="title-main">Cortex</span>
+            <span class="title-sub">proxy dashboard</span>
+          </h1>
+        </div>
+        <div class="masthead-right">
+          <div class="meta">
+            <span class="meta-label">ultima sinc</span>
+            <span class="meta-value" id="last-refresh">—</span>
+          </div>
+          <div class="meta">
+            <span class="meta-label">poll</span>
+            <span class="meta-value" id="poll-interval">—</span>
+          </div>
+        </div>
+      </header>
+
+      <section class="cards" id="hero-cards">
+        <article class="card card-tokens" data-metric="tokens">
+          <div class="card-head">
+            <span class="card-label">Tokens</span>
+            <span class="card-tag">Σ total</span>
+          </div>
+          <div class="card-figure" id="metric-total-tokens">0</div>
+          <div class="card-split">
+            <div class="split">
+              <span class="split-label">in</span>
+              <span class="split-value" id="metric-prompt-tokens">0</span>
+            </div>
+            <div class="split">
+              <span class="split-label">out</span>
+              <span class="split-value" id="metric-completion-tokens">0</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card card-cost" data-metric="cost">
+          <div class="card-head">
+            <span class="card-label">Coste</span>
+            <span class="card-tag">USD estimado</span>
+          </div>
+          <div class="card-figure">
+            <span class="card-figure-prefix">$</span>
+            <span id="metric-cost">0.00</span>
+          </div>
+          <div class="card-foot">
+            <span class="foot-label">combinado senses + brains</span>
+          </div>
+        </article>
+
+        <article class="card card-req" data-metric="requests">
+          <div class="card-head">
+            <span class="card-label">Requests</span>
+            <span class="card-tag">totales</span>
+          </div>
+          <div class="card-figure" id="metric-requests">0</div>
+          <div class="card-split">
+            <div class="split">
+              <span class="split-label">ok</span>
+              <span class="split-value" id="metric-requests-ok">0</span>
+            </div>
+            <div class="split split-danger">
+              <span class="split-label">err</span>
+              <span class="split-value" id="metric-errors">0</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card card-cache" data-metric="cache">
+          <div class="card-head">
+            <span class="card-label">Cache</span>
+            <span class="card-tag">hit ratio</span>
+          </div>
+          <div class="card-figure">
+            <span id="metric-cache-ratio">0.0</span>
+            <span class="card-figure-suffix">%</span>
+          </div>
+          <div class="card-split">
+            <div class="split">
+              <span class="split-label">hits</span>
+              <span class="split-value" id="metric-cache-hits">0</span>
+            </div>
+            <div class="split">
+              <span class="split-label">miss</span>
+              <span class="split-value" id="metric-cache-misses">0</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card card-err" data-metric="error-rate">
+          <div class="card-head">
+            <span class="card-label">Error rate</span>
+            <span class="card-tag">%</span>
+          </div>
+          <div class="card-figure">
+            <span id="metric-error-rate">0.0</span>
+            <span class="card-figure-suffix">%</span>
+          </div>
+          <div class="card-foot">
+            <span class="foot-label">errores / requests totales</span>
+          </div>
+        </article>
+
+        <article class="card card-up" data-metric="uptime">
+          <div class="card-head">
+            <span class="card-label">Uptime</span>
+            <span class="card-tag">desde el arranque</span>
+          </div>
+          <div class="card-figure" id="metric-uptime">—</div>
+          <div class="card-foot">
+            <span class="foot-label" id="metric-version">—</span>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel panel-chart">
+        <div class="panel-head">
+          <h2 class="panel-title">Trafico</h2>
+          <div class="panel-controls">
+            <button
+              type="button"
+              class="seg-btn is-active"
+              data-range="24h"
+              id="range-24h"
+            >
+              24h
+            </button>
+            <button type="button" class="seg-btn" data-range="30d" id="range-30d">
+              30d
+            </button>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="traffic-chart" aria-label="Trafico de tokens"></canvas>
+        </div>
+        <div class="chart-legend">
+          <span class="legend-item">
+            <span class="legend-swatch swatch-in"></span>
+            <span>in</span>
+          </span>
+          <span class="legend-item">
+            <span class="legend-swatch swatch-out"></span>
+            <span>out</span>
+          </span>
+          <span class="legend-item legend-meta">
+            <span>requests · errors</span>
+          </span>
+        </div>
+      </section>
+
+      <section class="panel panel-table">
+        <div class="panel-head">
+          <h2 class="panel-title">Por modelo</h2>
+          <span class="panel-meta" id="model-count">— modelos</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="models-table">
+            <thead>
+              <tr>
+                <th>modelo</th>
+                <th>brain</th>
+                <th class="num">in</th>
+                <th class="num">out</th>
+                <th class="num">USD</th>
+                <th class="num">req</th>
+                <th class="num">err</th>
+                <th class="num">cache</th>
+                <th class="num">p50</th>
+                <th class="num">p95</th>
+              </tr>
+            </thead>
+            <tbody id="models-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel panel-logs">
+        <div class="panel-head">
+          <h2 class="panel-title">Logs</h2>
+          <div class="panel-controls">
+            <span class="panel-meta" id="logs-count">—</span>
+            <select id="log-level" class="select">
+              <option value="all">todos los niveles</option>
+              <option value="error">solo error</option>
+              <option value="warn+">warn + error</option>
+              <option value="info+">info + warn + error</option>
+              <option value="debug">solo debug</option>
+            </select>
+            <input
+              type="search"
+              id="log-search"
+              class="search"
+              placeholder="buscar substring…"
+              autocomplete="off"
+            />
+            <button type="button" class="btn" id="log-refresh">refresh</button>
+          </div>
+        </div>
+        <div class="logs-wrap">
+          <pre class="logs" id="logs-pane" aria-live="polite"></pre>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <div class="foot-col">
+          <span class="foot-key">version</span>
+          <span class="foot-val" id="foot-version">—</span>
+        </div>
+        <div class="foot-col">
+          <span class="foot-key">mode</span>
+          <span class="foot-val" id="foot-mode">—</span>
+        </div>
+        <div class="foot-col">
+          <span class="foot-key">providers</span>
+          <span class="foot-val" id="foot-providers">—</span>
+        </div>
+        <div class="foot-col">
+          <span class="foot-key">retention</span>
+          <span class="foot-val" id="foot-retention">—</span>
+        </div>
+        <div class="foot-col foot-col-end">
+          <span class="foot-key">end of feed</span>
+          <span class="foot-val">·</span>
+        </div>
+      </footer>
+
+      <div class="banner banner-error" id="error-banner" hidden>
+        <span class="banner-icon">!</span>
+        <span class="banner-msg" id="error-msg">
+          dashboard: data unavailable
+        </span>
+      </div>
+      <div class="banner banner-disabled" id="disabled-banner" hidden>
+        <span class="banner-icon">○</span>
+        <span class="banner-msg">
+          dashboard deshabilitado (DASHBOARD_ENABLED=false)
+        </span>
+      </div>
+    </main>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"
+      integrity="sha384-NrKB+u6Ts6AtkIhwPixiKTzgSKNblyhlk0Sohlgar9UHUBzai/sgnNNWWd291xqt"
+      crossorigin="anonymous"
+    ></script>
+    <script type="module" src="/dashboard/app.js"></script>
+  </body>
+</html>
