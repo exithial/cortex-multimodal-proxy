@@ -22,6 +22,7 @@ let lastRefreshAt = 0;
 let range = "24h";
 let pollTimer = null;
 let pollIntervalMs = 0;
+let inflight = false;
 
 const els = {
   liveDot: document.getElementById("live-dot"),
@@ -59,7 +60,8 @@ const els = {
 };
 
 function formatUptime(seconds) {
-  if (!seconds || seconds < 0) return "—";
+  if (typeof seconds !== "number" || seconds < 0) return "—";
+  if (seconds < 60) return `${Math.floor(seconds)}s`;
   const d = Math.floor(seconds / 86400);
   const h = Math.floor((seconds % 86400) / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -70,7 +72,7 @@ function formatUptime(seconds) {
 
 function formatAgo(ms) {
   const s = Math.floor((Date.now() - ms) / 1000);
-  if (s < 5) return "ahora";
+  if (s < 1) return "0s";
   if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60);
   return `${m}m ${s % 60}s`;
@@ -248,27 +250,34 @@ function renderModels(snap) {
 
 function renderLogs(snap) {
   const total = snap.recentLogs.length;
-  const level = els.logLevel.value;
+  const VALID_LEVELS = new Set(["all", "info+", "warn+", "error", "debug"]);
+  let level = els.logLevel.value;
+  if (!VALID_LEVELS.has(level)) level = "all";
   const search = els.logSearch.value.toLowerCase();
   const filtered = snap.recentLogs.filter((l) => {
     if (level === "all") return true;
-    if (level === "warn") return l.level === "warn" || l.level === "error";
-    if (level === "info")
-      return ["info", "warn", "error"].includes(l.level);
+    if (level === "info+")
+      return l.level === "info" || l.level === "warn" || l.level === "error";
+    if (level === "warn+") return l.level === "warn" || l.level === "error";
     return l.level === level;
   });
   const searched = search
     ? filtered.filter((l) => l.message.toLowerCase().includes(search))
     : filtered;
 
+  const SCROLL_THRESHOLD_PX = 32;
+  const pane = els.logsPane;
+  const wasAtBottom =
+    pane.scrollTop + pane.clientHeight >= pane.scrollHeight - SCROLL_THRESHOLD_PX;
+
   if (total === 0) {
-    els.logsPane.innerHTML =
+    pane.innerHTML =
       '<span class="log-line l-debug">— log vacio (combined.log / error.log) —</span>';
     if (els.logsCount) els.logsCount.textContent = "0 lineas";
     return;
   }
   if (searched.length === 0) {
-    els.logsPane.innerHTML =
+    pane.innerHTML =
       '<span class="log-line l-debug">— sin logs con ese filtro —</span>';
     if (els.logsCount)
       els.logsCount.textContent = `0 / ${filtered.length} lineas`;
@@ -276,13 +285,13 @@ function renderLogs(snap) {
   }
   const RENDER_LIMIT = 200;
   const slice = searched.slice(0, RENDER_LIMIT);
-  els.logsPane.innerHTML = slice
+  pane.innerHTML = slice
     .map((l) => {
       const ts = l.ts || "—";
       return `<span class="log-line l-${escape(l.level)}"><span class="log-ts">${escape(ts)}</span><span class="lvl">${escape(l.level)}</span>${escape(l.message)}</span>`;
     })
     .join("");
-  els.logsPane.scrollTop = els.logsPane.scrollHeight;
+  if (wasAtBottom) pane.scrollTop = pane.scrollHeight;
   if (els.logsCount) {
     const shown = slice.length;
     const matched = searched.length;
@@ -324,6 +333,7 @@ function armPoll(intervalMs) {
   if (pollTimer) clearInterval(pollTimer);
   pollIntervalMs = intervalMs;
   pollTimer = setInterval(() => {
+    if (document.hidden || inflight) return;
     fetchSnapshot().catch(() => {});
   }, intervalMs);
 }
@@ -339,6 +349,8 @@ function tickClock() {
 }
 
 async function fetchSnapshot() {
+  if (inflight) return;
+  inflight = true;
   try {
     const res = await fetch("/v1/dashboard/snapshot", {
       cache: "no-store",
@@ -359,6 +371,8 @@ async function fetchSnapshot() {
     els.liveDot.classList.add("is-stale");
     els.errorBanner.hidden = false;
     els.errorMsg.textContent = `dashboard: ${err.message || err}`;
+  } finally {
+    inflight = false;
   }
 }
 
@@ -389,6 +403,18 @@ els.logSearch.addEventListener("input", () => {
 });
 
 els.logRefresh.addEventListener("click", () => fetchSnapshot());
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) fetchSnapshot().catch(() => {});
+});
+
+const missing = Object.entries(els).filter(([, v]) => !v);
+if (missing.length > 0) {
+  console.error(
+    "dashboard: missing elements",
+    missing.map(([k]) => k).join(", "),
+  );
+}
 
 setInterval(tickClock, 1000);
 fetchSnapshot().catch(() => {});

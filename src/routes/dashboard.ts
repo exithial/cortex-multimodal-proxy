@@ -38,9 +38,11 @@ export function mountDashboardRoutes(
         providers: getActiveProviderInfo(),
         activeModels,
       });
+      res.set("Cache-Control", "no-store");
       res.json(snapshot);
     } catch (error: unknown) {
       logger.error("Dashboard snapshot failed:", error);
+      res.set("Cache-Control", "no-store");
       res.status(503).json({
         error: "dashboard_unavailable",
         message: error instanceof Error ? error.message : String(error),
