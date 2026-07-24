@@ -502,6 +502,18 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden) fetchSnapshot().catch(() => {});
 });
 
+// Clear the poll timer when the page is hidden for an extended
+// period (iframe teardown, SPA navigation, tab moved to a
+// background process) so we don't leave a setInterval running
+// across navigation. The polling is resumed on the next
+// visibilitychange to visible.
+window.addEventListener("pagehide", () => {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+});
+
 const missing = Object.entries(els).filter(([, v]) => !v);
 if (missing.length > 0) {
   console.error(

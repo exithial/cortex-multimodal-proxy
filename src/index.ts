@@ -378,6 +378,23 @@ const MINIMAX_PASSTHROUGH_OUTPUT_PRICE = parseFloat(
   process.env.MINIMAX_OUTPUT_PRICE || "0",
 );
 
+// If MiniMax-M3 is reachable as a passthrough AND both prices are
+// 0, the dashboard's cost column will show $0 for every request
+// even though the operator is paying per-token via MINIMAX_API_KEY.
+// Warn once at startup so the operator can fix the config.
+if (
+  process.env.MINIMAX_API_KEY &&
+  MINIMAX_PASSTHROUGH_INPUT_PRICE === 0 &&
+  MINIMAX_PASSTHROUGH_OUTPUT_PRICE === 0
+) {
+  logger.warn(
+    "MINIMAX_API_KEY is set but MINIMAX_INPUT_PRICE and " +
+      "MINIMAX_OUTPUT_PRICE are both 0; the dashboard will report $0 " +
+      "for every MiniMax-M3 request. Set these env vars to your real " +
+      "per-token rates (USD per 1M tokens) to track cost.",
+  );
+}
+
 function resolveBrainServiceEntry(modelId: string): BrainModelEntry | null {
   // Per-model passthrough pricing. mimo-v2.5 is subscription-based
   // (OpenCode Go) so the user already pays the flat fee; the dashboard
