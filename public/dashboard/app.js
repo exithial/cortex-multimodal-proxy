@@ -305,6 +305,7 @@ function renderLogs(snap) {
 
   const SCROLL_THRESHOLD_PX = 32;
   const pane = els.logsPane;
+  if (!pane) return;
   const wasAtBottom =
     pane.scrollTop + pane.clientHeight >= pane.scrollHeight - SCROLL_THRESHOLD_PX;
 
@@ -390,10 +391,20 @@ function tickClock() {
 async function fetchSnapshot() {
   if (inflight) return;
   inflight = true;
+  // Hard timeout = pollIntervalMs * 4 (so a single missed tick is
+  // forgiven but a hung server doesn't freeze the inflight latch
+  // forever). Without this, a blocked event loop on the server
+  // would keep inflight=true, every subsequent poll would early-
+  // return, and the dashboard would silently freeze.
+  const pollMs =
+    (lastSnapshot && lastSnapshot.operational.pollIntervalMs) || 10000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), pollMs * 4);
   try {
     const res = await fetch("/v1/dashboard/snapshot", {
       cache: "no-store",
       headers: { Accept: "application/json" },
+      signal: controller.signal,
     });
     if (res.status === 503) {
       const body = await res.json().catch(() => ({}));
@@ -407,10 +418,13 @@ async function fetchSnapshot() {
     const snap = await res.json();
     render(snap);
   } catch (err) {
+    const reason =
+      err.name === "AbortError" ? `timeout (>${pollMs * 4}ms)` : err.message || err;
     els.liveDot.classList.add("is-stale");
     els.errorBanner.hidden = false;
-    els.errorMsg.textContent = `dashboard: ${err.message || err}`;
+    els.errorMsg.textContent = `dashboard: ${reason}`;
   } finally {
+    clearTimeout(timeoutId);
     inflight = false;
   }
 }

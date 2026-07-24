@@ -234,7 +234,7 @@ Live updates are pure polling: the server tells the client the cadence via `oper
 
 | Var | Default | Meaning |
 |-----|---------|---------|
-| `DASHBOARD_ENABLED` | `true` | Master switch. `false` = no DB writes, snapshot returns 503, UI shows a "disabled" banner |
+| `DASHBOARD_ENABLED` | `false` | Master switch. Set to `true` to capture requests. `false` = no DB writes, snapshot returns 503, UI shows a "disabled" banner. Default is off so operators consciously opt in after reading the security warning above. |
 | `DASHBOARD_RETENTION_DAYS` | `90` | Events older than this are purged every hour |
 | `DASHBOARD_POLL_INTERVAL_MS` | `10000` | Server advertises this; client honors it |
 | `DASHBOARD_LOG_TAIL_LINES` | `200` | Max lines returned in `recentLogs` |

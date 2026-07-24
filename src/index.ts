@@ -324,10 +324,16 @@ function computeCost(
   completionTokens: number,
 ): number {
   if (!brain) return 0;
-  return (
-    (promptTokens / 1_000_000) * brain.inputPrice +
-    (completionTokens / 1_000_000) * brain.outputPrice
-  );
+  // Defensive ?? 0: a missing/undefined price in the registry would
+  // produce NaN, which serialises as null in JSON and poisons the
+  // cost_usd sum in dashboardService. Treat missing as 0.
+  const inPrice = typeof brain.inputPrice === "number" ? brain.inputPrice : 0;
+  const outPrice = typeof brain.outputPrice === "number" ? brain.outputPrice : 0;
+  if (!Number.isFinite(promptTokens) || !Number.isFinite(completionTokens)) {
+    return 0;
+  }
+  return (promptTokens / 1_000_000) * inPrice +
+    (completionTokens / 1_000_000) * outPrice;
 }
 
 // Cache stats

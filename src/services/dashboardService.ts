@@ -134,8 +134,12 @@ class DashboardService {
   private db: DatabaseType | null = null;
   private retentionTimer: NodeJS.Timeout | null = null;
   private insertStmt: ReturnType<DatabaseType["prepare"]> | null = null;
-  private logFilePath = path.resolve("./combined.log");
-  private errorLogPath = path.resolve("./error.log");
+  private logFilePath = path.resolve(
+    process.env.DASHBOARD_LOG_FILE || "./combined.log",
+  );
+  private errorLogPath = path.resolve(
+    process.env.DASHBOARD_ERROR_LOG_FILE || "./error.log",
+  );
 
   constructor() {
     this.enabled = process.env.DASHBOARD_ENABLED !== "false";
@@ -492,6 +496,35 @@ class DashboardService {
     };
   }
 
+  /**
+   * Redact obvious PII / secrets from log message lines before they
+   * reach the unauthenticated `/v1/dashboard/snapshot` endpoint.
+   * The proxy's logger prints request bodies, axios error stacks,
+   * base64 image data, and (occasionally) full curl commands with
+   * auth headers — none of which should leak via the dashboard.
+   * Patterns covered:
+   *  - `Bearer <token>` → `Bearer [REDACTED]`
+   *  - `sk-...` Anthropic/OpenAI/MiniMax API keys
+   *  - email addresses
+   *  - long base64-looking blobs (>= 64 chars of [A-Za-z0-9+/=])
+   *  - data:image/<...>;base64,<...> URIs (whole URI replaced)
+   */
+  private redactLogMessage(line: string): string {
+    return line
+      // Order matters: data:image URIs first (greedy base64 regex
+      // would otherwise partially eat the URI before the URI regex
+      // could match the whole thing).
+      .replace(/data:image\/[a-zA-Z0-9+.-]+;base64,[A-Za-z0-9+/=]+/g,
+        "data:image/[REDACTED]")
+      .replace(/(?:Bearer|x-api-key|api[_-]?key)["':= ]+["']?([A-Za-z0-9._\-+/=]{8,})["']?/gi,
+        "$1 [REDACTED]")
+      .replace(/\bsk-[A-Za-z0-9_-]{16,}\b/g, "sk-[REDACTED]")
+      .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "[EMAIL]")
+      .replace(/(?:[A-Za-z0-9+/]{4}){16,}={0,2}/g, (m) =>
+        m.length >= 64 ? "[BASE64]" : m,
+      );
+  }
+
   private readRecentLogs(): LogLine[] {
     const lines: LogLine[] = [];
     const sources = [this.logFilePath, this.errorLogPath];
@@ -502,9 +535,17 @@ class DashboardService {
         for (const line of tail) {
           const m = line.match(/^\[([^\]]+)\]\s+\S+\s+\[([^\]]+)\]\s+(.*)$/);
           if (m) {
-            lines.push({ ts: m[1], level: m[2].toLowerCase(), message: m[3] });
+            lines.push({
+              ts: m[1],
+              level: m[2].toLowerCase(),
+              message: this.redactLogMessage(m[3]),
+            });
           } else {
-            lines.push({ ts: "", level: "info", message: line });
+            lines.push({
+              ts: "",
+              level: "info",
+              message: this.redactLogMessage(line),
+            });
           }
         }
       } catch {

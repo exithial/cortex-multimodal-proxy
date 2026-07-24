@@ -434,4 +434,35 @@ const mod = await import("../../../src/services/dashboardService");
     expect(svcFractional.retentionDays).toBe(7);
     svcFractional.close();
   });
+
+  it("getSnapshot() redacts log message secrets (Bearer / sk-... / email / base64 / data:image)", async () => {
+    const logDir = path.join(tmpDir, "redact-test");
+    fs.mkdirSync(logDir, { recursive: true });
+    const logPath = path.join(logDir, "combined.log");
+    const errorPath = path.join(logDir, "error.log");
+    fs.writeFileSync(errorPath, "");
+    const sensitive =
+      "[2026-07-24 18:00:00] ℹ️ [INFO] " +
+      "Authorization: Bearer sk-test-abc123def456 " +
+      "user@example.com " +
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII= " +
+      "longbase64AaaaBbbbCcccDdddEeeeFfffGgggHhhhIiiiJjjjKkkkLlllMmmmNnnnOoooPpppQqqqRrrrSsssTttt=";
+    fs.writeFileSync(logPath, sensitive + "\n");
+    process.env.DASHBOARD_LOG_TAIL_LINES = "10";
+    process.env.DASHBOARD_DB_PATH = path.join(tmpDir, "dashboard-redact.db");
+    process.env.DASHBOARD_LOG_FILE = logPath;
+    process.env.DASHBOARD_ERROR_LOG_FILE = errorPath;
+    const { svc: svcRedact } = await freshService({});
+    const snap = await svcRedact.getSnapshot({ startTime: Date.now(), version: "t" });
+    expect(snap.recentLogs).toHaveLength(1);
+    const msg = snap.recentLogs[0].message;
+    expect(msg).not.toContain("sk-test-abc123def456");
+    expect(msg).not.toContain("user@example.com");
+    expect(msg).not.toContain("iVBORw0KGgo");
+    expect(msg).toContain("sk-[REDACTED]");
+    expect(msg).toContain("[EMAIL]");
+    expect(msg).toContain("data:image/[REDACTED]");
+    expect(msg).toContain("[BASE64]");
+    svcRedact.close();
+  });
 });
