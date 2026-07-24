@@ -79,20 +79,35 @@ function formatAgo(ms) {
   return `${m}m ${s % 60}s`;
 }
 
+// Coerce a numeric value to a safe display string. SQLite REAL
+// columns can round-trip NaN (becomes NULL) or Infinity through
+// better-sqlite3; the dashboard should never show "NaN" or
+// "Infinity" as a literal — render as em-dash instead.
+function fmtFinite(value, fmtFn) {
+  return Number.isFinite(value) ? fmtFn(value) : "—";
+}
+
 function renderHero(snap) {
   const t = snap.metrics.totals;
-  els.totalTokens.textContent = fmt.format(t.totalTokens);
-  els.promptTokens.textContent = fmt.format(t.promptTokens);
-  els.completionTokens.textContent = fmt.format(t.completionTokens);
-  els.cost.textContent = fmtCost.format(t.costUsd);
-  els.requests.textContent = fmt.format(t.requestCount);
-  els.requestsOk.textContent = fmt.format(t.requestCount - t.errorCount);
-  els.errors.textContent = fmt.format(t.errorCount);
-  els.cacheRatio.textContent = fmtPct.format(t.cacheRatio * 100);
-  els.cacheHits.textContent = fmt.format(t.cacheHits);
-  els.cacheMisses.textContent = fmt.format(t.cacheMisses);
-  const errRate = t.requestCount > 0 ? (t.errorCount / t.requestCount) * 100 : 0;
-  els.errorRate.textContent = fmtPct.format(errRate);
+  els.totalTokens.textContent = fmtFinite(t.totalTokens, fmt.format);
+  els.promptTokens.textContent = fmtFinite(t.promptTokens, fmt.format);
+  els.completionTokens.textContent = fmtFinite(t.completionTokens, fmt.format);
+  els.cost.textContent = fmtFinite(t.costUsd, fmtCost.format);
+  els.requests.textContent = fmtFinite(t.requestCount, fmt.format);
+  els.requestsOk.textContent = fmtFinite(
+    t.requestCount - t.errorCount,
+    fmt.format,
+  );
+  els.errors.textContent = fmtFinite(t.errorCount, fmt.format);
+  els.cacheRatio.textContent = fmtFinite(
+    t.cacheRatio * 100,
+    fmtPct.format,
+  );
+  els.cacheHits.textContent = fmtFinite(t.cacheHits, fmt.format);
+  els.cacheMisses.textContent = fmtFinite(t.cacheMisses, fmt.format);
+  const errRate =
+    t.requestCount > 0 ? (t.errorCount / t.requestCount) * 100 : 0;
+  els.errorRate.textContent = fmtFinite(errRate, fmtPct.format);
   els.uptime.textContent = formatUptime(snap.operational.uptimeSeconds);
   els.version.textContent = `v${snap.operational.version}`;
 }
@@ -273,14 +288,14 @@ function renderModels(snap) {
       return `<tr>
         <td class="col-model">${escape(m.model)}</td>
         <td class="col-brain">${escape(m.brain)}</td>
-        <td class="num">${fmt.format(m.promptTokens)}</td>
-        <td class="num">${fmt.format(m.completionTokens)}</td>
-        <td class="num col-cost">$${fmtCost.format(m.costUsd)}</td>
-        <td class="num">${fmt.format(m.requestCount)}</td>
-        <td class="num ${errClass}">${fmt.format(m.errorCount)}</td>
-        <td class="num ${cacheClass}">${fmt.format(m.cacheHits)}</td>
-        <td class="num">${m.latencyMs.p50}ms</td>
-        <td class="num">${m.latencyMs.p95}ms</td>
+        <td class="num">${fmtFinite(m.promptTokens, fmt.format)}</td>
+        <td class="num">${fmtFinite(m.completionTokens, fmt.format)}</td>
+        <td class="num col-cost">$${fmtFinite(m.costUsd, fmtCost.format)}</td>
+        <td class="num">${fmtFinite(m.requestCount, fmt.format)}</td>
+        <td class="num ${errClass}">${fmtFinite(m.errorCount, fmt.format)}</td>
+        <td class="num ${cacheClass}">${fmtFinite(m.cacheHits, fmt.format)}</td>
+        <td class="num">${fmtFinite(m.latencyMs.p50, (v) => `${v}ms`)}</td>
+        <td class="num">${fmtFinite(m.latencyMs.p95, (v) => `${v}ms`)}</td>
       </tr>`;
     })
     .join("");
@@ -288,17 +303,36 @@ function renderModels(snap) {
 
 function renderLogs(snap) {
   const total = snap.recentLogs.length;
+  // Log-level filter dropdown uses synthetic "info+" / "warn+" values
+  // for the "include this level and above" UX. The matched log entries
+  // only ever carry real levels (info / warn / error / debug / trace);
+  // if a structured logger ever emitted a literal "info+" level, the
+  // strict switch below falls through to default (no match) instead of
+  // accidentally mapping it to "all".
   const VALID_LEVELS = new Set(["all", "info+", "warn+", "error", "debug"]);
   let level = els.logLevel.value;
   if (!VALID_LEVELS.has(level)) level = "all";
   const search = els.logSearch.value.toLowerCase();
-  const filtered = snap.recentLogs.filter((l) => {
-    if (level === "all") return true;
-    if (level === "info+")
-      return l.level === "info" || l.level === "warn" || l.level === "error";
-    if (level === "warn+") return l.level === "warn" || l.level === "error";
-    return l.level === level;
-  });
+  function matchesLevel(l) {
+    switch (level) {
+      case "all":
+        return true;
+      case "info+":
+        return l.level === "info" || l.level === "warn" || l.level === "error";
+      case "warn+":
+        return l.level === "warn" || l.level === "error";
+      case "error":
+      case "debug":
+        return l.level === level;
+      default:
+        // Unknown compound / synthetic level → do NOT match any log
+        // entry (in particular do NOT fall through to l.level === level
+        // which would treat a literal "info+" log as part of the
+        // generic "all" filter).
+        return false;
+    }
+  }
+  const filtered = snap.recentLogs.filter(matchesLevel);
   const searched = search
     ? filtered.filter((l) => l.message.toLowerCase().includes(search))
     : filtered;
@@ -388,18 +422,23 @@ function tickClock() {
   }
 }
 
+const FIRST_POLL_TIMEOUT_MS = 4000;
+
 async function fetchSnapshot() {
   if (inflight) return;
   inflight = true;
-  // Hard timeout = pollIntervalMs * 4 (so a single missed tick is
-  // forgiven but a hung server doesn't freeze the inflight latch
-  // forever). Without this, a blocked event loop on the server
-  // would keep inflight=true, every subsequent poll would early-
-  // return, and the dashboard would silently freeze.
+  // Hard timeout = pollIntervalMs * 4 after the first snapshot
+  // resolves; FIRST_POLL_TIMEOUT_MS (4s) before that so a hung
+  // first request doesn't lock inflight=true for 40s. Without
+  // this, a blocked event loop on the server would keep
+  // inflight=true, every subsequent poll would early-return, and
+  // the dashboard would silently freeze.
   const pollMs =
-    (lastSnapshot && lastSnapshot.operational.pollIntervalMs) || 10000;
+    (lastSnapshot && lastSnapshot.operational.pollIntervalMs) || null;
+  const timeoutMs =
+    pollMs !== null ? pollMs * 4 : FIRST_POLL_TIMEOUT_MS;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), pollMs * 4);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch("/v1/dashboard/snapshot", {
       cache: "no-store",
@@ -419,7 +458,9 @@ async function fetchSnapshot() {
     render(snap);
   } catch (err) {
     const reason =
-      err.name === "AbortError" ? `timeout (>${pollMs * 4}ms)` : err.message || err;
+      err.name === "AbortError"
+        ? `timeout (>${timeoutMs}ms)`
+        : err.message || err;
     els.liveDot.classList.add("is-stale");
     els.errorBanner.hidden = false;
     els.errorMsg.textContent = `dashboard: ${reason}`;
