@@ -23,7 +23,7 @@ All brains use OpenAI-format endpoint at `https://opencode.ai/zen/go/v1/chat/com
 | Model ID | Endpoint | Thinking | Context | Max Output | Input/Output per 1M | Available in |
 |----------|----------|----------|---------|------------|---------------------|--------------|
 | `mimo-v2.5` | OpenAI (via OpenCode Go) | ✅ | 1M | 128K | $0.14 / $0.28 | `BRAIN_MODE=opencode` / `hybrid` |
-| `MiniMax-M3` | Anthropic (`/v1/messages`) | ❌ (no thinking block) | 1M | 65K | varies | `BRAIN_MODE=deepseek` / `hybrid` (requires `MINIMAX_API_KEY`) |
+| `MiniMax-M3` | Anthropic (`/v1/messages`) | ✅ adaptive (model-decided budget) | 1M | 65K | varies | `BRAIN_MODE=deepseek` / `hybrid` (requires `MINIMAX_API_KEY`) |
 
 Passthrough models handle images natively — no MiMo V2.5 senses layer needed.
 Exposed in `/v1/models` according to the active `BRAIN_MODE` (`getActiveProviderInfo().mode` in `src/services/providerSelector.ts`). The proxy routes the model directly to the upstream provider; only one passthrough is exposed at a time.

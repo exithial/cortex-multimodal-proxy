@@ -98,6 +98,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
       ],
       max_tokens: 4096,
       stream: false,
+      thinking: { type: "disabled" as const },
     };
 
     logger.info(
@@ -143,7 +144,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
   buildPayload(
     request: ChatCompletionRequest,
     _upstreamModel: string,
-    _thinking: boolean,
+    thinking: boolean,
     _maxContextTokens: number,
     _endpoint: "openai" | "anthropic",
   ): any {
@@ -235,22 +236,30 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
         return tool;
       });
     }
+    if (thinking) {
+      // "adaptive" is currently the only supported upstream thinking control.
+      // Adding a new mode (e.g. "enabled" with budget_tokens) requires updating
+      // both this branch and the log line that surfaces `payload.thinking?.type`.
+      payload.thinking = { type: "adaptive" as const };
+    }
     return payload;
   }
 
   async createChatCompletion(
     request: ChatCompletionRequest,
-    _brainEntry: BrainModelEntry,
+    brainEntry: BrainModelEntry,
   ): Promise<ChatCompletionResponse> {
     const payload = this.buildPayload(
       request,
       MINIMAX_CHAT_MODEL,
-      false,
+      brainEntry.thinking,
       1_048_576,
       "anthropic",
     );
     const url = this.resolveEndpointUrl("anthropic");
-    logger.info(`MiniMax M3: POST ${url} | model: ${MINIMAX_CHAT_MODEL}`);
+    logger.info(
+      `MiniMax M3: POST ${url} | model: ${MINIMAX_CHAT_MODEL} | thinking: ${payload.thinking?.type ?? "none"}`,
+    );
 
     const anthropicResponse = await this.postWithRetry(url, payload);
     return this.anthropicToOpenAIResponse(anthropicResponse, request);
@@ -258,7 +267,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
 
   async chatCompletionStream(
     request: ChatCompletionRequest,
-    _brainEntry: BrainModelEntry,
+    brainEntry: BrainModelEntry,
     onChunk: (chunk: string) => void,
     onError: (error: unknown) => void,
     onComplete: () => void,
@@ -267,13 +276,15 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
     const payload = this.buildPayload(
       request,
       MINIMAX_CHAT_MODEL,
-      false,
+      brainEntry.thinking,
       1_048_576,
       "anthropic",
     );
     payload.stream = true;
     const url = this.resolveEndpointUrl("anthropic");
-    logger.info(`MiniMax M3 (stream): POST ${url} | model: ${MINIMAX_CHAT_MODEL}`);
+    logger.info(
+      `MiniMax M3 (stream): POST ${url} | model: ${MINIMAX_CHAT_MODEL} | thinking: ${payload.thinking?.type ?? "none"}`,
+    );
 
     let buffer = "";
     let ended = false;
@@ -410,10 +421,20 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
   ): ChatCompletionResponse {
     const blocks = anthropic.content || [];
     let text = "";
+    let reasoning = "";
     let toolCalls: any[] | undefined;
     for (const b of blocks) {
       if (b.type === "text") text += (text ? "\n" : "") + b.text;
-      else if (b.type === "tool_use") {
+      else if (b.type === "thinking") {
+        reasoning += (reasoning ? "\n" : "") + (b.thinking || "");
+      }
+      // redacted_thinking: Anthropic safety-redacted reasoning (encrypted
+      // blob in `b.data`). OpenAI clients can't decrypt it, so we drop it
+      // explicitly rather than relying on fall-through. Mirrors the
+      // qwen3.7-max opencodeGo path.
+      else if (b.type === "redacted_thinking") {
+        // Intentionally skipped — see comment above.
+      } else if (b.type === "tool_use") {
         toolCalls = toolCalls ?? [];
         toolCalls.push({
           id: b.id,
@@ -426,6 +447,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
       }
     }
     const message: any = { role: "assistant", content: text };
+    if (reasoning) message.reasoning_content = reasoning;
     if (toolCalls?.length) message.tool_calls = toolCalls;
     const stopReason = anthropic.stop_reason;
     const finishReason =
@@ -525,6 +547,31 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
             },
           ],
         };
+      }
+      if (delta?.type === "thinking_delta") {
+        if (!delta.thinking || !delta.thinking.trim()) {
+          return null;
+        }
+        return {
+          id: `chatcmpl-${randomUUID()}`,
+          object: "chat.completion.chunk",
+          created: Math.floor(Date.now() / 1000),
+          model: request.model,
+          choices: [
+            {
+              index: 0,
+              delta: { reasoning_content: delta.thinking },
+              finish_reason: null,
+            },
+          ],
+        };
+      }
+      // signature_delta: Anthropic thinking signature (required for
+      // cryptographic re-validation by the upstream). We forward reasoning
+      // as raw text to OpenAI clients which can't re-validate, so we
+      // intentionally drop this. Mirrors the qwen3.7-max opencodeGo path.
+      if (delta?.type === "signature_delta") {
+        return null;
       }
       if (delta?.type === "input_json_delta") {
         return {
