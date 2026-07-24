@@ -237,6 +237,9 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
       });
     }
     if (thinking) {
+      // "adaptive" is currently the only supported upstream thinking control.
+      // Adding a new mode (e.g. "enabled" with budget_tokens) requires updating
+      // both this branch and the log line that surfaces `payload.thinking?.type`.
       payload.thinking = { type: "adaptive" as const };
     }
     return payload;
@@ -423,13 +426,15 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
     for (const b of blocks) {
       if (b.type === "text") text += (text ? "\n" : "") + b.text;
       else if (b.type === "thinking") {
-        reasoning += b.thinking || "";
+        reasoning += (reasoning ? "\n" : "") + (b.thinking || "");
       }
       // redacted_thinking: Anthropic safety-redacted reasoning (encrypted
       // blob in `b.data`). OpenAI clients can't decrypt it, so we drop it
       // explicitly rather than relying on fall-through. Mirrors the
       // qwen3.7-max opencodeGo path.
-      else if (b.type === "tool_use") {
+      else if (b.type === "redacted_thinking") {
+        // Intentionally skipped — see comment above.
+      } else if (b.type === "tool_use") {
         toolCalls = toolCalls ?? [];
         toolCalls.push({
           id: b.id,
@@ -544,7 +549,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
         };
       }
       if (delta?.type === "thinking_delta") {
-        if (!delta.thinking) {
+        if (!delta.thinking || !delta.thinking.trim()) {
           return null;
         }
         return {

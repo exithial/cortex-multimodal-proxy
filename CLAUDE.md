@@ -33,7 +33,9 @@
 - Context windows: ALL brains accept **1M** upstream natively — the proxy sends up to 1M to them — but clients see **800K** in `opencode.json`/`/v1/models` so they auto-compact before reaching the limit. The 200K gap is headroom for MiMo senses image descriptions. See `Brain context window policy` below.
 - Passthroughs (natively multimodal, no `proxy/` prefix): `mimo-v2.5` (BRAIN_MODE=opencode/hybrid via OpenCode Go) and `MiniMax-M3` (BRAIN_MODE=deepseek/hybrid via Anthropic-format direct API; requires `MINIMAX_API_KEY`). Only one passthrough is exposed in `/v1/models` at a time, depending on `BRAIN_MODE`.
 - Claude Code aliases: `haiku` → `mimo-v2.5` (opencode/hybrid) or `MiniMax-M3` (deepseek/hybrid), `sonnet` → `proxy/deepseek-v4-pro` (default), `opus` → `proxy/glm-5.2` (default)
-- Vision providers: `MimoSensesVisionProvider` (MiMo V2.5, image only, via OpenCode Go) for opencode/hybrid; `MiniMaxM3Provider` (image + video, Anthropic-format, requires `MINIMAX_API_KEY`) for deepseek/hybrid — vision payloads send `thinking: { type: "disabled" }`; passthrough chat payloads send `thinking: { type: "adaptive" }` (MiniMax canonical). Gemini 2.5 Flash fallback when active vision provider is unavailable or the content type is unsupported.
+- Vision providers: `MimoSensesVisionProvider` (MiMo V2.5, image only, via OpenCode Go) for opencode/hybrid; `MiniMaxM3Provider` (image + video, Anthropic-format, requires `MINIMAX_API_KEY`) for deepseek/hybrid.
+- MiniMax M3 payload thinking control: vision payloads send `thinking: { type: "disabled" }` (no reasoning cost); passthrough chat payloads send `thinking: { type: "adaptive" }` (MiniMax canonical — model-decided budget).
+- Gemini 2.5 Flash fallback when active vision provider is unavailable or the content type is unsupported.
 
 ## Token Limits
 - Per brain — see `src/services/brainRegistry.ts`

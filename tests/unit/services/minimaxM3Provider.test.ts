@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import axios from "axios";
 
 vi.mock("axios");
@@ -7,6 +7,22 @@ vi.mock("dotenv/config", () => ({}));
 const mockedAxios = axios as unknown as {
   post: ReturnType<typeof vi.fn>;
 };
+
+function parseEmittedChunks(
+  onChunk: ReturnType<typeof vi.fn>,
+): Record<string, unknown>[] {
+  return onChunk.mock.calls
+    .map((c) => {
+      const m = (c[0] as string).match(/^data: (.+)\n\n$/);
+      if (!m || m[1] === "[DONE]") return null;
+      try {
+        return JSON.parse(m[1]);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean) as Record<string, unknown>[];
+}
 
 describe("MiniMaxM3VisionProvider", () => {
   beforeEach(() => {
@@ -159,12 +175,15 @@ describe("MiniMaxM3Provider (passthrough chat)", () => {
     inputPrice: 0,
     outputPrice: 0,
     endpoint: "anthropic" as const,
-    multimodal: true,
   };
 
   beforeEach(() => {
     vi.resetModules();
     mockedAxios.post = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("createChatCompletion posts payload with thinking={type:'adaptive'} when entry.thinking=true", async () => {
@@ -255,7 +274,7 @@ describe("MiniMaxM3Provider (passthrough chat)", () => {
     );
     const message = resp.choices[0].message;
     expect(message.reasoning_content).toBe(
-      "Let me reason about 17*24. It equals 408.",
+      "Let me reason about 17*24.\n It equals 408.",
     );
     expect(message.content).toBe("17 * 24 = 408");
   });
@@ -291,36 +310,25 @@ describe("MiniMaxM3Provider (passthrough chat)", () => {
     // onChunk calls before 'end' triggers safeEnd and the [DONE] sentinel.
     await new Promise<void>((r) => setImmediate(r));
     fakeStream.emit("end");
-    const emittedBodies = onChunk.mock.calls.map((c) => {
-      const line = c[0] as string;
-      const m = line.match(/^data: (.+)\n\n$/);
-      if (!m || m[1] === "[DONE]") return null;
-      try {
-        return JSON.parse(m[1]);
-      } catch {
-        return null;
-      }
-    });
+    const emittedBodies = parseEmittedChunks(onChunk);
     const reasoningChunks = emittedBodies.filter(
       (b) =>
-        b &&
         b.choices &&
         b.choices[0] &&
-        b.choices[0].delta &&
-        "reasoning_content" in b.choices[0].delta,
+        (b.choices[0] as any).delta &&
+        "reasoning_content" in (b.choices[0] as any).delta,
     );
     expect(reasoningChunks.length).toBeGreaterThanOrEqual(2);
     const accumulated = reasoningChunks
-      .map((b) => b.choices[0].delta.reasoning_content)
+      .map((b) => (b.choices[0] as any).delta.reasoning_content)
       .join("");
     expect(accumulated).toBe("Let me think. 408.");
     const textChunks = emittedBodies.filter(
       (b) =>
-        b &&
         b.choices &&
         b.choices[0] &&
-        b.choices[0].delta &&
-        "content" in b.choices[0].delta,
+        (b.choices[0] as any).delta &&
+        "content" in (b.choices[0] as any).delta,
     );
     expect(textChunks.length).toBeGreaterThanOrEqual(1);
   });
@@ -353,20 +361,13 @@ describe("MiniMaxM3Provider (passthrough chat)", () => {
     );
     await new Promise<void>((r) => setImmediate(r));
     fakeStream.emit("end");
-    const emittedBodies = onChunk.mock.calls
-      .map((c) => {
-        const m = (c[0] as string).match(/^data: (.+)\n\n$/);
-        if (!m || m[1] === "[DONE]") return null;
-        try {
-          return JSON.parse(m[1]);
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean);
+    const emittedBodies = parseEmittedChunks(onChunk);
     const reasoningChunks = emittedBodies.filter(
-      (b: any) =>
-        b.choices && b.choices[0] && b.choices[0].delta && "reasoning_content" in b.choices[0].delta,
+      (b) =>
+        b.choices &&
+        b.choices[0] &&
+        (b.choices[0] as any).delta &&
+        "reasoning_content" in (b.choices[0] as any).delta,
     );
     expect(reasoningChunks.length).toBe(0);
   });
@@ -399,22 +400,77 @@ describe("MiniMaxM3Provider (passthrough chat)", () => {
     );
     await new Promise<void>((r) => setImmediate(r));
     fakeStream.emit("end");
-    const emittedBodies = onChunk.mock.calls
-      .map((c) => {
-        const m = (c[0] as string).match(/^data: (.+)\n\n$/);
-        if (!m || m[1] === "[DONE]") return null;
-        try {
-          return JSON.parse(m[1]);
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean);
+    const emittedBodies = parseEmittedChunks(onChunk);
     const signatureChunks = emittedBodies.filter(
-      (b: any) =>
-        b.choices && b.choices[0] && b.choices[0].delta && "signature" in b.choices[0].delta,
+      (b) =>
+        b.choices &&
+        b.choices[0] &&
+        (b.choices[0] as any).delta &&
+        "signature" in (b.choices[0] as any).delta,
     );
     expect(signatureChunks.length).toBe(0);
+  });
+
+  it("createChatCompletion joins adjacent thinking blocks with a newline separator", async () => {
+    vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
+    vi.stubEnv("MINIMAX_BASE_URL", "https://api.minimax.io/anthropic");
+    mockedAxios.post.mockResolvedValue({
+      data: {
+        content: [
+          { type: "thinking", thinking: "abc" },
+          { type: "thinking", thinking: "xyz" },
+          { type: "text", text: "answer" },
+        ],
+        stop_reason: "end_turn",
+        usage: { input_tokens: 10, output_tokens: 20 },
+      },
+    });
+    const { minimaxM3Provider } = await import(
+      "../../../src/services/minimaxM3Provider"
+    );
+    const resp = await minimaxM3Provider.createChatCompletion(
+      { model: "MiniMax-M3", messages: [{ role: "user" as const, content: "hi" }] },
+      passthroughBrainEntry,
+    );
+    expect(resp.choices[0].message.reasoning_content).toBe("abc\nxyz");
+  });
+
+  it("chatCompletionStream skips whitespace-only thinking_delta values", async () => {
+    vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
+    vi.stubEnv("MINIMAX_BASE_URL", "https://api.minimax.io/anthropic");
+    const { EventEmitter } = await import("events");
+    const fakeStream = new EventEmitter();
+    mockedAxios.post.mockResolvedValue({ data: fakeStream });
+    const { minimaxM3Provider } = await import(
+      "../../../src/services/minimaxM3Provider"
+    );
+    const onChunk = vi.fn();
+    const onError = vi.fn();
+    const onComplete = vi.fn();
+    await minimaxM3Provider.chatCompletionStream(
+      { model: "MiniMax-M3", stream: true, messages: [{ role: "user" as const, content: "hi" }] },
+      passthroughBrainEntry,
+      onChunk,
+      onError,
+      onComplete,
+    );
+    fakeStream.emit(
+      "data",
+      Buffer.from(
+        'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"   "}}\n\n' +
+          'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"ok"}}\n\n',
+      ),
+    );
+    await new Promise<void>((r) => setImmediate(r));
+    fakeStream.emit("end");
+    const reasoningChunks = parseEmittedChunks(onChunk).filter(
+      (b) =>
+        b.choices &&
+        b.choices[0] &&
+        (b.choices[0] as any).delta &&
+        "reasoning_content" in (b.choices[0] as any).delta,
+    );
+    expect(reasoningChunks.length).toBe(0);
   });
 
   it("createChatCompletion skips redacted_thinking blocks (Anthropic safety-redacted reasoning)", async () => {
