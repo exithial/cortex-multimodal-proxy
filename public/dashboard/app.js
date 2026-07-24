@@ -8,10 +8,20 @@ const fmtPct = new Intl.NumberFormat("es-ES", {
   maximumFractionDigits: 1,
 });
 
+const HTML_ESCAPES = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+
 let chart = null;
 let lastSnapshot = null;
 let lastRefreshAt = 0;
 let range = "24h";
+let pollTimer = null;
+let pollIntervalMs = 0;
 
 const els = {
   liveDot: document.getElementById("live-dot"),
@@ -33,6 +43,7 @@ const els = {
   modelsTbody: document.getElementById("models-tbody"),
   modelCount: document.getElementById("model-count"),
   logsPane: document.getElementById("logs-pane"),
+  logsCount: document.getElementById("logs-count"),
   logLevel: document.getElementById("log-level"),
   logSearch: document.getElementById("log-search"),
   logRefresh: document.getElementById("log-refresh"),
@@ -84,106 +95,127 @@ function renderHero(snap) {
 }
 
 function renderChart(snap) {
-  const buckets =
-    range === "24h" ? snap.metrics.last24hHourly : snap.metrics.last30dDaily;
-  const labels = buckets.map((b) => {
-    const d = new Date(b.ts);
-    if (range === "24h") return `${d.getHours()}h`;
-    return `${d.getMonth() + 1}/${d.getDate()}`;
-  });
-  const inData = buckets.map((b) => b.promptTokens);
-  const outData = buckets.map((b) => b.completionTokens);
+  if (typeof Chart === "undefined") {
+    showChartUnavailable();
+    return;
+  }
+  try {
+    const buckets =
+      range === "24h" ? snap.metrics.last24hHourly : snap.metrics.last30dDaily;
+    const labels = buckets.map((b) => {
+      const d = new Date(b.ts);
+      if (range === "24h") return `${d.getHours()}h`;
+      return `${d.getMonth() + 1}/${d.getDate()}`;
+    });
+    const inData = buckets.map((b) => b.promptTokens);
+    const outData = buckets.map((b) => b.completionTokens);
 
-  const ctx = document.getElementById("traffic-chart").getContext("2d");
-  if (chart) chart.destroy();
-  const isDark = getComputedStyle(document.documentElement)
-    .getPropertyValue("--bg")
-    .trim();
-  const gridColor = "rgba(241, 234, 215, 0.06)";
-  const tickColor = "rgba(241, 234, 215, 0.4)";
+    const ctx = document.getElementById("traffic-chart").getContext("2d");
+    if (chart) chart.destroy();
+    const gridColor = "rgba(241, 234, 215, 0.06)";
+    const tickColor = "rgba(241, 234, 215, 0.4)";
 
-  chart = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels,
-      datasets: [
-        {
-          label: "in",
-          data: inData,
-          borderColor: "#f0a830",
-          backgroundColor: "rgba(240, 168, 48, 0.08)",
-          borderWidth: 1.5,
-          fill: true,
-          tension: 0.35,
-          pointRadius: 0,
-          pointHoverRadius: 4,
-          pointHoverBackgroundColor: "#f0a830",
-          pointHoverBorderColor: "#0b0a0e",
-          pointHoverBorderWidth: 2,
-        },
-        {
-          label: "out",
-          data: outData,
-          borderColor: "#4dd4cf",
-          backgroundColor: "rgba(77, 212, 207, 0.05)",
-          borderWidth: 1.5,
-          fill: true,
-          tension: 0.35,
-          pointRadius: 0,
-          pointHoverRadius: 4,
-          pointHoverBackgroundColor: "#4dd4cf",
-          pointHoverBorderColor: "#0b0a0e",
-          pointHoverBorderWidth: 2,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {
-        mode: "index",
-        intersect: false,
+    chart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "in",
+            data: inData,
+            borderColor: "#f0a830",
+            backgroundColor: "rgba(240, 168, 48, 0.08)",
+            borderWidth: 1.5,
+            fill: true,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            pointHoverBackgroundColor: "#f0a830",
+            pointHoverBorderColor: "#0b0a0e",
+            pointHoverBorderWidth: 2,
+          },
+          {
+            label: "out",
+            data: outData,
+            borderColor: "#4dd4cf",
+            backgroundColor: "rgba(77, 212, 207, 0.05)",
+            borderWidth: 1.5,
+            fill: true,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            pointHoverBackgroundColor: "#4dd4cf",
+            pointHoverBorderColor: "#0b0a0e",
+            pointHoverBorderWidth: 2,
+          },
+        ],
       },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: "#14131a",
-          borderColor: "#3a3745",
-          borderWidth: 1,
-          titleColor: "#f1ead7",
-          bodyColor: "#b6ad95",
-          padding: 12,
-          displayColors: true,
-          callbacks: {
-            label: (ctx) => `${ctx.dataset.label}: ${fmt.format(ctx.parsed.y)}`,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: "index",
+          intersect: false,
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "#14131a",
+            borderColor: "#3a3745",
+            borderWidth: 1,
+            titleColor: "#f1ead7",
+            bodyColor: "#b6ad95",
+            padding: 12,
+            displayColors: true,
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${fmt.format(ctx.parsed.y)}`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { color: gridColor, drawTicks: false },
+            border: { display: false },
+            ticks: {
+              color: tickColor,
+              font: { family: "JetBrains Mono", size: 10 },
+              maxRotation: 0,
+              autoSkip: true,
+              maxTicksLimit: range === "24h" ? 12 : 10,
+            },
+          },
+          y: {
+            grid: { color: gridColor, drawTicks: false },
+            border: { display: false },
+            ticks: {
+              color: tickColor,
+              font: { family: "JetBrains Mono", size: 10 },
+              callback: (v) => fmt.format(v),
+              maxTicksLimit: 5,
+            },
           },
         },
       },
-      scales: {
-        x: {
-          grid: { color: gridColor, drawTicks: false },
-          border: { display: false },
-          ticks: {
-            color: tickColor,
-            font: { family: "JetBrains Mono", size: 10 },
-            maxRotation: 0,
-            autoSkip: true,
-            maxTicksLimit: range === "24h" ? 12 : 10,
-          },
-        },
-        y: {
-          grid: { color: gridColor, drawTicks: false },
-          border: { display: false },
-          ticks: {
-            color: tickColor,
-            font: { family: "JetBrains Mono", size: 10 },
-            callback: (v) => fmt.format(v),
-            maxTicksLimit: 5,
-          },
-        },
-      },
-    },
-  });
+    });
+  } catch (err) {
+    showChartUnavailable(err.message);
+  }
+}
+
+function showChartUnavailable(reason) {
+  const canvas = document.getElementById("traffic-chart");
+  if (!canvas) return;
+  const wrap = canvas.parentElement;
+  if (!wrap) return;
+  if (canvas.style.display !== "none") {
+    canvas.style.display = "none";
+    const note = document.createElement("div");
+    note.className = "chart-fallback";
+    note.textContent = reason
+      ? `chart no disponible: ${reason}`
+      : "chart no disponible (CDN offline?)";
+    wrap.appendChild(note);
+  }
 }
 
 function renderModels(snap) {
@@ -215,6 +247,7 @@ function renderModels(snap) {
 }
 
 function renderLogs(snap) {
+  const total = snap.recentLogs.length;
   const level = els.logLevel.value;
   const search = els.logSearch.value.toLowerCase();
   const filtered = snap.recentLogs.filter((l) => {
@@ -227,18 +260,37 @@ function renderLogs(snap) {
   const searched = search
     ? filtered.filter((l) => l.message.toLowerCase().includes(search))
     : filtered;
-  if (searched.length === 0) {
-    els.logsPane.innerHTML = '<span class="log-line l-debug">— sin logs con ese filtro —</span>';
+
+  if (total === 0) {
+    els.logsPane.innerHTML =
+      '<span class="log-line l-debug">— log vacio (combined.log / error.log) —</span>';
+    if (els.logsCount) els.logsCount.textContent = "0 lineas";
     return;
   }
-  els.logsPane.innerHTML = searched
-    .slice(0, 200)
+  if (searched.length === 0) {
+    els.logsPane.innerHTML =
+      '<span class="log-line l-debug">— sin logs con ese filtro —</span>';
+    if (els.logsCount)
+      els.logsCount.textContent = `0 / ${filtered.length} lineas`;
+    return;
+  }
+  const RENDER_LIMIT = 200;
+  const slice = searched.slice(0, RENDER_LIMIT);
+  els.logsPane.innerHTML = slice
     .map((l) => {
       const ts = l.ts || "—";
       return `<span class="log-line l-${escape(l.level)}"><span class="log-ts">${escape(ts)}</span><span class="lvl">${escape(l.level)}</span>${escape(l.message)}</span>`;
     })
     .join("");
   els.logsPane.scrollTop = els.logsPane.scrollHeight;
+  if (els.logsCount) {
+    const shown = slice.length;
+    const matched = searched.length;
+    els.logsCount.textContent =
+      shown < matched
+        ? `mostrando ${shown} de ${matched} (filtro)`
+        : `${matched} linea${matched === 1 ? "" : "s"}`;
+  }
 }
 
 function renderFooter(snap) {
@@ -264,6 +316,16 @@ function render(snap) {
   renderModels(snap);
   renderLogs(snap);
   renderFooter(snap);
+  armPoll(snap.operational.pollIntervalMs);
+}
+
+function armPoll(intervalMs) {
+  if (pollTimer && pollIntervalMs === intervalMs) return;
+  if (pollTimer) clearInterval(pollTimer);
+  pollIntervalMs = intervalMs;
+  pollTimer = setInterval(() => {
+    fetchSnapshot().catch(() => {});
+  }, intervalMs);
 }
 
 function tickClock() {
@@ -301,13 +363,7 @@ async function fetchSnapshot() {
 }
 
 function escape(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  })[c]);
+  return String(s ?? "").replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
 }
 
 els.range24h.addEventListener("click", () => {
@@ -335,4 +391,4 @@ els.logSearch.addEventListener("input", () => {
 els.logRefresh.addEventListener("click", () => fetchSnapshot());
 
 setInterval(tickClock, 1000);
-void fetchSnapshot();
+fetchSnapshot().catch(() => {});

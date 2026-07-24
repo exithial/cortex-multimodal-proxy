@@ -198,6 +198,7 @@
         <div class="panel-head">
           <h2 class="panel-title">Logs</h2>
           <div class="panel-controls">
+            <span class="panel-meta" id="logs-count">—</span>
             <select id="log-level" class="select">
               <option value="all">todos los niveles</option>
               <option value="error">solo error</option>
@@ -257,7 +258,11 @@
       </div>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"
+      integrity="sha384-NrKB+u6Ts6AtkIhwPixiKTzgSKNblyhlk0Sohlgar9UHUBzai/sgnNNWWd291xqt"
+      crossorigin="anonymous"
+    ></script>
     <script type="module" src="/dashboard/app.js"></script>
   </body>
 </html>
