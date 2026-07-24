@@ -62,11 +62,22 @@ export function mountDashboardRoutes(
     express.static(PUBLIC_DIR, {
       fallthrough: true,
       index: "index.html",
-      maxAge: "1h",
+      // No maxAge / no ETag: the dashboard polls every 10 s and the
+      // assets are tiny. Aggressive caching causes stale JS / CSS
+      // after deploys (users keep seeing the old chart-destroy bug
+      // even after the new build is live). `Cache-Control: no-store`
+      // is set on the response by the static middleware default when
+      // no maxAge is given; we also send it explicitly below for
+      // /index.html which is served via sendFile and bypasses
+      // express.static's default.
+      setHeaders: (res) => {
+        res.setHeader("Cache-Control", "no-store");
+      },
     }),
   );
 
   app.get(["/dashboard", "/dashboard/"], (_req: Request, res: Response) => {
+    res.set("Cache-Control", "no-store");
     res.sendFile(path.join(PUBLIC_DIR, "index.html"));
   });
 }
