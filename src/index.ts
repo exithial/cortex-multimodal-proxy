@@ -244,11 +244,21 @@ function extractAssistantContent(messages: ChatMessage[]): string {
 }
 
 function tryRecord(payload: RecordRequestPayload): void {
-  try {
-    dashboardService.recordRequest(payload);
-  } catch (err) {
-    logger.warn(`dashboardService.recordRequest fallo: ${getErrorMessage(err)}`);
-  }
+  // Defer the SQLite write to the next event-loop tick so the
+  // synchronous better-sqlite3 INSERT can never sit on the request
+  // hot path. The call sites that already invoke tryRecord AFTER
+  // res.json / res.end (streaming paths, /v1/messages non-streaming
+  // success) still benefit — the write happens strictly after Node
+  // has had a chance to flush the response buffer. Sites that call
+  // tryRecord BEFORE res.json (non-streaming /v1/chat/completions
+  // and the error catches) are no longer blocked by the SQLite write.
+  setImmediate(() => {
+    try {
+      dashboardService.recordRequest(payload);
+    } catch (err) {
+      logger.warn(`dashboardService.recordRequest fallo: ${getErrorMessage(err)}`);
+    }
+  });
 }
 
 function extractUsageFromChunk(chunk: string): {
@@ -549,6 +559,8 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
       };
       const cachedFromDetails =
         usage.prompt_tokens_details?.cached_tokens ?? 0;
+      // tryRecord defers to setImmediate so the SQLite write never
+      // blocks the response path. See tryRecord() for the rationale.
       tryRecord({
         ts: Date.now(),
         model,
@@ -572,6 +584,13 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
   } catch (error: unknown) {
     logger.error("Error procesando request:", error);
 
+    const errorResponse: ErrorResponse = {
+      error: {
+        message: getErrorMessage(error) || "Error interno del proxy",
+        type: "proxy_error",
+      },
+    };
+
     tryRecord({
       ts: Date.now(),
       model: req.body?.model ?? "unknown",
@@ -586,13 +605,6 @@ app.post("/v1/chat/completions", async (req: Request, res: Response) => {
       cacheHit: 0,
       client: "openai",
     });
-
-    const errorResponse: ErrorResponse = {
-      error: {
-        message: getErrorMessage(error) || "Error interno del proxy",
-        type: "proxy_error",
-      },
-    };
 
     if (res.headersSent) {
       res.write(`data: ${JSON.stringify(errorResponse)}\n\n`);

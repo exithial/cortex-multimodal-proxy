@@ -15,6 +15,8 @@ Today the proxy has zero request telemetry: `usage` tokens are passed back to th
 
 This spec was shaped through brainstorming on 2026-07-23. All scope decisions:
 
+> **Post-implementation addendum (2026-07-24):** two refinements were introduced during implementation and were not in the original brainstorm. They are now part of the contract and are listed inline below as decisions 10 and 11.
+
 1. **Tracking scope:** Completo persistido. Capture `usage` (prompt_tokens, completion_tokens) from every request, derive cost from registry `inputPrice`/`outputPrice`, persist to SQLite with aggregations by hour/day/model, configurable retention.
 2. **Persistence:** `better-sqlite3` (synchronous, mature native binding). Schema fijo, índices por `(ts, model, brain)`, retention via `DELETE WHERE ts < ?`.
 3. **Frontend:** Vanilla HTML + ES modules + custom CSS, `chart.js` loaded from CDN. Served from `public/dashboard/`. No build pipeline.
@@ -272,6 +274,10 @@ DASHBOARD_DB_PATH=./data/dashboard.db     # default ./data/dashboard.db
 - **Risk:** Disk fills up with `dashboard.db` over 90 days. **Mitigation:** sweep runs hourly; bounded size ≈ tens of MB for normal use.
 - **Rollback:** set `DASHBOARD_ENABLED=false` and restart. No data is written; the snapshot endpoint returns 503. No DB files touched. Feature is fully reversible by env var.
 
+10. **Per-passthrough cost pricing (added during implementation):** the original spec treated all passthroughs (`mimo-v2.5`, `MiniMax-M3`) as `$0` cost because mimo-v2.5 is subscription-based via OpenCode Go. During implementation this turned out to be wrong for `MiniMax-M3`, which is per-token via `MINIMAX_API_KEY`. Resolution: `resolveBrainServiceEntry` now reads `MINIMAX_INPUT_PRICE` and `MINIMAX_OUTPUT_PRICE` env vars (USD per 1M tokens) for `MiniMax-M3`, defaulting to `0` for backward compat. `mimo-v2.5` stays `0`. The dashboard's cost column reflects whatever the registry entry is.
+
+11. **Cache-hit signal source (added during implementation):** the original spec's cache_hit boolean tracked only the in-memory Anthropic dedupe (`recentAnthropicResponses`). During implementation we discovered MiniMax returns `cache_read_input_tokens` and `cache_creation_input_tokens` in Anthropic-format usage blocks, which indicate upstream prompt-cache hits. The proxy now extracts those fields in `minimaxM3Provider` (both non-streaming and streaming paths) and surfaces them as OpenAI's `prompt_tokens_details.cached_tokens`. `extractUsageFromChunk` reads both formats. Dashboard `cache_hits` counter now covers both Anthropic dedupe AND upstream prompt cache.
+
 ## Open questions
 
-None — all scope resolved during brainstorming.
+None — all scope resolved during brainstorming + implementation addendum.

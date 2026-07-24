@@ -17,6 +17,7 @@ const HTML_ESCAPES = {
 };
 
 let chart = null;
+let chartRange = null;
 let lastSnapshot = null;
 let lastRefreshAt = 0;
 let range = "24h";
@@ -96,8 +97,6 @@ function renderHero(snap) {
   els.version.textContent = `v${snap.operational.version}`;
 }
 
-let chartRange = null;
-
 function renderChart(snap) {
   if (typeof Chart === "undefined") {
     showChartUnavailable();
@@ -107,9 +106,13 @@ function renderChart(snap) {
     const buckets =
       range === "24h" ? snap.metrics.last24hHourly : snap.metrics.last30dDaily;
     const labels = buckets.map((b) => {
+      // Server-side buckets are UTC-aligned (see dashboardService.hourlyBuckets
+      // which integer-divides Date.now() by bucketMs). Use UTC accessors so
+      // the labels match the hour the bucket actually represents regardless
+      // of the viewer's local timezone.
       const d = new Date(b.ts);
-      if (range === "24h") return `${d.getHours()}h`;
-      return `${d.getMonth() + 1}/${d.getDate()}`;
+      if (range === "24h") return `${d.getUTCHours()}h`;
+      return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
     });
     const inData = buckets.map((b) => b.promptTokens);
     const outData = buckets.map((b) => b.completionTokens);
@@ -124,6 +127,7 @@ function renderChart(snap) {
         showChartUnavailable("missing canvas");
         return;
       }
+      clearChartUnavailable();
       if (chart) chart.destroy();
       const ctx = canvas.getContext("2d");
       const gridColor = "rgba(241, 234, 215, 0.06)";
@@ -232,15 +236,26 @@ function showChartUnavailable(reason) {
   if (!canvas) return;
   const wrap = canvas.parentElement;
   if (!wrap) return;
-  if (canvas.style.display !== "none") {
-    canvas.style.display = "none";
-    const note = document.createElement("div");
-    note.className = "chart-fallback";
-    note.textContent = reason
-      ? `chart no disponible: ${reason}`
-      : "chart no disponible (CDN offline?)";
-    wrap.appendChild(note);
-  }
+  // Idempotent: remove any prior fallback and re-hide the canvas.
+  // Without this, a transient CDN failure sticks the page in the
+  // fallback state forever (the canvas stays display:none).
+  const existing = wrap.querySelector(".chart-fallback");
+  if (existing) existing.remove();
+  canvas.style.display = "none";
+  const note = document.createElement("div");
+  note.className = "chart-fallback";
+  note.textContent = reason
+    ? `chart no disponible: ${reason}`
+    : "chart no disponible (CDN offline?)";
+  wrap.appendChild(note);
+}
+
+function clearChartUnavailable() {
+  const canvas = document.getElementById("traffic-chart");
+  if (canvas) canvas.style.display = "";
+  const wrap = canvas?.parentElement;
+  const note = wrap?.querySelector(".chart-fallback");
+  if (note) note.remove();
 }
 
 function renderModels(snap) {
@@ -365,7 +380,8 @@ function tickClock() {
   if (lastRefreshAt > 0) {
     els.lastRefresh.textContent = `hace ${formatAgo(lastRefreshAt)}`;
   }
-  const staleMs = lastSnapshot ? lastSnapshot.operational.pollIntervalMs * 3 : 30000;
+  const pollMs = lastSnapshot?.operational.pollIntervalMs;
+  const staleMs = typeof pollMs === "number" && pollMs > 0 ? pollMs * 3 : 30000;
   if (lastRefreshAt > 0 && Date.now() - lastRefreshAt > staleMs) {
     els.liveDot.classList.add("is-stale");
   }

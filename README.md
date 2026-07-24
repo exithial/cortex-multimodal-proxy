@@ -248,6 +248,7 @@ Set `DASHBOARD_ENABLED=false` in `.env` and restart. The dashboard route still s
 - Cost = `(prompt_tokens / 1M) × inputPrice + (completion_tokens / 1M) × outputPrice` using the registry's `inputPrice`/`outputPrice` for the brain the request was routed to. No external pricing API; numbers are estimates from the registry.
 - Streaming requests: `usage` is captured from the last chunk; if the provider doesn't emit usage (some don't), the row is still recorded with 0 tokens but real latency and status.
 - Errors are captured via the existing try/catch in both `/v1/chat/completions` and `/v1/messages`, with `status="error"`.
+- **Request latency**: every `tryRecord` call is deferred via `setImmediate`, so the synchronous `better-sqlite3` INSERT runs on the next event-loop tick after `res.json`/`res.end` has flushed the response. The dashboard never adds latency to the request hot path; the worst case is one extra event-loop tick (~ms) for the SQLite write to land after the client has already received the response.
 - The DB file is mounted as a named Docker volume (`proxy-data`) so it survives container restarts.
 
 ### Technical Metrics
