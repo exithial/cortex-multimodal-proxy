@@ -294,6 +294,13 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
       onComplete();
     };
 
+    // Single response id reused across ALL chunks in this stream. The
+    // OpenAI convention is one id per response (not per chunk), and
+    // clients like OpenCode use it to associate chunks with the same
+    // response — a per-chunk id would cause context counters to reset.
+    const chunkId = `chatcmpl-${randomUUID()}`;
+    const createdAt = Math.floor(Date.now() / 1000);
+
     const maxRetries = 3;
     const baseDelay = 2000;
     let response: any;
@@ -350,6 +357,8 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
               const openaiChunk = this.anthropicStreamToOpenAIChunk(
                 parsed,
                 request,
+                chunkId,
+                createdAt,
               );
               if (openaiChunk) {
                 onChunk(`data: ${JSON.stringify(openaiChunk)}\n\n`);
@@ -486,15 +495,20 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
   private anthropicStreamToOpenAIChunk(
     parsed: any,
     request: ChatCompletionRequest,
+    chunkId: string,
+    createdAt: number,
   ): Record<string, unknown> | null {
+    const base = {
+      id: chunkId,
+      object: "chat.completion.chunk",
+      created: createdAt,
+      model: request.model,
+    };
     if (parsed.type === "content_block_start") {
       const block = parsed.content_block;
       if (block?.type === "tool_use") {
         return {
-          id: `chatcmpl-${randomUUID()}`,
-          object: "chat.completion.chunk",
-          created: Math.floor(Date.now() / 1000),
-          model: request.model,
+          ...base,
           choices: [
             {
               index: 0,
@@ -518,10 +532,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
         };
       }
       return {
-        id: `chatcmpl-${randomUUID()}`,
-        object: "chat.completion.chunk",
-        created: Math.floor(Date.now() / 1000),
-        model: request.model,
+        ...base,
         choices: [
           {
             index: 0,
@@ -535,10 +546,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
       const delta = parsed.delta;
       if (delta?.type === "text_delta") {
         return {
-          id: `chatcmpl-${randomUUID()}`,
-          object: "chat.completion.chunk",
-          created: Math.floor(Date.now() / 1000),
-          model: request.model,
+          ...base,
           choices: [
             {
               index: 0,
@@ -553,10 +561,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
           return null;
         }
         return {
-          id: `chatcmpl-${randomUUID()}`,
-          object: "chat.completion.chunk",
-          created: Math.floor(Date.now() / 1000),
-          model: request.model,
+          ...base,
           choices: [
             {
               index: 0,
@@ -575,10 +580,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
       }
       if (delta?.type === "input_json_delta") {
         return {
-          id: `chatcmpl-${randomUUID()}`,
-          object: "chat.completion.chunk",
-          created: Math.floor(Date.now() / 1000),
-          model: request.model,
+          ...base,
           choices: [
             {
               index: 0,
@@ -604,10 +606,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
               ? "tool_calls"
               : "stop";
       const chunk: Record<string, unknown> = {
-        id: `chatcmpl-${randomUUID()}`,
-        object: "chat.completion.chunk",
-        created: Math.floor(Date.now() / 1000),
-        model: request.model,
+        ...base,
         choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
       };
       const u = parsed.usage;
