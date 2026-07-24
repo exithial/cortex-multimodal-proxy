@@ -255,7 +255,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
     );
     const url = this.resolveEndpointUrl("anthropic");
     logger.info(
-      `MiniMax M3: POST ${url} | model: ${MINIMAX_CHAT_MODEL} | thinking: ${brainEntry.thinking}`,
+      `MiniMax M3: POST ${url} | model: ${MINIMAX_CHAT_MODEL} | thinking: ${payload.thinking?.type ?? "none"}`,
     );
 
     const anthropicResponse = await this.postWithRetry(url, payload);
@@ -280,7 +280,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
     payload.stream = true;
     const url = this.resolveEndpointUrl("anthropic");
     logger.info(
-      `MiniMax M3 (stream): POST ${url} | model: ${MINIMAX_CHAT_MODEL} | thinking: ${brainEntry.thinking}`,
+      `MiniMax M3 (stream): POST ${url} | model: ${MINIMAX_CHAT_MODEL} | thinking: ${payload.thinking?.type ?? "none"}`,
     );
 
     let buffer = "";
@@ -424,7 +424,12 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
       if (b.type === "text") text += (text ? "\n" : "") + b.text;
       else if (b.type === "thinking") {
         reasoning += b.thinking || "";
-      } else if (b.type === "tool_use") {
+      }
+      // redacted_thinking: Anthropic safety-redacted reasoning (encrypted
+      // blob in `b.data`). OpenAI clients can't decrypt it, so we drop it
+      // explicitly rather than relying on fall-through. Mirrors the
+      // qwen3.7-max opencodeGo path.
+      else if (b.type === "tool_use") {
         toolCalls = toolCalls ?? [];
         toolCalls.push({
           id: b.id,
@@ -539,6 +544,9 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
         };
       }
       if (delta?.type === "thinking_delta") {
+        if (!delta.thinking) {
+          return null;
+        }
         return {
           id: `chatcmpl-${randomUUID()}`,
           object: "chat.completion.chunk",
@@ -547,7 +555,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
           choices: [
             {
               index: 0,
-              delta: { reasoning_content: delta.thinking || "" },
+              delta: { reasoning_content: delta.thinking },
               finish_reason: null,
             },
           ],
@@ -557,6 +565,9 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
       // cryptographic re-validation by the upstream). We forward reasoning
       // as raw text to OpenAI clients which can't re-validate, so we
       // intentionally drop this. Mirrors the qwen3.7-max opencodeGo path.
+      if (delta?.type === "signature_delta") {
+        return null;
+      }
       if (delta?.type === "input_json_delta") {
         return {
           id: `chatcmpl-${randomUUID()}`,

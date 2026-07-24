@@ -61,9 +61,9 @@ When a brain has `endpoint: "anthropic"` (currently `proxy/qwen3.7-max` via Open
 
 | Anthropic event | OpenAI chunk |
 |-----------------|--------------|
-| `content_block_start` (text) | (skipped — first `text_delta` opens the choice) |
+| `content_block_start` (text) | filtered (no OpenAI equivalent — first `text_delta` opens the choice) |
 | `content_block_start` (tool_use) | `choices[0].delta.tool_calls[0]` with `id`, `type: "function"`, `function.name` |
-| `content_block_start` (thinking) | (skipped — first `thinking_delta` opens the reasoning stream) |
+| `content_block_start` (thinking) | filtered (no OpenAI equivalent — first `thinking_delta` opens the reasoning stream) |
 | `content_block_delta.text_delta` | `choices[0].delta.content` |
 | `content_block_delta.thinking_delta` | `choices[0].delta.reasoning_content` |
 | `content_block_delta.input_json_delta` | `choices[0].delta.tool_calls[0].function.arguments` (chunk accumulates via `tool_calls[].index`) |

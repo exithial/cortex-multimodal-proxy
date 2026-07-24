@@ -287,6 +287,9 @@ describe("MiniMaxM3Provider (passthrough chat)", () => {
           'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"17*24=408"}}\n\n',
       ),
     );
+    // Microtask boundary: ensures all 'data' handlers have flushed their
+    // onChunk calls before 'end' triggers safeEnd and the [DONE] sentinel.
+    await new Promise<void>((r) => setImmediate(r));
     fakeStream.emit("end");
     const emittedBodies = onChunk.mock.calls.map((c) => {
       const line = c[0] as string;
@@ -320,5 +323,123 @@ describe("MiniMaxM3Provider (passthrough chat)", () => {
         "content" in b.choices[0].delta,
     );
     expect(textChunks.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("chatCompletionStream skips thinking_delta with empty thinking field", async () => {
+    vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
+    vi.stubEnv("MINIMAX_BASE_URL", "https://api.minimax.io/anthropic");
+    const { EventEmitter } = await import("events");
+    const fakeStream = new EventEmitter();
+    mockedAxios.post.mockResolvedValue({ data: fakeStream });
+    const { minimaxM3Provider } = await import(
+      "../../../src/services/minimaxM3Provider"
+    );
+    const onChunk = vi.fn();
+    const onError = vi.fn();
+    const onComplete = vi.fn();
+    await minimaxM3Provider.chatCompletionStream(
+      { model: "MiniMax-M3", stream: true, messages: [{ role: "user" as const, content: "hi" }] },
+      passthroughBrainEntry,
+      onChunk,
+      onError,
+      onComplete,
+    );
+    fakeStream.emit(
+      "data",
+      Buffer.from(
+        'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":""}}\n\n' +
+          'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"ok"}}\n\n',
+      ),
+    );
+    await new Promise<void>((r) => setImmediate(r));
+    fakeStream.emit("end");
+    const emittedBodies = onChunk.mock.calls
+      .map((c) => {
+        const m = (c[0] as string).match(/^data: (.+)\n\n$/);
+        if (!m || m[1] === "[DONE]") return null;
+        try {
+          return JSON.parse(m[1]);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+    const reasoningChunks = emittedBodies.filter(
+      (b: any) =>
+        b.choices && b.choices[0] && b.choices[0].delta && "reasoning_content" in b.choices[0].delta,
+    );
+    expect(reasoningChunks.length).toBe(0);
+  });
+
+  it("chatCompletionStream drops signature_delta (intentional, no chunk emitted)", async () => {
+    vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
+    vi.stubEnv("MINIMAX_BASE_URL", "https://api.minimax.io/anthropic");
+    const { EventEmitter } = await import("events");
+    const fakeStream = new EventEmitter();
+    mockedAxios.post.mockResolvedValue({ data: fakeStream });
+    const { minimaxM3Provider } = await import(
+      "../../../src/services/minimaxM3Provider"
+    );
+    const onChunk = vi.fn();
+    const onError = vi.fn();
+    const onComplete = vi.fn();
+    await minimaxM3Provider.chatCompletionStream(
+      { model: "MiniMax-M3", stream: true, messages: [{ role: "user" as const, content: "hi" }] },
+      passthroughBrainEntry,
+      onChunk,
+      onError,
+      onComplete,
+    );
+    fakeStream.emit(
+      "data",
+      Buffer.from(
+        'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"abc123"}}\n\n' +
+          'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"ok"}}\n\n',
+      ),
+    );
+    await new Promise<void>((r) => setImmediate(r));
+    fakeStream.emit("end");
+    const emittedBodies = onChunk.mock.calls
+      .map((c) => {
+        const m = (c[0] as string).match(/^data: (.+)\n\n$/);
+        if (!m || m[1] === "[DONE]") return null;
+        try {
+          return JSON.parse(m[1]);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+    const signatureChunks = emittedBodies.filter(
+      (b: any) =>
+        b.choices && b.choices[0] && b.choices[0].delta && "signature" in b.choices[0].delta,
+    );
+    expect(signatureChunks.length).toBe(0);
+  });
+
+  it("createChatCompletion skips redacted_thinking blocks (Anthropic safety-redacted reasoning)", async () => {
+    vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
+    vi.stubEnv("MINIMAX_BASE_URL", "https://api.minimax.io/anthropic");
+    mockedAxios.post.mockResolvedValue({
+      data: {
+        content: [
+          { type: "thinking", thinking: "Visible reasoning." },
+          { type: "redacted_thinking", data: "encrypted_blob" },
+          { type: "text", text: "Final answer" },
+        ],
+        stop_reason: "end_turn",
+        usage: { input_tokens: 10, output_tokens: 20 },
+      },
+    });
+    const { minimaxM3Provider } = await import(
+      "../../../src/services/minimaxM3Provider"
+    );
+    const resp = await minimaxM3Provider.createChatCompletion(
+      { model: "MiniMax-M3", messages: [{ role: "user" as const, content: "hi" }] },
+      passthroughBrainEntry,
+    );
+    const message = resp.choices[0].message;
+    expect(message.reasoning_content).toBe("Visible reasoning.");
+    expect(message.content).toBe("Final answer");
   });
 });
