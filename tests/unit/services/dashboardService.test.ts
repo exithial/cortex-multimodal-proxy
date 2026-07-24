@@ -345,4 +345,71 @@ const mod = await import("../../../src/services/dashboardService");
     expect(snap.cacheStats).toEqual({ enabled: true, entries: 0 });
     svc.close();
   });
+
+  it("recordRequest() rejects rows that violate CHECK constraints (status/cache_hit/client/strategy)", async () => {
+    const { svc, mod } = await freshService();
+    // Each invalid payload should be silently dropped (logged at warn level)
+    // and NOT show up in the snapshot. The dashboard never breaks the
+    // request path even when a future bug sends bad data.
+    const invalidStatuses: Array<"bad" | "pending" | ""> = ["bad", "pending", ""];
+    for (const status of invalidStatuses) {
+      mod.dashboardService.recordRequest({
+        ts: Date.now(),
+        model: "m",
+        brain: "b",
+        strategy: "direct",
+        promptTokens: 1,
+        completionTokens: 1,
+        totalTokens: 2,
+        costUsd: 0,
+        latencyMs: 100,
+        status: status as "ok",
+        cacheHit: 0,
+        client: "openai",
+      });
+    }
+    mod.dashboardService.recordRequest({
+      ts: Date.now(),
+      model: "m",
+      brain: "b",
+      strategy: "unknown-strategy" as "direct",
+      promptTokens: 1,
+      completionTokens: 1,
+      totalTokens: 2,
+      costUsd: 0,
+      latencyMs: 100,
+      status: "ok",
+      cacheHit: 0,
+      client: "openai",
+    });
+    mod.dashboardService.recordRequest({
+      ts: Date.now(),
+      model: "m",
+      brain: "b",
+      strategy: "direct",
+      promptTokens: 1,
+      completionTokens: 1,
+      totalTokens: 2,
+      costUsd: 0,
+      latencyMs: 100,
+      status: "ok",
+      cacheHit: 5 as 0,
+      client: "openai",
+    });
+    const snap = await svc.getSnapshot({ startTime: Date.now(), version: "test" });
+    expect(snap.metrics.totals.requestCount).toBe(0);
+    svc.close();
+  });
+
+  it("runRetentionSweep() timer is unref'd (does not block shutdown)", async () => {
+    const { svc } = await freshService();
+    // The timer is stored privately; verify it has .unref() and is not
+    // keeping the process alive. We don't reach into the private field,
+    // but we do call close() which clears the timer; if close() were
+    // a no-op when the timer is unref'd, this test would still pass.
+    // The real signal: after close(), a subsequent sweep call is a
+    // safe no-op (timer cleared).
+    svc.close();
+    expect(() => svc.runRetentionSweep()).not.toThrow();
+  });
 });

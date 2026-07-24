@@ -108,15 +108,16 @@ CREATE TABLE IF NOT EXISTS events (
   ts                INTEGER NOT NULL,
   model             TEXT    NOT NULL,
   brain             TEXT    NOT NULL,
-  strategy          TEXT    NOT NULL,
-  prompt_tokens     INTEGER NOT NULL DEFAULT 0,
-  completion_tokens INTEGER NOT NULL DEFAULT 0,
-  total_tokens      INTEGER NOT NULL DEFAULT 0,
-  cost_usd          REAL    NOT NULL DEFAULT 0,
-  latency_ms        INTEGER NOT NULL,
-  status            TEXT    NOT NULL,
-  cache_hit         INTEGER NOT NULL DEFAULT 0,
-  client            TEXT    NOT NULL
+  strategy          TEXT    NOT NULL
+                              CHECK (strategy IN ('direct','vision','vision-mimo','mixed','local')),
+  prompt_tokens     INTEGER NOT NULL DEFAULT 0 CHECK (prompt_tokens >= 0),
+  completion_tokens INTEGER NOT NULL DEFAULT 0 CHECK (completion_tokens >= 0),
+  total_tokens      INTEGER NOT NULL DEFAULT 0 CHECK (total_tokens >= 0),
+  cost_usd          REAL    NOT NULL DEFAULT 0 CHECK (cost_usd >= 0),
+  latency_ms        INTEGER NOT NULL CHECK (latency_ms >= 0),
+  status            TEXT    NOT NULL CHECK (status IN ('ok','error')),
+  cache_hit         INTEGER NOT NULL DEFAULT 0 CHECK (cache_hit IN (0,1)),
+  client            TEXT    NOT NULL CHECK (client IN ('openai','anthropic'))
 );
 CREATE INDEX IF NOT EXISTS idx_events_ts        ON events(ts);
 CREATE INDEX IF NOT EXISTS idx_events_model_ts  ON events(model, ts);

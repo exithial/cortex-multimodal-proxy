@@ -216,6 +216,8 @@ Default Claude Code mappings (configurable via env vars):
 
 An informational dashboard is served on the same Express app and port as the proxy (no separate process, no extra auth — consistent with the rest of the proxy today). It captures every request's `usage`, cost, latency, status, cache hit, and routing strategy, persists them to SQLite, and surfaces them in a single-page UI.
 
+> ⚠️ **Security:** the dashboard exposes exact token counts, USD cost, and the last 200 lines of `combined.log` / `error.log` at unauthenticated endpoints (`/dashboard/*`, `/v1/dashboard/snapshot`). Treat it the same as `/v1/messages` and `/v1/chat/completions` — keep it on the trusted network only (Tailscale, VPN, `127.0.0.1`). Never expose it on a public IP or a shared LAN: a casual sniffer can read prompt fragments, image URLs, and error stacks from the log tail. If you need it on a broader network, put a reverse proxy with auth in front (Caddy, nginx with `auth_basic`, Cloudflare Tunnel with Access, etc.).
+
 Open `http://<host>:7777/dashboard/` after the proxy is running.
 
 What you get:
