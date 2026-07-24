@@ -1,5 +1,9 @@
 const fmt = new Intl.NumberFormat("es-ES");
-const fmtCost = new Intl.NumberFormat("es-ES", {
+// USD is conventionally formatted with '.' as the decimal separator
+// and ',' as the thousands separator regardless of the viewer's
+// locale — Spanish locale would render $1,23 which is confusing
+// when the value is meant to be USD. Pin to en-US for cost.
+const fmtCost = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 4,
 });
@@ -356,8 +360,11 @@ function renderLogs(snap) {
       els.logsCount.textContent = `0 / ${filtered.length} lineas`;
     return;
   }
-  const RENDER_LIMIT = 200;
-  const slice = searched.slice(0, RENDER_LIMIT);
+  // Cap to whatever the server-advertised tail is. Without this,
+  // a server returning more lines than the UI can render would
+  // silently truncate without telling the user that more exist.
+  const renderLimit = snap.operational.logTailLines || 200;
+  const slice = searched.slice(0, renderLimit);
   pane.innerHTML = slice
     .map((l) => {
       const ts = l.ts || "—";
@@ -514,12 +521,14 @@ window.addEventListener("pagehide", () => {
   }
 });
 
+// Fail loud at boot if any element ID is missing from the HTML — a
+// typo in index.html should throw immediately, not fail silently at
+// the first render call.
 const missing = Object.entries(els).filter(([, v]) => !v);
 if (missing.length > 0) {
-  console.error(
-    "dashboard: missing elements",
-    missing.map(([k]) => k).join(", "),
-  );
+  const names = missing.map(([k]) => k).join(", ");
+  console.error("dashboard: missing elements", names);
+  throw new Error(`dashboard: missing required HTML elements: ${names}`);
 }
 
 setInterval(tickClock, 1000);

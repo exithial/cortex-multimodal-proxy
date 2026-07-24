@@ -98,8 +98,9 @@ Modified files:
    - Client detection: `req.headers["anthropic-version"]` is present → `"anthropic"`, else `"openai"`.
 
 5. **Helper** — `tryRecord(payload: RecordRequestPayload): void` in `src/index.ts`:
-   - Wraps `dashboardService.recordRequest` in try/catch, logs at warn.
-   - Builds the payload from captured locals: `model`, `brain.upstream`, `strategy`, `latency_ms: Date.now() - startTime`, `cache_hit: <boolean>`, `client: "openai" | "anthropic"`, etc.
+    - Wraps `dashboardService.recordRequest` in try/catch, logs at warn.
+    - Defers the SQLite INSERT via `setImmediate` so the synchronous better-sqlite3 write never sits on the request hot path. The write happens on the next event-loop tick, after `res.json`/`res.end` has flushed the response to the socket. Without this, every non-streaming chat/messages request would pay the WAL fsync latency on the request hot path.
+    - Builds the payload from captured locals: `model`, `brain.upstream`, `strategy`, `latency_ms: Date.now() - startTime`, `cache_hit: <boolean>`, `client: "openai" | "anthropic"`, etc.
 
 6. **Test** — `tests/integration/dashboard.test.ts`:
    - Boot Express with a mocked `BrainProvider` that returns a fixed response with `usage`.
