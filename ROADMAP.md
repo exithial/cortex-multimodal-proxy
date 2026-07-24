@@ -2,7 +2,7 @@
 
 > **Compatibility constraint**: Every feature, refactor, and dependency change MUST preserve full compatibility with OpenCode and Claude Code as clients. No breaking changes to `/v1/chat/completions` (OpenAI-compatible) or `/v1/messages` (Anthropic-compatible) without explicit opt-in via header. Rate limiting and fallback mechanisms must have localhost bypass.
 
-## Current State: v3.2.0
+## Current State: v3.3.0
 
 | Metric | Value |
 |---|---|

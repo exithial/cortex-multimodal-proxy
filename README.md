@@ -314,7 +314,7 @@ PDF_LOCAL_PROCESSING=true
 PDF_LOCAL_MAX_SIZE_MB=1
 ```
 
-## Current Status - Version 3.2.0
+## Current Status - Version 3.3.0
 
 - **"Cortex Sensorial v3" architecture** complete
 - **4 brains** via OpenCode Go: GLM-5.2, DeepSeek V4 Pro, Qwen3.7 Max, MiMo V2.5 Pro (all max thinking)

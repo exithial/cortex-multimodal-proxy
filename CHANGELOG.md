@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-07-24
+
+### Added
+
+- **Informational dashboard** (PR #11) served on the same Express app and port as the proxy. No separate process, no extra auth (consistent with the rest of the proxy). Captures every request's usage, cost, latency, status, cache hit, and routing strategy, persists them to SQLite, and surfaces them in a single-page vanilla JS UI.
+  - `GET /dashboard/` — UI: six hero cards (tokens in/out, cost USD, requests + error split, cache hit ratio + hits/misses, error rate, uptime), 24h/30d toggleable chart (chart.js from cdn.jsdelivr.net with SRI), models table sorted by request count, log tail with level filter (`info+` / `warn+` / `error` / `debug`) and substring search, version/BRAIN_MODE/provider footer.
+  - `GET /v1/dashboard/snapshot` — JSON snapshot of operational info, totals, time-series (24h hourly + 30d daily zero-filled), per-model and per-brain breakdowns (with latency p50/p95/avg), last 200 lines of `combined.log` + `error.log` (server-side redacted), and `cacheService` stats. Returns 503 when `DASHBOARD_ENABLED=false` so the UI can show a friendly disabled banner.
+  - `dashboardService` (`src/services/dashboardService.ts`): SQLite via `better-sqlite3@^12.11.1` with WAL mode, prepared statements, schema with CHECK constraints (`status`, `cache_hit`, `client`, `strategy`, non-negative token counts), indexes on `(ts, model, brain)`, hourly retention sweep (clamped `[1, 3650]` days), corruption recovery (rename bad file to `dashboard.db.broken-<ts>` and start fresh), and an `unref`'d timer that never blocks shutdown. 14 unit tests covering insert / query / retention sweep / empty DB / corruption recovery / zero-fill buckets / breakdown sorting / latency percentiles / clamp.
+  - `tryRecord` wrapper in `src/index.ts`: every dashboard INSERT is deferred via `setImmediate` so the synchronous `better-sqlite3` write never sits on the request hot path. Worst case is one event-loop tick (~ms) for the write to land after `res.json` / `res.end` has flushed.
+  - Static UI assets in `public/dashboard/` (no build pipeline, vanilla HTML + ES modules): `index.html` (SRI on chart.js, dotfiles-safe static handler), `app.js` (defensive escape, `fmtFinite` against NaN/Infinity, AbortController with `FIRST_POLL_TIMEOUT_MS=4000` + `pollIntervalMs * 4`, `visibilitychange` + `pagehide` to pause / clean up polling, log-tail `wasAtBottom` auto-scroll, USD formatted in en-US locale, log-level strict switch that doesn't match unknown compounds, fails-loud `els` invariant at boot), `styles.css` (dark editorial theme, Instrument Serif + JetBrains Mono), `favicon.svg` (matching the dashboard's ink + amber accent).
+  - **Server-side log redaction** in `dashboardService.readRecentLogs()`: strips Bearer tokens, `sk-...` API keys, email addresses, `data:image/...;base64,<data>` URIs, and long base64 blobs before they reach the unauthenticated snapshot endpoint. Pattern order matters — `data:image` URI regex runs first so the URI is matched whole.
+  - **Upstream prompt cache detection**: `minimaxM3Provider` now extracts Anthropic's `cache_read_input_tokens` and `cache_creation_input_tokens` from the usage block and surfaces them as OpenAI's `prompt_tokens_details.cached_tokens` (non-streaming + streaming `message_delta`). The dashboard's `cache_hits` counter now covers both Anthropic in-memory dedupe AND MiniMax prompt cache. `extractUsageFromChunk` parses both formats.
+  - **Streaming chunk id fix** (MiniMax-M3): every chunk in a stream now shares the same `chatcmpl-<uuid>` id and `created` timestamp instead of generating a new id per chunk. OpenCode uses the chunk id to associate chunks with the same response and accumulate context token counts — the per-chunk-id bug was resetting OpenCode's context counter to zero on every response. Same fix applied to the streaming `usage` chunk so the dashboard capture also covers the cache field.
+
+### Changed
+
+- **Per-passthrough cost pricing**: `resolveBrainServiceEntry` now reads `MINIMAX_INPUT_PRICE` / `MINIMAX_OUTPUT_PRICE` env vars (USD per 1M tokens) for the `MiniMax-M3` passthrough. `mimo-v2.5` stays `0` (subscription-based via OpenCode Go). Default `0` for backward compat — the operator sees `$0` in the cost column until they set the env vars. A startup warning fires when `MINIMAX_API_KEY` is set but both prices are `0`.
+- **`processMultimodalContent`** (`src/middleware/multimodalProcessor.ts`) returns `descriptionsCacheHits: number` in addition to the existing fields — always `0` today because the vision providers don't yet wire `cacheService.get()`, but the field is forward-compatible for when descriptions cache lands.
+- **Docker**: `compose.yml` adds `proxy-data:/app/data` named volume (the `data/.gitkeep` placeholder lives in the repo so the volume mount point exists). `Dockerfile` now copies `public/` to `/app/public` and creates `/app/data` at build time so the container can start writing on first run.
+- **`MINIMAX_TIMEOUT_MS=300000`** (5 min) replaces the silent axios 0-timeout fallback for `MiniMax-M3` calls. Long thinking runs on large contexts were timing out at the previous implicit `0`.
+
+### Security
+
+- **Trusted-network warning** added to both `README.md` and `.env.example` for the `/dashboard/*` and `/v1/dashboard/snapshot` endpoints. Operators must keep the dashboard on Tailscale / VPN / `127.0.0.1`; never expose it on a public IP. The recommendation is to front it with auth (Caddy, nginx `auth_basic`, Cloudflare Tunnel with Access) if broader network access is required.
+- **Defaults safe-by-default**: `DASHBOARD_ENABLED=false` in `.env.example`. The dashboard exposes token counts, USD cost, and log tails at unauthenticated endpoints; the operator must consciously opt in.
+- **SRI on chart.js** in `index.html`: `integrity="sha384-..."` + `crossorigin="anonymous"`. Static assets served with `Cache-Control: no-store` so a deployed build is picked up immediately (no 1h stale JS after the browser caches the old bundle).
+- **dotfiles: "deny"** on `express.static` for `/dashboard/*` so a stray `.env` / `.git` inside `public/` cannot leak via the static file route.
+
+### Backward compatibility
+
+- The dashboard is additive. With `DASHBOARD_ENABLED=false` (the new default), every existing route (`/v1/chat/completions`, `/v1/messages`, `/v1/models`, `/health`, `/v1/cache/stats`) behaves byte-for-byte identical to v3.2.0. `tryRecord` is a no-op when disabled, so the request hot path is unchanged for operators who don't enable the dashboard.
+- The MiniMax-M3 chunk id fix is observable to OpenCode users: their context counter no longer resets to zero on every response (was a bug, not a contract). Operators using other clients see no behavior change.
+
 ## [3.2.0] - 2026-07-22
 
 ### Added
