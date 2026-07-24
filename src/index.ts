@@ -338,14 +338,34 @@ app.get("/v1/models", (req: Request, res: Response) => {
   });
 });
 
+const MINIMAX_PASSTHROUGH_INPUT_PRICE = parseFloat(
+  process.env.MINIMAX_INPUT_PRICE || "0",
+);
+const MINIMAX_PASSTHROUGH_OUTPUT_PRICE = parseFloat(
+  process.env.MINIMAX_OUTPUT_PRICE || "0",
+);
+
 function resolveBrainServiceEntry(modelId: string): BrainModelEntry | null {
+  // Per-model passthrough pricing. mimo-v2.5 is subscription-based
+  // (OpenCode Go) so the user already pays the flat fee; the dashboard
+  // records 0 USD. MiniMax-M3 is per-token via MINIMAX_API_KEY, so its
+  // input/output prices are configurable via env vars (default 0 keeps
+  // backward compatibility for setups that don't want to track cost).
+  const passthroughPrices: Record<string, { in: number; out: number }> = {
+    "mimo-v2.5": { in: 0, out: 0 },
+    "MiniMax-M3": {
+      in: MINIMAX_PASSTHROUGH_INPUT_PRICE,
+      out: MINIMAX_PASSTHROUGH_OUTPUT_PRICE,
+    },
+  };
+  const prices = passthroughPrices[modelId] ?? { in: 0, out: 0 };
   const passthroughEntry: BrainModelEntry = {
     upstream: modelId,
     context: 1048576,
     maxOutput: 131072,
     thinking: true,
-    inputPrice: 0,
-    outputPrice: 0,
+    inputPrice: prices.in,
+    outputPrice: prices.out,
     endpoint: "openai",
     multimodal: true,
   };
