@@ -411,6 +411,51 @@ describe("MiniMaxM3Provider (passthrough chat)", () => {
     expect(signatureChunks.length).toBe(0);
   });
 
+  it("chatCompletionStream emits usage chunk when message_delta carries input_tokens/output_tokens (dashboard capture)", async () => {
+    vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
+    vi.stubEnv("MINIMAX_BASE_URL", "https://api.minimax.io/anthropic");
+    const { EventEmitter } = await import("events");
+    const fakeStream = new EventEmitter();
+    mockedAxios.post.mockResolvedValue({ data: fakeStream });
+    const { minimaxM3Provider } = await import(
+      "../../../src/services/minimaxM3Provider"
+    );
+    const onChunk = vi.fn();
+    const onError = vi.fn();
+    const onComplete = vi.fn();
+    await minimaxM3Provider.chatCompletionStream(
+      {
+        model: "MiniMax-M3",
+        stream: true,
+        messages: [{ role: "user" as const, content: "hi" }],
+      },
+      passthroughBrainEntry,
+      onChunk,
+      onError,
+      onComplete,
+    );
+    fakeStream.emit(
+      "data",
+      Buffer.from(
+        'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}\n\n' +
+          'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":42,"output_tokens":7}}\n\n',
+      ),
+    );
+    await new Promise<void>((r) => setImmediate(r));
+    fakeStream.emit("end");
+    const emittedBodies = parseEmittedChunks(onChunk);
+    const usageChunks = emittedBodies.filter((b) => b.usage);
+    expect(usageChunks).toHaveLength(1);
+    const u = usageChunks[0].usage as {
+      prompt_tokens: number;
+      completion_tokens: number;
+      total_tokens: number;
+    };
+    expect(u.prompt_tokens).toBe(42);
+    expect(u.completion_tokens).toBe(7);
+    expect(u.total_tokens).toBe(49);
+  });
+
   it("createChatCompletion joins adjacent thinking blocks with a newline separator", async () => {
     vi.stubEnv("MINIMAX_API_KEY", "sk-test-minimax");
     vi.stubEnv("MINIMAX_BASE_URL", "https://api.minimax.io/anthropic");

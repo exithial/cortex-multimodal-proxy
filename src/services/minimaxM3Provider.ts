@@ -603,13 +603,25 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
             : stopReason === "tool_use"
               ? "tool_calls"
               : "stop";
-      return {
+      const chunk: Record<string, unknown> = {
         id: `chatcmpl-${randomUUID()}`,
         object: "chat.completion.chunk",
         created: Math.floor(Date.now() / 1000),
         model: request.model,
         choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
       };
+      const u = parsed.usage;
+      if (u && typeof u === "object") {
+        const inTok = typeof u.input_tokens === "number" ? u.input_tokens : 0;
+        const outTok =
+          typeof u.output_tokens === "number" ? u.output_tokens : 0;
+        chunk.usage = {
+          prompt_tokens: inTok,
+          completion_tokens: outTok,
+          total_tokens: inTok + outTok,
+        };
+      }
+      return chunk;
     }
     return null;
   }
