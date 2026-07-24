@@ -96,6 +96,8 @@ function renderHero(snap) {
   els.version.textContent = `v${snap.operational.version}`;
 }
 
+let chartRange = null;
+
 function renderChart(snap) {
   if (typeof Chart === "undefined") {
     showChartUnavailable();
@@ -112,93 +114,114 @@ function renderChart(snap) {
     const inData = buckets.map((b) => b.promptTokens);
     const outData = buckets.map((b) => b.completionTokens);
 
-    const ctx = document.getElementById("traffic-chart").getContext("2d");
-    if (chart) chart.destroy();
-    const gridColor = "rgba(241, 234, 215, 0.06)";
-    const tickColor = "rgba(241, 234, 215, 0.4)";
+    // First render, or range switched → build the chart. Otherwise
+    // update the data in place so the line does not visually re-mount
+    // every 10s (the user reported the chart "rebirthing" on each
+    // poll). `chart.update()` with `none` mode skips the animation.
+    if (!chart || chartRange !== range) {
+      const canvas = document.getElementById("traffic-chart");
+      if (!canvas) {
+        showChartUnavailable("missing canvas");
+        return;
+      }
+      if (chart) chart.destroy();
+      const ctx = canvas.getContext("2d");
+      const gridColor = "rgba(241, 234, 215, 0.06)";
+      const tickColor = "rgba(241, 234, 215, 0.4)";
 
-    chart = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels,
-        datasets: [
-          {
-            label: "in",
-            data: inData,
-            borderColor: "#f0a830",
-            backgroundColor: "rgba(240, 168, 48, 0.08)",
-            borderWidth: 1.5,
-            fill: true,
-            tension: 0.35,
-            pointRadius: 0,
-            pointHoverRadius: 4,
-            pointHoverBackgroundColor: "#f0a830",
-            pointHoverBorderColor: "#0b0a0e",
-            pointHoverBorderWidth: 2,
-          },
-          {
-            label: "out",
-            data: outData,
-            borderColor: "#4dd4cf",
-            backgroundColor: "rgba(77, 212, 207, 0.05)",
-            borderWidth: 1.5,
-            fill: true,
-            tension: 0.35,
-            pointRadius: 0,
-            pointHoverRadius: 4,
-            pointHoverBackgroundColor: "#4dd4cf",
-            pointHoverBorderColor: "#0b0a0e",
-            pointHoverBorderWidth: 2,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: {
-          mode: "index",
-          intersect: false,
+      chart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "in",
+              data: inData,
+              borderColor: "#f0a830",
+              backgroundColor: "rgba(240, 168, 48, 0.08)",
+              borderWidth: 1.5,
+              fill: true,
+              tension: 0.35,
+              pointRadius: 0,
+              pointHoverRadius: 4,
+              pointHoverBackgroundColor: "#f0a830",
+              pointHoverBorderColor: "#0b0a0e",
+              pointHoverBorderWidth: 2,
+            },
+            {
+              label: "out",
+              data: outData,
+              borderColor: "#4dd4cf",
+              backgroundColor: "rgba(77, 212, 207, 0.05)",
+              borderWidth: 1.5,
+              fill: true,
+              tension: 0.35,
+              pointRadius: 0,
+              pointHoverRadius: 4,
+              pointHoverBackgroundColor: "#4dd4cf",
+              pointHoverBorderColor: "#0b0a0e",
+              pointHoverBorderWidth: 2,
+            },
+          ],
         },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: "#14131a",
-            borderColor: "#3a3745",
-            borderWidth: 1,
-            titleColor: "#f1ead7",
-            bodyColor: "#b6ad95",
-            padding: 12,
-            displayColors: true,
-            callbacks: {
-              label: (ctx) => `${ctx.dataset.label}: ${fmt.format(ctx.parsed.y)}`,
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          interaction: {
+            mode: "index",
+            intersect: false,
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: "#14131a",
+              borderColor: "#3a3745",
+              borderWidth: 1,
+              titleColor: "#f1ead7",
+              bodyColor: "#b6ad95",
+              padding: 12,
+              displayColors: true,
+              callbacks: {
+                label: (ctx) => `${ctx.dataset.label}: ${fmt.format(ctx.parsed.y)}`,
+              },
+            },
+          },
+          scales: {
+            x: {
+              grid: { color: gridColor, drawTicks: false },
+              border: { display: false },
+              ticks: {
+                color: tickColor,
+                font: { family: "JetBrains Mono", size: 10 },
+                maxRotation: 0,
+                autoSkip: true,
+                maxTicksLimit: range === "24h" ? 12 : 10,
+              },
+            },
+            y: {
+              grid: { color: gridColor, drawTicks: false },
+              border: { display: false },
+              ticks: {
+                color: tickColor,
+                font: { family: "JetBrains Mono", size: 10 },
+                callback: (v) => fmt.format(v),
+                maxTicksLimit: 5,
+              },
             },
           },
         },
-        scales: {
-          x: {
-            grid: { color: gridColor, drawTicks: false },
-            border: { display: false },
-            ticks: {
-              color: tickColor,
-              font: { family: "JetBrains Mono", size: 10 },
-              maxRotation: 0,
-              autoSkip: true,
-              maxTicksLimit: range === "24h" ? 12 : 10,
-            },
-          },
-          y: {
-            grid: { color: gridColor, drawTicks: false },
-            border: { display: false },
-            ticks: {
-              color: tickColor,
-              font: { family: "JetBrains Mono", size: 10 },
-              callback: (v) => fmt.format(v),
-              maxTicksLimit: 5,
-            },
-          },
-        },
-      },
-    });
+      });
+      chartRange = range;
+    } else {
+      // Incremental update: replace labels + dataset values in place
+      // and call update() with no animation. This avoids the visual
+      // re-mount on each poll.
+      chart.data.labels = labels;
+      chart.data.datasets[0].data = inData;
+      chart.data.datasets[1].data = outData;
+      chart.update("none");
+    }
   } catch (err) {
     showChartUnavailable(err.message);
   }
