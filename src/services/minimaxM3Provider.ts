@@ -237,24 +237,26 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
       });
     }
     if (thinking) {
-      payload.thinking = { type: "adaptive" };
+      payload.thinking = { type: "adaptive" as const };
     }
     return payload;
   }
 
   async createChatCompletion(
     request: ChatCompletionRequest,
-    _brainEntry: BrainModelEntry,
+    brainEntry: BrainModelEntry,
   ): Promise<ChatCompletionResponse> {
     const payload = this.buildPayload(
       request,
       MINIMAX_CHAT_MODEL,
-      true,
+      brainEntry.thinking,
       1_048_576,
       "anthropic",
     );
     const url = this.resolveEndpointUrl("anthropic");
-    logger.info(`MiniMax M3: POST ${url} | model: ${MINIMAX_CHAT_MODEL}`);
+    logger.info(
+      `MiniMax M3: POST ${url} | model: ${MINIMAX_CHAT_MODEL} | thinking: ${brainEntry.thinking}`,
+    );
 
     const anthropicResponse = await this.postWithRetry(url, payload);
     return this.anthropicToOpenAIResponse(anthropicResponse, request);
@@ -262,7 +264,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
 
   async chatCompletionStream(
     request: ChatCompletionRequest,
-    _brainEntry: BrainModelEntry,
+    brainEntry: BrainModelEntry,
     onChunk: (chunk: string) => void,
     onError: (error: unknown) => void,
     onComplete: () => void,
@@ -271,13 +273,15 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
     const payload = this.buildPayload(
       request,
       MINIMAX_CHAT_MODEL,
-      true,
+      brainEntry.thinking,
       1_048_576,
       "anthropic",
     );
     payload.stream = true;
     const url = this.resolveEndpointUrl("anthropic");
-    logger.info(`MiniMax M3 (stream): POST ${url} | model: ${MINIMAX_CHAT_MODEL}`);
+    logger.info(
+      `MiniMax M3 (stream): POST ${url} | model: ${MINIMAX_CHAT_MODEL} | thinking: ${brainEntry.thinking}`,
+    );
 
     let buffer = "";
     let ended = false;
@@ -419,7 +423,7 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
     for (const b of blocks) {
       if (b.type === "text") text += (text ? "\n" : "") + b.text;
       else if (b.type === "thinking") {
-        reasoning += reasoning ? (b.thinking || "") : (b.thinking || "");
+        reasoning += b.thinking || "";
       } else if (b.type === "tool_use") {
         toolCalls = toolCalls ?? [];
         toolCalls.push({
@@ -549,6 +553,10 @@ class MiniMaxM3Provider implements BrainProvider, VisionProvider {
           ],
         };
       }
+      // signature_delta: Anthropic thinking signature (required for
+      // cryptographic re-validation by the upstream). We forward reasoning
+      // as raw text to OpenAI clients which can't re-validate, so we
+      // intentionally drop this. Mirrors the qwen3.7-max opencodeGo path.
       if (delta?.type === "input_json_delta") {
         return {
           id: `chatcmpl-${randomUUID()}`,

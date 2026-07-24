@@ -272,7 +272,7 @@ function resolveBrainServiceEntry(modelId: string): BrainModelEntry | null {
     upstream: modelId,
     context: 1048576,
     maxOutput: 131072,
-    thinking: false,
+    thinking: true,
     inputPrice: 0,
     outputPrice: 0,
     endpoint: "openai",
