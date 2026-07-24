@@ -62,6 +62,7 @@ export function mountDashboardRoutes(
     express.static(PUBLIC_DIR, {
       fallthrough: true,
       index: "index.html",
+      dotfiles: "deny",
       // No maxAge / no ETag: the dashboard polls every 10 s and the
       // assets are tiny. Aggressive caching causes stale JS / CSS
       // after deploys (users keep seeing the old chart-destroy bug

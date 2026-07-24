@@ -412,4 +412,26 @@ const mod = await import("../../../src/services/dashboardService");
     svc.close();
     expect(() => svc.runRetentionSweep()).not.toThrow();
   });
+
+  it("clamps DASHBOARD_RETENTION_DAYS to [1, 3650] on out-of-range input", async () => {
+    const { svc: svc0 } = await freshService({ DASHBOARD_RETENTION_DAYS: "0" });
+    expect(svc0.retentionDays).toBe(1);
+    svc0.close();
+    const { svc: svcNeg } = await freshService({
+      DASHBOARD_RETENTION_DAYS: "-100",
+    });
+    expect(svcNeg.retentionDays).toBe(1);
+    svcNeg.close();
+    const { svc: svcHuge } = await freshService({
+      DASHBOARD_RETENTION_DAYS: "99999",
+    });
+    expect(svcHuge.retentionDays).toBe(3650);
+    svcHuge.close();
+    const { svc: svcFractional } = await freshService({
+      DASHBOARD_RETENTION_DAYS: "7.5",
+    });
+    // Math.floor applied: clamps OK, but fractional input is floored.
+    expect(svcFractional.retentionDays).toBe(7);
+    svcFractional.close();
+  });
 });

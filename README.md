@@ -251,7 +251,7 @@ Set `DASHBOARD_ENABLED=false` in `.env` and restart. The dashboard route still s
 - Streaming requests: `usage` is captured from the last chunk; if the provider doesn't emit usage (some don't), the row is still recorded with 0 tokens but real latency and status.
 - Errors are captured via the existing try/catch in both `/v1/chat/completions` and `/v1/messages`, with `status="error"`.
 - **Request latency**: every `tryRecord` call is deferred via `setImmediate`, so the synchronous `better-sqlite3` INSERT runs on the next event-loop tick after `res.json`/`res.end` has flushed the response. The dashboard never adds latency to the request hot path; the worst case is one extra event-loop tick (~ms) for the SQLite write to land after the client has already received the response.
-- The DB file is mounted as a named Docker volume (`proxy-data`) so it survives container restarts.
+- The DB file is mounted as a named Docker volume (`proxy-data`) so it survives container restarts. **First-run only:** if the volume was initialized by a root-owned process (e.g. `docker compose exec -u root ...`), `node` may not be able to write `dashboard.db`. Fix once with `docker compose run --rm -u root cortex-multimodal-proxy chown -R node:node /app/data`.
 
 ### Technical Metrics
 

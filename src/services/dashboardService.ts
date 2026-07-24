@@ -142,7 +142,9 @@ class DashboardService {
     this.dbPath = path.resolve(
       process.env.DASHBOARD_DB_PATH || "./data/dashboard.db",
     );
-    this.retentionDays = parseInt(process.env.DASHBOARD_RETENTION_DAYS || "90");
+    this.retentionDays = this.clampRetentionDays(
+      parseInt(process.env.DASHBOARD_RETENTION_DAYS || "90"),
+    );
     this.logTailLines = parseInt(process.env.DASHBOARD_LOG_TAIL_LINES || "200");
     this.pollIntervalMs = parseInt(
       process.env.DASHBOARD_POLL_INTERVAL_MS || "10000",
@@ -196,6 +198,22 @@ class DashboardService {
       }
       return new Database(this.dbPath);
     }
+  }
+
+  private clampRetentionDays(value: number): number {
+    if (!Number.isFinite(value) || value < 1) {
+      logger.warn(
+        `DASHBOARD_RETENTION_DAYS="${process.env.DASHBOARD_RETENTION_DAYS}" is invalid; clamping to 1 day`,
+      );
+      return 1;
+    }
+    if (value > 3650) {
+      logger.warn(
+        `DASHBOARD_RETENTION_DAYS=${value} is over 10 years; clamping to 3650`,
+      );
+      return 3650;
+    }
+    return Math.floor(value);
   }
 
   private scheduleRetentionSweep(): void {
